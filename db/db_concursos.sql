@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.0.2
+-- version 5.1.1
 -- https://www.phpmyadmin.net/
 --
--- Servidor: localhost
--- Tiempo de generación: 31-08-2021 a las 16:23:09
--- Versión del servidor: 10.4.13-MariaDB
--- Versión de PHP: 7.4.7
+-- Host: localhost
+-- Generation Time: Sep 15, 2021 at 05:12 PM
+-- Server version: 10.5.11-MariaDB-1
+-- PHP Version: 8.0.10
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,13 +18,13 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Base de datos: `db_concursos`
+-- Database: `grupo_fotografico`
 --
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `category`
+-- Table structure for table `category`
 --
 
 CREATE TABLE `category` (
@@ -33,7 +33,7 @@ CREATE TABLE `category` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
--- Volcado de datos para la tabla `category`
+-- Dumping data for table `category`
 --
 
 INSERT INTO `category` (`id`, `name`) VALUES
@@ -43,7 +43,7 @@ INSERT INTO `category` (`id`, `name`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `contest`
+-- Table structure for table `contest`
 --
 
 CREATE TABLE `contest` (
@@ -55,7 +55,7 @@ CREATE TABLE `contest` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
--- Volcado de datos para la tabla `contest`
+-- Dumping data for table `contest`
 --
 
 INSERT INTO `contest` (`id`, `name`, `description`, `start_date`, `end_date`) VALUES
@@ -64,7 +64,7 @@ INSERT INTO `contest` (`id`, `name`, `description`, `start_date`, `end_date`) VA
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `contest_category`
+-- Table structure for table `contest_category`
 --
 
 CREATE TABLE `contest_category` (
@@ -73,7 +73,7 @@ CREATE TABLE `contest_category` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
--- Volcado de datos para la tabla `contest_category`
+-- Dumping data for table `contest_category`
 --
 
 INSERT INTO `contest_category` (`contest_id`, `category_id`) VALUES
@@ -83,7 +83,7 @@ INSERT INTO `contest_category` (`contest_id`, `category_id`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `contest_result`
+-- Table structure for table `contest_result`
 --
 
 CREATE TABLE `contest_result` (
@@ -96,7 +96,7 @@ CREATE TABLE `contest_result` (
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `contest_section`
+-- Table structure for table `contest_section`
 --
 
 CREATE TABLE `contest_section` (
@@ -105,7 +105,7 @@ CREATE TABLE `contest_section` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
--- Volcado de datos para la tabla `contest_section`
+-- Dumping data for table `contest_section`
 --
 
 INSERT INTO `contest_section` (`contest_id`, `section_id`) VALUES
@@ -115,7 +115,7 @@ INSERT INTO `contest_section` (`contest_id`, `section_id`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `fotoclub`
+-- Table structure for table `fotoclub`
 --
 
 CREATE TABLE `fotoclub` (
@@ -123,10 +123,17 @@ CREATE TABLE `fotoclub` (
   `name` varchar(45) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+--
+-- Dumping data for table `fotoclub`
+--
+
+INSERT INTO `fotoclub` (`id`, `name`) VALUES
+(1, 'Testing');
+
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `image`
+-- Table structure for table `image`
 --
 
 CREATE TABLE `image` (
@@ -139,7 +146,7 @@ CREATE TABLE `image` (
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `metric`
+-- Table structure for table `metric`
 --
 
 CREATE TABLE `metric` (
@@ -151,7 +158,7 @@ CREATE TABLE `metric` (
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `profile`
+-- Table structure for table `profile`
 --
 
 CREATE TABLE `profile` (
@@ -161,10 +168,17 @@ CREATE TABLE `profile` (
   `fotoclub_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+--
+-- Dumping data for table `profile`
+--
+
+INSERT INTO `profile` (`id`, `name`, `last_name`, `fotoclub_id`) VALUES
+(1, 'admin', NULL, 1);
+
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `profile_contest`
+-- Table structure for table `profile_contest`
 --
 
 CREATE TABLE `profile_contest` (
@@ -175,7 +189,7 @@ CREATE TABLE `profile_contest` (
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `role`
+-- Table structure for table `role`
 --
 
 CREATE TABLE `role` (
@@ -183,10 +197,17 @@ CREATE TABLE `role` (
   `type` varchar(45) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+--
+-- Dumping data for table `role`
+--
+
+INSERT INTO `role` (`id`, `type`) VALUES
+(1, 'Administrador');
+
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `section`
+-- Table structure for table `section`
 --
 
 CREATE TABLE `section` (
@@ -195,7 +216,7 @@ CREATE TABLE `section` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
--- Volcado de datos para la tabla `section`
+-- Dumping data for table `section`
 --
 
 INSERT INTO `section` (`id`, `name`) VALUES
@@ -205,7 +226,7 @@ INSERT INTO `section` (`id`, `name`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `user`
+-- Table structure for table `user`
 --
 
 CREATE TABLE `user` (
@@ -222,30 +243,37 @@ CREATE TABLE `user` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
--- Índices para tablas volcadas
+-- Dumping data for table `user`
+--
+
+INSERT INTO `user` (`id`, `username`, `password_hash`, `password_reset_token`, `access_token`, `created_at`, `updated_at`, `status`, `role_id`, `profile_id`) VALUES
+(1, 'admin', '$2y$13$maydzLNRwqH4cQP2L8FCQu6OxIU/.GpzxwRxcqM3Tnzhk9uLMzcrm', NULL, NULL, NULL, NULL, 1, 1, 1);
+
+--
+-- Indexes for dumped tables
 --
 
 --
--- Indices de la tabla `category`
+-- Indexes for table `category`
 --
 ALTER TABLE `category`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `contest`
+-- Indexes for table `contest`
 --
 ALTER TABLE `contest`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `contest_category`
+-- Indexes for table `contest_category`
 --
 ALTER TABLE `contest_category`
   ADD KEY `fk_contest_category_id` (`category_id`),
   ADD KEY `fk_contest_contest_id` (`contest_id`);
 
 --
--- Indices de la tabla `contest_result`
+-- Indexes for table `contest_result`
 --
 ALTER TABLE `contest_result`
   ADD PRIMARY KEY (`id`),
@@ -254,58 +282,58 @@ ALTER TABLE `contest_result`
   ADD KEY `fk_contest_result_image_id` (`image_id`);
 
 --
--- Indices de la tabla `contest_section`
+-- Indexes for table `contest_section`
 --
 ALTER TABLE `contest_section`
   ADD KEY `fk_contest_section_id` (`section_id`),
   ADD KEY `fk_contest_contest2_id` (`contest_id`);
 
 --
--- Indices de la tabla `fotoclub`
+-- Indexes for table `fotoclub`
 --
 ALTER TABLE `fotoclub`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `image`
+-- Indexes for table `image`
 --
 ALTER TABLE `image`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `metric`
+-- Indexes for table `metric`
 --
 ALTER TABLE `metric`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `profile`
+-- Indexes for table `profile`
 --
 ALTER TABLE `profile`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_profile_fotoclub_id` (`fotoclub_id`);
 
 --
--- Indices de la tabla `profile_contest`
+-- Indexes for table `profile_contest`
 --
 ALTER TABLE `profile_contest`
   ADD KEY `fk_profile_contest_id` (`contest_id`),
   ADD KEY `fk_profile_profile_id` (`profile_id`);
 
 --
--- Indices de la tabla `role`
+-- Indexes for table `role`
 --
 ALTER TABLE `role`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `section`
+-- Indexes for table `section`
 --
 ALTER TABLE `section`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indices de la tabla `user`
+-- Indexes for table `user`
 --
 ALTER TABLE `user`
   ADD PRIMARY KEY (`id`),
@@ -313,82 +341,82 @@ ALTER TABLE `user`
   ADD KEY `fk_user_profile_id` (`profile_id`);
 
 --
--- AUTO_INCREMENT de las tablas volcadas
+-- AUTO_INCREMENT for dumped tables
 --
 
 --
--- AUTO_INCREMENT de la tabla `category`
+-- AUTO_INCREMENT for table `category`
 --
 ALTER TABLE `category`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT de la tabla `contest`
+-- AUTO_INCREMENT for table `contest`
 --
 ALTER TABLE `contest`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT de la tabla `contest_result`
+-- AUTO_INCREMENT for table `contest_result`
 --
 ALTER TABLE `contest_result`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT de la tabla `fotoclub`
+-- AUTO_INCREMENT for table `fotoclub`
 --
 ALTER TABLE `fotoclub`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT de la tabla `image`
+-- AUTO_INCREMENT for table `image`
 --
 ALTER TABLE `image`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT de la tabla `metric`
+-- AUTO_INCREMENT for table `metric`
 --
 ALTER TABLE `metric`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT de la tabla `profile`
+-- AUTO_INCREMENT for table `profile`
 --
 ALTER TABLE `profile`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT de la tabla `role`
+-- AUTO_INCREMENT for table `role`
 --
 ALTER TABLE `role`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- AUTO_INCREMENT de la tabla `section`
+-- AUTO_INCREMENT for table `section`
 --
 ALTER TABLE `section`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT de la tabla `user`
+-- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- Restricciones para tablas volcadas
+-- Constraints for dumped tables
 --
 
 --
--- Filtros para la tabla `contest_category`
+-- Constraints for table `contest_category`
 --
 ALTER TABLE `contest_category`
   ADD CONSTRAINT `fk_contest_category_id` FOREIGN KEY (`category_id`) REFERENCES `category` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   ADD CONSTRAINT `fk_contest_contest_id` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 --
--- Filtros para la tabla `contest_result`
+-- Constraints for table `contest_result`
 --
 ALTER TABLE `contest_result`
   ADD CONSTRAINT `fk_contest_result_contest_id` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
@@ -396,27 +424,27 @@ ALTER TABLE `contest_result`
   ADD CONSTRAINT `fk_contest_result_metric_id` FOREIGN KEY (`metric_id`) REFERENCES `metric` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 --
--- Filtros para la tabla `contest_section`
+-- Constraints for table `contest_section`
 --
 ALTER TABLE `contest_section`
   ADD CONSTRAINT `fk_contest_contest2_id` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`),
   ADD CONSTRAINT `fk_contest_section_id` FOREIGN KEY (`section_id`) REFERENCES `section` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 --
--- Filtros para la tabla `profile`
+-- Constraints for table `profile`
 --
 ALTER TABLE `profile`
   ADD CONSTRAINT `fk_profile_fotoclub_id` FOREIGN KEY (`fotoclub_id`) REFERENCES `fotoclub` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 --
--- Filtros para la tabla `profile_contest`
+-- Constraints for table `profile_contest`
 --
 ALTER TABLE `profile_contest`
   ADD CONSTRAINT `fk_profile_contest_id` FOREIGN KEY (`contest_id`) REFERENCES `contest` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   ADD CONSTRAINT `fk_profile_profile_id` FOREIGN KEY (`profile_id`) REFERENCES `profile` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 --
--- Filtros para la tabla `user`
+-- Constraints for table `user`
 --
 ALTER TABLE `user`
   ADD CONSTRAINT `fk_user_profile_id` FOREIGN KEY (`profile_id`) REFERENCES `profile` (`id`),
