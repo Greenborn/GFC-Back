@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Sep 15, 2021 at 05:12 PM
+-- Generation Time: Sep 15, 2021 at 06:56 PM
 -- Server version: 10.5.11-MariaDB-1
 -- PHP Version: 8.0.10
 
@@ -37,7 +37,7 @@ CREATE TABLE `category` (
 --
 
 INSERT INTO `category` (`id`, `name`) VALUES
-(1, 'Primera'),
+(1, 'Primera, number one'),
 (2, 'Segunda');
 
 -- --------------------------------------------------------
@@ -59,7 +59,8 @@ CREATE TABLE `contest` (
 --
 
 INSERT INTO `contest` (`id`, `name`, `description`, `start_date`, `end_date`) VALUES
-(1, 'concurso prueba 1', 'Reglas?', '1630355013', '1630355013');
+(1, 'concurso prueba 1', 'Reglas?', '1630355013', '1630355013'),
+(2, 'concurso prueba 2', 'Reglas? no, no hay eso acá', '1630355013', '1630355013');
 
 -- --------------------------------------------------------
 
@@ -68,6 +69,7 @@ INSERT INTO `contest` (`id`, `name`, `description`, `start_date`, `end_date`) VA
 --
 
 CREATE TABLE `contest_category` (
+  `id` int(11) NOT NULL,
   `contest_id` int(11) NOT NULL,
   `category_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -76,9 +78,9 @@ CREATE TABLE `contest_category` (
 -- Dumping data for table `contest_category`
 --
 
-INSERT INTO `contest_category` (`contest_id`, `category_id`) VALUES
-(1, 1),
-(1, 2);
+INSERT INTO `contest_category` (`id`, `contest_id`, `category_id`) VALUES
+(1, 1, 1),
+(2, 1, 2);
 
 -- --------------------------------------------------------
 
@@ -100,6 +102,7 @@ CREATE TABLE `contest_result` (
 --
 
 CREATE TABLE `contest_section` (
+  `id` int(11) NOT NULL,
   `contest_id` int(11) NOT NULL,
   `section_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -108,9 +111,9 @@ CREATE TABLE `contest_section` (
 -- Dumping data for table `contest_section`
 --
 
-INSERT INTO `contest_section` (`contest_id`, `section_id`) VALUES
-(1, 2),
-(1, 1);
+INSERT INTO `contest_section` (`id`, `contest_id`, `section_id`) VALUES
+(1, 1, 2),
+(2, 1, 1);
 
 -- --------------------------------------------------------
 
@@ -128,7 +131,8 @@ CREATE TABLE `fotoclub` (
 --
 
 INSERT INTO `fotoclub` (`id`, `name`) VALUES
-(1, 'Testing');
+(1, 'Testing'),
+(2, 'Testing.');
 
 -- --------------------------------------------------------
 
@@ -143,6 +147,14 @@ CREATE TABLE `image` (
   `profile_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+--
+-- Dumping data for table `image`
+--
+
+INSERT INTO `image` (`id`, `code`, `title`, `profile_id`) VALUES
+(1, 'sdfgswer45', 'Test', 1),
+(2, 'sdfgswer45', 'Test', 1);
+
 -- --------------------------------------------------------
 
 --
@@ -154,6 +166,14 @@ CREATE TABLE `metric` (
   `prize` varchar(10) NOT NULL,
   `score` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `metric`
+--
+
+INSERT INTO `metric` (`id`, `prize`, `score`) VALUES
+(1, '1', 10),
+(2, '1', 10);
 
 -- --------------------------------------------------------
 
@@ -173,7 +193,8 @@ CREATE TABLE `profile` (
 --
 
 INSERT INTO `profile` (`id`, `name`, `last_name`, `fotoclub_id`) VALUES
-(1, 'admin', NULL, 1);
+(1, 'admin', NULL, 1),
+(2, 'admin', NULL, 1);
 
 -- --------------------------------------------------------
 
@@ -182,9 +203,18 @@ INSERT INTO `profile` (`id`, `name`, `last_name`, `fotoclub_id`) VALUES
 --
 
 CREATE TABLE `profile_contest` (
+  `id` int(11) NOT NULL,
   `profile_id` int(11) NOT NULL,
   `contest_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `profile_contest`
+--
+
+INSERT INTO `profile_contest` (`id`, `profile_id`, `contest_id`) VALUES
+(1, 1, 1),
+(2, 1, 1);
 
 -- --------------------------------------------------------
 
@@ -202,7 +232,8 @@ CREATE TABLE `role` (
 --
 
 INSERT INTO `role` (`id`, `type`) VALUES
-(1, 'Administrador');
+(1, 'Administrador'),
+(2, 'Delegado');
 
 -- --------------------------------------------------------
 
@@ -247,7 +278,7 @@ CREATE TABLE `user` (
 --
 
 INSERT INTO `user` (`id`, `username`, `password_hash`, `password_reset_token`, `access_token`, `created_at`, `updated_at`, `status`, `role_id`, `profile_id`) VALUES
-(1, 'admin', '$2y$13$maydzLNRwqH4cQP2L8FCQu6OxIU/.GpzxwRxcqM3Tnzhk9uLMzcrm', NULL, NULL, NULL, NULL, 1, 1, 1);
+(1, 'admin', '$2y$13$maydzLNRwqH4cQP2L8FCQu6OxIU/.GpzxwRxcqM3Tnzhk9uLMzcrm', NULL, 'ewrg(//(/FGtygvTCFR%&45fg6h7tm6tg65dr%RT&H/(O_O', NULL, NULL, 1, 1, 1);
 
 --
 -- Indexes for dumped tables
@@ -269,6 +300,7 @@ ALTER TABLE `contest`
 -- Indexes for table `contest_category`
 --
 ALTER TABLE `contest_category`
+  ADD PRIMARY KEY (`id`),
   ADD KEY `fk_contest_category_id` (`category_id`),
   ADD KEY `fk_contest_contest_id` (`contest_id`);
 
@@ -285,6 +317,7 @@ ALTER TABLE `contest_result`
 -- Indexes for table `contest_section`
 --
 ALTER TABLE `contest_section`
+  ADD PRIMARY KEY (`id`),
   ADD KEY `fk_contest_section_id` (`section_id`),
   ADD KEY `fk_contest_contest2_id` (`contest_id`);
 
@@ -317,6 +350,7 @@ ALTER TABLE `profile`
 -- Indexes for table `profile_contest`
 --
 ALTER TABLE `profile_contest`
+  ADD PRIMARY KEY (`id`),
   ADD KEY `fk_profile_contest_id` (`contest_id`),
   ADD KEY `fk_profile_profile_id` (`profile_id`);
 
@@ -348,13 +382,19 @@ ALTER TABLE `user`
 -- AUTO_INCREMENT for table `category`
 --
 ALTER TABLE `category`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `contest`
 --
 ALTER TABLE `contest`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `contest_category`
+--
+ALTER TABLE `contest_category`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `contest_result`
@@ -363,40 +403,52 @@ ALTER TABLE `contest_result`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `contest_section`
+--
+ALTER TABLE `contest_section`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
 -- AUTO_INCREMENT for table `fotoclub`
 --
 ALTER TABLE `fotoclub`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `image`
 --
 ALTER TABLE `image`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `metric`
 --
 ALTER TABLE `metric`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `profile`
 --
 ALTER TABLE `profile`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `profile_contest`
+--
+ALTER TABLE `profile_contest`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `role`
 --
 ALTER TABLE `role`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `section`
 --
 ALTER TABLE `section`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `user`
