@@ -59,4 +59,18 @@ class Image extends \yii\db\ActiveRecord
     {
         return $this->hasMany(ContestResult::className(), ['image_id' => 'id']);
     }
+
+        /**
+     * Gets query for [[Profile]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getProfile()
+    {
+        return $this->hasOne(Profile::className(), ['id' => 'profile_id']);
+    }
+
+    public function extraFields() {
+        return [ 'profile' ];
+    }
 }

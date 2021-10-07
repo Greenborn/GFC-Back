@@ -27,7 +27,8 @@ class LoginAction extends CreateAction {
           'status' => $status,
           'token'  => $user->access_token,
           'username' => $user->username,
-          'role' => $user->role->type,
+          'roleType' => $user->role->type,
+          'roleId' => $user->role->id,
           'id'   => $user->id,
         ];
     else

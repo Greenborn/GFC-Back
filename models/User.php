@@ -168,13 +168,14 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
         // quita los campos con información sensible
         unset( $fields['password_hash'],
                $fields['access_token'],
+               $fields['password_reset_token'],
              );
 
         return $fields;
     }
 
     public function extraFields() {
-        return [ 'profile'];
+        return [ 'profile', 'role' ];
     }
 
 

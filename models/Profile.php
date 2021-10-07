@@ -82,4 +82,41 @@ class Profile extends \yii\db\ActiveRecord
     {
         return $this->hasMany(User::className(), ['profile_id' => 'id']);
     }
+    /**
+     * Gets query for [[Users]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getUser()
+    {
+        return $this->hasOne(User::className(), ['profile_id' => 'id']);
+    }
+
+    
+    /**
+     * Gets query for [[Profile]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getuserProfile()
+    {
+        return $this->hasOne(Profile::className(), ['id' => 'profile_id']);
+    }
+
+    public function fields() {
+        $fields = parent::fields();
+
+        
+        // expand por default
+        // unset( $fields['fotoclub_id'],
+        //      );
+        // $fields[] = 'fotoclub'; 
+        // $fields[] = 'user'; 
+
+        return $fields;
+    }
+
+    public function extraFields() {
+        return [ 'user', 'fotoclub' ];
+    }
 }

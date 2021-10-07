@@ -82,4 +82,24 @@ class ContestResult extends \yii\db\ActiveRecord
     {
         return $this->hasOne(Metric::className(), ['id' => 'metric_id']);
     }
+
+    public function fields() {
+        $fields = parent::fields();
+
+        
+        // expand por default
+        // unset(  $fields['image_id'],
+        //         $fields['metric_id']
+        //      );
+        $fields[] = 'image'; 
+        $fields[] = 'metric'; 
+
+        return $fields;
+    }
+
+
+    public function extraFields() {
+        return [ 'contest' ];
+        // return [ 'image', 'metric', 'contest' ];
+    }
 }
