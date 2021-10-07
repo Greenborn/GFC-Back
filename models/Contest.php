@@ -94,4 +94,8 @@ class Contest extends \yii\db\ActiveRecord
     {
         return $this->hasMany(ProfileContest::className(), ['contest_id' => 'id']);
     }
+
+    public function extraFields() {
+        return [ 'contestResults' ];
+    }
 }
