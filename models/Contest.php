@@ -10,8 +10,8 @@ use Yii;
  * @property int $id
  * @property string $name
  * @property string|null $description
- * @property string|null $start_date
- * @property string|null $end_date
+ * @property date|null $start_date
+ * @property date|null $end_date
  *
  * @property ContestCategory[] $contestCategories
  * @property ContestResult[] $contestResults
@@ -37,7 +37,7 @@ class Contest extends \yii\db\ActiveRecord
             [['name'], 'required'],
             [['description'], 'string'],
             [['name'], 'string', 'max' => 45],
-            [['start_date', 'end_date'], 'string', 'max' => 12],
+            [['start_date', 'end_date'], 'string', 'max' => 33],
         ];
     }
 
