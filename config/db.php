@@ -2,9 +2,12 @@
 
 return [
     'class' => 'yii\db\Connection',
-    'dsn' => 'mysql:host=localhost;dbname=grupo_fotografico',
-    'username' => 'root',
-    'password' => 'LuchO',
+    // 'dsn' => 'mysql:host=localhost;dbname=grupo_fotografico',
+    'dsn' => 'pgsql:host=ec2-54-147-76-191.compute-1.amazonaws.com;dbname=dacosg101g37gp',
+    // 'username' => 'root',
+    'username' => 'aaxxutmklkdlym',
+    'password' => '597ce06c95be3f6402ad5fa6108c9cd5ba033890a4f188e8c8bf9c58a8aa3bea',
+    // 'password' => 'LuchO',
     'charset' => 'utf8',
 
     // Schema cache options (for production environment)
@@ -12,3 +15,6 @@ return [
     //'schemaCacheDuration' => 60,
     //'schemaCache' => 'cache',
 ];
+
+// uri
+// postgres://aaxxutmklkdlym:597ce06c95be3f6402ad5fa6108c9cd5ba033890a4f188e8c8bf9c58a8aa3bea@ec2-54-147-76-191.compute-1.amazonaws.com:5432/dacosg101g37gp
