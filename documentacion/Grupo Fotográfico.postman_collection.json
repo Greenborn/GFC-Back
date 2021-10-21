@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "156541eb-263b-4121-a3a1-31e7ca588d61",
+		"_postman_id": "25243422-f9cb-4c7a-856c-2488d16c2b43",
 		"name": "Grupo Fotográfico",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -323,14 +323,9 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/contest",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/contest",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"contest"
@@ -351,18 +346,19 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/contest/1",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/contest/1?expand=contestResults",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"contest",
 								"1"
+							],
+							"query": [
+								{
+									"key": "expand",
+									"value": "contestResults"
+								}
 							]
 						}
 					},
@@ -381,7 +377,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"concurso prueba 2\",\n    \"description\": \"Reglas?\",\n    \"start_date\": \"1630355013\",\n    \"end_date\": \"1630355013\"\n}",
+							"raw": "\n{\"name\": \"123\", \"start_date\": \"1633651200000\", \"end_date\": \"1635465600000\", \"description\": \"41241241\"}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -389,14 +385,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/contest",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/contest",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"contest"
@@ -455,18 +446,13 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/contest/3",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/contest/1",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"contest",
-								"3"
+								"1"
 							]
 						}
 					},
@@ -477,6 +463,39 @@
 		{
 			"name": "contest-result",
 			"item": [
+				{
+					"name": "get all filter",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer ewrg(//(/FGtygvTCFR%&45fg6h7tm6tg65dr%RT&H/(O_O",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{gfc_base_url}}/contest-result?filter[contest_id]=1&expand=image.profile,image.profile.fotoclub,metric,contest",
+							"host": [
+								"{{gfc_base_url}}"
+							],
+							"path": [
+								"contest-result"
+							],
+							"query": [
+								{
+									"key": "filter[contest_id]",
+									"value": "1"
+								},
+								{
+									"key": "expand",
+									"value": "image.profile,image.profile.fotoclub,metric,contest"
+								}
+							]
+						}
+					},
+					"response": []
+				},
 				{
 					"name": "get all",
 					"request": {
@@ -489,17 +508,18 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/contest-result",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/contest-result?expand=image.profile",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"contest-result"
+							],
+							"query": [
+								{
+									"key": "expand",
+									"value": "image.profile"
+								}
 							]
 						}
 					},
@@ -547,7 +567,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"metric_id\": 1,\n    \"image_id\": 1,\n    \"contest_id\": 1\n}",
+							"raw": "{\n    \"metric_id\": 1,\n    \"image_id\": 2,\n    \"contest_id\": 2\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -555,14 +575,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/contest-result",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/contest-result",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"contest-result"
@@ -584,7 +599,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"metric_id\": 1,\n    \"image_id\": 1,\n    \"contest_id\": 1\n}",
+							"raw": "{\n    \"metric_id\": 2,\n    \"image_id\": 2,\n    \"contest_id\": 1\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -592,14 +607,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/contest-result/2",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/contest-result/2",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"contest-result",
@@ -821,14 +831,9 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/fotoclub",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/fotoclub",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"fotoclub"
@@ -916,7 +921,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Testing.\",\n    \"id\": 2\n}",
+							"raw": "{\n    \"name\": \"El faro\",\n    \"id\": 2\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -924,14 +929,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/fotoclub/2",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/fotoclub/2",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"fotoclub",
@@ -987,17 +987,18 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/image",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/image?expand=profile",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"image"
+							],
+							"query": [
+								{
+									"key": "expand",
+									"value": "profile"
+								}
 							]
 						}
 					},
@@ -1090,18 +1091,13 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/image/2",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/image/8",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"image",
-								"2"
+								"8"
 							]
 						}
 					},
@@ -1119,18 +1115,13 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/image/3",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/image/8",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"image",
-								"3"
+								"8"
 							]
 						}
 					},
@@ -1153,14 +1144,9 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/metric",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/metric",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"metric"
@@ -1211,7 +1197,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"prize\": \"1\",\n    \"score\": 10\n}",
+							"raw": "{\n    \"prize\": \"1\",\n    \"score\": null\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1219,14 +1205,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/metric",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/metric",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"metric"
@@ -1319,17 +1300,22 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/profile",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/profile?expand=user&",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"profile"
+							],
+							"query": [
+								{
+									"key": "expand",
+									"value": "user"
+								},
+								{
+									"key": "",
+									"value": null
+								}
 							]
 						}
 					},
@@ -1347,14 +1333,9 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/profile/1",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/profile/1",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"profile",
@@ -1377,7 +1358,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"admin\",\n    \"last_name\": null,\n    \"fotoclub_id\": 1\n}",
+							"raw": "{\n    \"name\": \"otro\",\n    \"last_name\": \"mas\",\n    \"fotoclub_id\": 1\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1385,14 +1366,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/profile",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/profile",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"profile"
@@ -1414,7 +1390,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"admin\",\n    \"last_name\": null,\n    \"fotoclub_id\": 1\n}",
+							"raw": "{\n    \"name\": \"mario\",\n    \"last_name\": \"g\",\n    \"fotoclub_id\": 2\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1422,14 +1398,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/profile/2",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/profile/2",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"profile",
@@ -1451,14 +1422,9 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/profile/3",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/profile/3",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"profile",
@@ -1485,17 +1451,18 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/profile-contest",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/profile-contest?expand=profile,profile.user,profile.fotoclub",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"profile-contest"
+							],
+							"query": [
+								{
+									"key": "expand",
+									"value": "profile,profile.user,profile.fotoclub"
+								}
 							]
 						}
 					},
@@ -1543,7 +1510,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"profile_id\": 1,\n    \"contest_id\": 1\n}",
+							"raw": "{\n    \"profile_id\": 28,\n    \"contest_id\": 1\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1551,17 +1518,18 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/profile-contest",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/profile-contest?expand=profile,profile.user,profile.fotoclub",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"profile-contest"
+							],
+							"query": [
+								{
+									"key": "expand",
+									"value": "profile,profile.user,profile.fotoclub"
+								}
 							]
 						}
 					},
@@ -1617,18 +1585,13 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/profile-contest/3",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/profile-contest/11",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"profile-contest",
-								"3"
+								"11"
 							]
 						}
 					},
@@ -1651,14 +1614,9 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/role",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/role",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"role"
@@ -1709,7 +1667,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"type\": \"Delegado\"\n}",
+							"raw": "{\n    \"type\": \"Concursante\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1717,14 +1675,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/role",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/role",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"role"
@@ -1783,18 +1736,12 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/role/3",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/4",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
-								"role",
-								"3"
+								"4"
 							]
 						}
 					},
@@ -1973,6 +1920,9 @@
 			"item": [
 				{
 					"name": "get all",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1982,15 +1932,19 @@
 								"type": "text"
 							}
 						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"filter\": { \r\n        \"and\": [\r\n            {\r\n                \"profile_id\": { \"in\": [1,2] }\r\n            }\r\n        ]\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/user",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/user",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"user"
@@ -2011,18 +1965,19 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/user/1",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/user/12?expand=profile,profile.fotoclub,role",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"user",
-								"1"
+								"12"
+							],
+							"query": [
+								{
+									"key": "expand",
+									"value": "profile,profile.fotoclub,role"
+								}
 							]
 						}
 					},
@@ -2041,7 +1996,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"username\": \"test\",\n    \"password_reset_token\": null,\n    \"created_at\": null,\n    \"updated_at\": null,\n    \"status\": 1,\n    \"role_id\": 1,\n    \"profile_id\": 1\n}",
+							"raw": "{\n    \"username\": \"test\",\n    \"password\": \"password\",\n    \"role_id\": 3,\n    \"profile_id\": 3\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -2049,14 +2004,9 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/user",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/user",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"user"
@@ -2078,7 +2028,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"username\": \"test\",\n    \"password_reset_token\": null,\n    \"created_at\": null,\n    \"updated_at\": null,\n    \"status\": 1,\n    \"role_id\": 1,\n    \"profile_id\": 1\n}",
+							"raw": "{\n    \"username\": \"test2\",\n    \"role_id\": 3,\n    \"profile_id\": 3\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -2086,18 +2036,13 @@
 							}
 						},
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/user/2",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/user/12",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"user",
-								"2"
+								"12"
 							]
 						}
 					},
@@ -2115,18 +2060,13 @@
 							}
 						],
 						"url": {
-							"raw": "https://grupofotografico.api.greenborn.com.ar/user/3",
-							"protocol": "https",
+							"raw": "{{gfc_base_url}}/user/11",
 							"host": [
-								"grupofotografico",
-								"api",
-								"greenborn",
-								"com",
-								"ar"
+								"{{gfc_base_url}}"
 							],
 							"path": [
 								"user",
-								"3"
+								"11"
 							]
 						}
 					},
@@ -2137,9 +2077,59 @@
 		{
 			"name": "Login",
 			"request": {
-				"method": "GET",
+				"method": "POST",
 				"header": [],
-				"url": null
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\": \"otro\",\r\n    \"password\": \"password\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{gfc_base_url}}/login",
+					"host": [
+						"{{gfc_base_url}}"
+					],
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "change-password",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer ewrg(//(/FGtygvTCFR%&45fg6h7tm6tg65dr%RT&H/(O_O",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"old_password\": \"hola\",\n    \"new_password\": \"password\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{gfc_base_url}}/change-password/1",
+					"host": [
+						"{{gfc_base_url}}"
+					],
+					"path": [
+						"change-password",
+						"1"
+					]
+				}
 			},
 			"response": []
 		}

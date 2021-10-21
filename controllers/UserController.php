@@ -14,8 +14,8 @@ class UserController extends BaseController {
 
     public function actions(){
         $actions = parent::actions();
-        $actions['create']['class'] = 'app\actions\CreateUserAction';
-        $actions['update']['class'] = 'app\actions\UpdateUserAction';
+        $actions['create']['class'] = 'app\actions\UserCreateAction';
+        $actions['update']['class'] = 'app\actions\UserUpdateAction';
         return $actions;
     } 
       

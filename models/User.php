@@ -52,8 +52,8 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
     public function rules()
     {
         return [
-            [['state_id', 'role_id'], 'required'],
-            [['state_id', 'online', 'role_id'], 'integer'],
+            // [['state_id', 'role_id'], 'required'],
+            // [['state_id', 'online', 'role_id'], 'integer'],
             [['username', 'created_at', 'updated_at'], 'string', 'max' => 45],
             [['password_hash', 'password_reset_token'], 'string', 'max' => 255],
             [['access_token'], 'string', 'max' => 128],
@@ -73,10 +73,10 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
             'password_hash' => 'Password Hash',
             'password_reset_token' => 'Password Reset Token',
             'access_token' => 'Access Token',
-            'state_id' => 'State ID',
+            // 'state_id' => 'State ID',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
-            'online' => 'Online',
+            // 'online' => 'Online',
             'role_id' => 'Role ID',
             'profile_id' => 'Profile ID',
         ];
