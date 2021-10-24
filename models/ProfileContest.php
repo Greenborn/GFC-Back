@@ -82,6 +82,6 @@ class ProfileContest extends \yii\db\ActiveRecord
     }
 
     public function extraFields() {
-        return [ 'profile' ];
+        return [ 'profile', 'category' ];
     }
 }

@@ -64,7 +64,7 @@ class ContestResult extends \yii\db\ActiveRecord
      */
     public function getSection()
     {
-        return $this->hasOne(Contest::className(), ['id' => 'section_id']);
+        return $this->hasOne(Section::className(), ['id' => 'section_id']);
     }
 
     /**
@@ -107,6 +107,7 @@ class ContestResult extends \yii\db\ActiveRecord
         //      );
         $fields[] = 'image'; 
         $fields[] = 'metric'; 
+        $fields[] = 'section';
 
         return $fields;
     }
