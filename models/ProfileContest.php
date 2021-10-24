@@ -9,9 +9,11 @@ use Yii;
  *
  * @property int $profile_id
  * @property int $contest_id
+ * @property int $category_id
  *
  * @property Contest $contest
  * @property Profile $profile
+ * @property Category $category
  */
 class ProfileContest extends \yii\db\ActiveRecord
 {
@@ -29,10 +31,11 @@ class ProfileContest extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['profile_id', 'contest_id'], 'required'],
-            [['profile_id', 'contest_id'], 'integer'],
+            [['profile_id', 'contest_id', 'category_id'], 'required'],
+            [['profile_id', 'contest_id', 'category_id'], 'integer'],
             [['contest_id'], 'exist', 'skipOnError' => true, 'targetClass' => Contest::className(), 'targetAttribute' => ['contest_id' => 'id']],
             [['profile_id'], 'exist', 'skipOnError' => true, 'targetClass' => Profile::className(), 'targetAttribute' => ['profile_id' => 'id']],
+            [['category_id'], 'exist', 'skipOnError' => true, 'targetClass' => Category::className(), 'targetAttribute' => ['category_id' => 'id']],
         ];
     }
 
@@ -44,6 +47,7 @@ class ProfileContest extends \yii\db\ActiveRecord
         return [
             'profile_id' => 'Profile ID',
             'contest_id' => 'Contest ID',
+            'category_id' => 'Category ID',
         ];
     }
 
@@ -55,6 +59,16 @@ class ProfileContest extends \yii\db\ActiveRecord
     public function getContest()
     {
         return $this->hasOne(Contest::className(), ['id' => 'contest_id']);
+    }
+
+      /**
+     * Gets query for [[Category]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCategory()
+    {
+        return $this->hasOne(Category::className(), ['id' => 'category_id']);
     }
 
     /**

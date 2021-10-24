@@ -1,11 +1,11 @@
 -- Created by Vertabelo (http://vertabelo.com)
--- Last modification date: 2021-10-14 21:53:30.211
+-- Last modification date: 2021-10-23 21:35:31.883
 
 -- tables
 -- Table: category
 CREATE TABLE category (
     name varchar(45)  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT category_pk PRIMARY KEY (id)
 );
 
@@ -15,7 +15,7 @@ CREATE TABLE contest (
     description text  NULL DEFAULT NULL,
     start_date date  NULL DEFAULT NULL,
     end_date date  NULL DEFAULT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT contest_pk PRIMARY KEY (id)
 );
 
@@ -23,7 +23,7 @@ CREATE TABLE contest (
 CREATE TABLE contest_category (
     contest_id int  NOT NULL,
     category_id int  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT contest_category_pk PRIMARY KEY (id)
 );
 
@@ -36,7 +36,8 @@ CREATE TABLE contest_result (
     metric_id int  NOT NULL,
     image_id int  NOT NULL,
     contest_id int  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
+    section_id int  NOT NULL,
     CONSTRAINT contest_result_pk PRIMARY KEY (id)
 );
 
@@ -50,7 +51,7 @@ CREATE INDEX fk_contest_result_image_id on contest_result (image_id ASC);
 CREATE TABLE contest_section (
     contest_id int  NOT NULL,
     section_id int  NOT NULL,
-    id SERIAL  NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT contest_section_pk PRIMARY KEY (id)
 );
 
@@ -61,7 +62,7 @@ CREATE INDEX fk_contest_contest2_id on contest_section (contest_id ASC);
 -- Table: fotoclub
 CREATE TABLE fotoclub (
     name varchar(45)  NULL DEFAULT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT fotoclub_pk PRIMARY KEY (id)
 );
 
@@ -70,7 +71,7 @@ CREATE TABLE image (
     code varchar(20)  NOT NULL,
     title varchar(45)  NOT NULL,
     profile_id int  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT image_pk PRIMARY KEY (id)
 );
 
@@ -78,7 +79,7 @@ CREATE TABLE image (
 CREATE TABLE metric (
     prize varchar(10)  NOT NULL,
     score int  NULL DEFAULT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT metric_pk PRIMARY KEY (id)
 );
 
@@ -87,7 +88,7 @@ CREATE TABLE profile (
     name varchar(59)  NULL DEFAULT NULL,
     last_name varchar(50)  NULL DEFAULT NULL,
     fotoclub_id int  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT profile_pk PRIMARY KEY (id)
 );
 
@@ -97,7 +98,8 @@ CREATE INDEX fk_profile_fotoclub_id on profile (fotoclub_id ASC);
 CREATE TABLE profile_contest (
     profile_id int  NOT NULL,
     contest_id int  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
+    category_id int  NOT NULL,
     CONSTRAINT profile_contest_pk PRIMARY KEY (id)
 );
 
@@ -108,14 +110,15 @@ CREATE INDEX fk_profile_profile_id on profile_contest (profile_id ASC);
 -- Table: role
 CREATE TABLE role (
     type varchar(45)  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT role_pk PRIMARY KEY (id)
 );
 
 -- Table: section
 CREATE TABLE section (
     name varchar(45)  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
+    parent_id int  NULL,
     CONSTRAINT section_pk PRIMARY KEY (id)
 );
 
@@ -130,7 +133,7 @@ CREATE TABLE "user" (
     status smallint  NOT NULL,
     role_id int  NOT NULL,
     profile_id int  NOT NULL,
-    id SERIAL NOT NULL,
+    id SERIAL   NOT NULL,
     CONSTRAINT fk_user_profile_id UNIQUE (profile_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT user_pk PRIMARY KEY (id)
 );
@@ -138,6 +141,14 @@ CREATE TABLE "user" (
 CREATE INDEX fk_user_role_id on "user" (role_id ASC);
 
 -- foreign keys
+-- Reference: contest_result_section (table: contest_result)
+ALTER TABLE contest_result ADD CONSTRAINT contest_result_section
+    FOREIGN KEY (section_id)
+    REFERENCES section (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
 -- Reference: fk_contest_category_id (table: contest_category)
 ALTER TABLE contest_category ADD CONSTRAINT fk_contest_category_id
     FOREIGN KEY (category_id)
@@ -230,6 +241,22 @@ ALTER TABLE "user" ADD CONSTRAINT fk_user_profile_id
 ALTER TABLE "user" ADD CONSTRAINT fk_user_role_id
     FOREIGN KEY (role_id)
     REFERENCES role (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: profile_contest_category (table: profile_contest)
+ALTER TABLE profile_contest ADD CONSTRAINT profile_contest_category
+    FOREIGN KEY (category_id)
+    REFERENCES category (id)  
+    NOT DEFERRABLE 
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: section_section (table: section)
+ALTER TABLE section ADD CONSTRAINT section_section
+    FOREIGN KEY (parent_id)
+    REFERENCES section (id)  
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;
