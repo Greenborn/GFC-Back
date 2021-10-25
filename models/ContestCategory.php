@@ -66,4 +66,8 @@ class ContestCategory extends \yii\db\ActiveRecord
     {
         return $this->hasOne(Contest::className(), ['id' => 'contest_id']);
     }
+
+    public function extraFields() {
+        return [ 'category' ];
+    }
 }

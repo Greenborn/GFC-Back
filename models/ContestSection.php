@@ -66,4 +66,8 @@ class ContestSection extends \yii\db\ActiveRecord
     {
         return $this->hasOne(Section::className(), ['id' => 'section_id']);
     }
+
+    public function extraFields() {
+        return [ 'section' ];
+    }
 }
