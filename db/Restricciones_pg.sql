@@ -9,7 +9,7 @@ BEGIN
     IF (cant > 0) THEN
      RAISE EXCEPTION 'La contest_category que quiere eliminar contiene profile_contest asociados';
     END IF;
-RETURN NEW;
+RETURN OLD;
 END $$
 LANGUAGE 'plpgsql';
 
@@ -29,7 +29,7 @@ BEGIN
     IF (cant > 0) THEN
      RAISE EXCEPTION 'La contest_section que quiere eliminar contiene contest_result asociados';
     END IF;
-RETURN NEW;
+RETURN OLD;
 END $$
 LANGUAGE 'plpgsql';
 
