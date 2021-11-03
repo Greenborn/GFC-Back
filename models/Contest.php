@@ -64,6 +64,12 @@ class Contest extends \yii\db\ActiveRecord
     {
         return $this->hasMany(ContestCategory::className(), ['contest_id' => 'id']);
     }
+    public function getCategories()
+    {
+        return $this->hasMany(Category::className(), ['id' => 'category_id'])
+            ->via('contestCategories');
+            // ->viaTable('contest_category', ['contest_id' => 'id']);
+    }
 
     /**
      * Gets query for [[ContestResults]].
@@ -73,6 +79,15 @@ class Contest extends \yii\db\ActiveRecord
     public function getContestResults()
     {
         return $this->hasMany(ContestResult::className(), ['contest_id' => 'id']);
+    }
+    public function getCountContestResults(): int
+    {
+        $data = $this->getContestResults();
+        $u = Yii::$app->user->identity;
+        if ($u->role_id == 2) {// delegado
+            $data = $data->where(['in', 'image.profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $u->profile->fotoclub_id])])->joinWith('image');
+        }
+        return intval($data->count());
     }
 
     /**
@@ -85,6 +100,12 @@ class Contest extends \yii\db\ActiveRecord
         return $this->hasMany(ContestSection::className(), ['contest_id' => 'id']);
     }
 
+    public function getSections()
+    {
+        return $this->hasMany(Section::className(), ['id' => 'section_id'])->via('contestSections');
+            // ->viaTable('contest_section', ['contest_id' => 'id']);
+    }
+
     /**
      * Gets query for [[ProfileContests]].
      *
@@ -94,8 +115,41 @@ class Contest extends \yii\db\ActiveRecord
     {
         return $this->hasMany(ProfileContest::className(), ['contest_id' => 'id']);
     }
+    public function getCountProfileContests(): int
+    {
+        $data = $this->getProfileContests();
+        $u = Yii::$app->user->identity;
+        if ($u->role_id == 2) {// delegado
+            $data = $data->where(['in', 'profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $u->profile->fotoclub_id])]);
+        }
+        return intval($data->count());
+    }
 
+
+    public function getActive(): bool
+    {
+        return date_diff(date_create($this->end_date), date_create())->invert == 1 ? true : false;
+    }
+
+
+    public function fields() {
+        $fields = parent::fields();
+
+        
+        // expand por default
+        // unset(  $fields['image_id'],
+        //         $fields['metric_id']
+        //      );
+        $fields[] = 'active'; 
+
+        return $fields;
+    }
     public function extraFields() {
-        return [ 'contestResults' ];
+        return [ 
+            'contestSections',      'sections',
+            'contestCategories',    'categories',
+            'contestResults',       'countContestResults',
+            'profileContests',      'countProfileContests'
+        ];
     }
 }

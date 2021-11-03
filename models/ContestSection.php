@@ -67,6 +67,19 @@ class ContestSection extends \yii\db\ActiveRecord
         return $this->hasOne(Section::className(), ['id' => 'section_id']);
     }
 
+    public function fields() {
+        $fields = parent::fields();
+
+        
+        // expand por default
+        // unset(  $fields['image_id'],
+        //         $fields['metric_id']
+        //      );
+        // $fields[] = 'section'; 
+
+        return $fields;
+    }
+
     public function extraFields() {
         return [ 'section' ];
     }
