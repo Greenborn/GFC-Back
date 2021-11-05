@@ -3,6 +3,7 @@
 namespace app\models;
 
 use Yii;
+use yii\web\UploadedFile;
 
 /**
  * This is the model class for table "profile".
@@ -35,7 +36,7 @@ class Profile extends \yii\db\ActiveRecord
             [['fotoclub_id'], 'required'],
             [['fotoclub_id'], 'integer'],
             [['name'], 'string', 'max' => 59],
-            [['last_name'], 'string', 'max' => 50],
+            [['last_name', 'img_url'], 'string', 'max' => 50],
             [['fotoclub_id'], 'exist', 'skipOnError' => true, 'targetClass' => Fotoclub::className(), 'targetAttribute' => ['fotoclub_id' => 'id']],
         ];
     }
@@ -53,6 +54,60 @@ class Profile extends \yii\db\ActiveRecord
         ];
     }
 
+    public function beforeDelete() {
+        if (!empty($this->img_url) && file_exists($this->img_url)) {
+            unlink($this->img_url);
+            // echo 'se elimnó la img';
+        }
+        return true;
+    }
+
+    public function beforeSave($insert) {
+
+  
+
+        // do transformations here
+
+        // if ($insert) { // create
+        // } else { // update
+        // }
+        $params = Yii::$app->getRequest()->getBodyParams();
+        
+        // $image = $_FILES['image_file'];
+        $image = UploadedFile::getInstanceByName('image_file');
+        // var_dump($_FILES);
+
+        if (isset($image)) {
+            // cargar img y sobrescribir la url
+            // $tipo   = $image->type;
+            // $tamano = $image->size;
+            // $temp   = $image->tempName;
+            // validar img
+            $date     = new \DateTime();
+            $img_name = $this->id . '_' . $date->getTimestamp();
+            $full_path = 'images/profile_' . $img_name .  '.' . $image->extension;
+
+            if (!$insert) {
+                if (!empty($this->img_url) && file_exists($this->img_url)) {
+                    unlink($this->img_url);
+                    $this->img_url = '';
+                    // echo 'se elimnó la img';
+                } else {
+                    // echo 'no se elimnó la img';
+                }
+            }
+
+            $image->saveAs($full_path);
+            $this->img_url = $full_path;
+        } else {
+            // no se cargó la imagen
+        }
+      
+        
+      
+        return parent::beforeSave($insert);
+      
+      }
     /**
      * Gets query for [[Fotoclub]].
      *

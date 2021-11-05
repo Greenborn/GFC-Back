@@ -4,7 +4,7 @@ namespace app\models;
 
 use Yii;
 use yii\web\UploadedFile;
-use yii\helpers\Url;
+// use yii\helpers\Url;
 
 /**
  * This is the model class for table "image".

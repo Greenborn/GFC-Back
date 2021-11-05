@@ -71,6 +71,7 @@ CREATE TABLE image (
     code varchar(20)  NOT NULL,
     title varchar(45)  NOT NULL,
     profile_id int  NOT NULL,
+    url varchar(45) NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT image_pk PRIMARY KEY (id)
 );
@@ -89,6 +90,7 @@ CREATE TABLE profile (
     last_name varchar(50)  NULL DEFAULT NULL,
     fotoclub_id int  NOT NULL,
     id SERIAL   NOT NULL,
+    img_url varchar(45) NULL,
     CONSTRAINT profile_pk PRIMARY KEY (id)
 );
 
