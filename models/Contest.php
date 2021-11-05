@@ -37,7 +37,7 @@ class Contest extends \yii\db\ActiveRecord
         return [
             [['name'], 'required'],
             [['description'], 'string'],
-            [['name', 'img_url'], 'string', 'max' => 45],
+            [['name', 'img_url', 'rules_url'], 'string', 'max' => 45],
             [['start_date', 'end_date'], 'string', 'max' => 33],
         ];
     }
@@ -61,6 +61,10 @@ class Contest extends \yii\db\ActiveRecord
             unlink($this->img_url);
             // echo 'se elimnó la img';
         }
+        if (!empty($this->rules_url) && file_exists($this->rules_url)) {
+            unlink($this->rules_url);
+            // echo 'se elimnó la img';
+        }
         return true;
     }
 
@@ -69,6 +73,7 @@ class Contest extends \yii\db\ActiveRecord
         $params = Yii::$app->getRequest()->getBodyParams();
         
         $image = UploadedFile::getInstanceByName('image_file');
+        $rules = UploadedFile::getInstanceByName('rules_file');
 
         if (isset($image)) {
             // cargar img y sobrescribir la url
@@ -95,6 +100,32 @@ class Contest extends \yii\db\ActiveRecord
 
         } else {
             // no se cargó la imagen
+        }
+        if (isset($rules)) {
+            // cargar img y sobrescribir la url
+            // $tipo   = $rules->type;
+            // $tamano = $rules->size;
+            // $temp   = $rules->tempName;
+            // validar pdf
+            $date     = new \DateTime();
+            $rules_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->name))) . '-rules-' . $date->getTimestamp();
+            $full_path = 'images/' . $rules_name .  '.' . $rules->extension;
+
+            if (!$insert) {
+                if (!empty($this->rules_url) && file_exists($this->rules_url)) {
+                    unlink($this->rules_url);
+                    $this->rules_url = '';
+                    // echo 'se elimnó la img';
+                } else {
+                    // echo 'no se elimnó la img';
+                }
+            }
+
+            $rules->saveAs($full_path);
+            $this->rules_url = $full_path;
+
+        } else {
+            // no se cargó el pdf
         }
       
         
