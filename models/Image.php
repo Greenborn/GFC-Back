@@ -100,7 +100,8 @@ class Image extends \yii\db\ActiveRecord
             // $this->url = $full_path;
 
             if (!$insert) {
-                if (!empty($this->url) && unlink($this->url)) {
+                if (!empty($this->url) && file_exists($this->url)) {
+                    unlink($this->url);
                     $this->url = '';
                     // echo 'se elimnó la img';
                 } else {
@@ -111,8 +112,8 @@ class Image extends \yii\db\ActiveRecord
             
             // try {
                 // if (move_uploaded_file($temp, $full_path)) {
-            $image->saveAs($full_path);
-            $this->url = $full_path;
+                $image->saveAs($full_path);
+                $this->url = $full_path;
 
                 // } else {
                     // $this->url = 'error en la carga';
