@@ -2,6 +2,16 @@
 -- Last modification date: 2021-10-23 21:35:31.883
 
 -- tables
+
+-- Table:info_centro
+CREATE TABLE info_centro (
+   title varchar(200) NULL,
+    content text NULL,
+    img_url varchar(45) NULL,
+    id SERIAL   NOT NULL,
+    CONSTRAINT info_centro_pk PRIMARY KEY (id)
+);
+
 -- Table: category
 CREATE TABLE category (
     name varchar(45)  NOT NULL,
@@ -15,6 +25,8 @@ CREATE TABLE contest (
     description text  NULL DEFAULT NULL,
     start_date date  NULL DEFAULT NULL,
     end_date date  NULL DEFAULT NULL,
+    img_url varchar(45) NULL,
+    rules_url varchar(45) NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT contest_pk PRIMARY KEY (id)
 );
