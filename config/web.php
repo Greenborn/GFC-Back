@@ -17,6 +17,7 @@ $config = [
             'cookieValidationKey' => '7hSF802zvlVYMSbq6E6hQlhCvJ-dQw0C',
             'parsers' => [
                'application/json' => 'yii\web\JsonParser',
+               'multipart/form-data' => 'yii\web\MultipartFormDataParser'
             ],
         ],
         'cache' => [
@@ -113,6 +114,10 @@ $config = [
                     'pluralize' => false,
                 ],
                 [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'profile-registrable',
+                    'pluralize' => false,
+                ],
+                [ 'class' => 'yii\rest\UrlRule',
                     'controller' => 'role',
                     'pluralize' => false,
                 ],
@@ -122,6 +127,10 @@ $config = [
                 ],
                 [ 'class' => 'yii\rest\UrlRule',
                     'controller' => 'user',
+                    'pluralize' => false,
+                ],
+                [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'info-centro',
                     'pluralize' => false,
                 ],
             ],

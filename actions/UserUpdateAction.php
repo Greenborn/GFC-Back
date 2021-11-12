@@ -28,12 +28,16 @@ class UserUpdateAction extends UpdateAction {
           if ($profile && $role) {
             $transaction = User::getDb()->beginTransaction();
             $user = $this->modelClass::find()->where( ['id' => $id] )->one();
-            $user->username = $username;
-            if ($password != '') {
+            if (!empty($username))
+              $user->username = $username;
+            if (!empty($password)) 
               $user->password_hash = Yii::$app->getSecurity()->generatePasswordHash($password);
-            }
-            $user->role_id = $role_id;
-            $user->profile_id = $profile_id;
+            if (!empty($role_id))
+              $user->role_id = $role_id;
+            if (!empty($profile_id))
+              $user->profile_id = $profile_id;
+            // $user->access_token = "ewrg(//(/FGtygvTCFR%&45fg6h7tm6tg65dr%RT&H/(O_O";
+            // $user->access_token = "12345;$user->role_id;$user->profile_id";
             $user->updated_at = (string) time();
             if ($user->save()) {
               $transaction->commit();

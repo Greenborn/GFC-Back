@@ -2,6 +2,16 @@
 -- Last modification date: 2021-10-23 21:35:31.883
 
 -- tables
+
+-- Table:info_centro
+CREATE TABLE info_centro (
+   title varchar(200) NULL,
+    content text NULL,
+    img_url varchar(45) NULL,
+    id SERIAL   NOT NULL,
+    CONSTRAINT info_centro_pk PRIMARY KEY (id)
+);
+
 -- Table: category
 CREATE TABLE category (
     name varchar(45)  NOT NULL,
@@ -15,6 +25,8 @@ CREATE TABLE contest (
     description text  NULL DEFAULT NULL,
     start_date date  NULL DEFAULT NULL,
     end_date date  NULL DEFAULT NULL,
+    img_url varchar(45) NULL,
+    rules_url varchar(45) NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT contest_pk PRIMARY KEY (id)
 );
@@ -71,6 +83,7 @@ CREATE TABLE image (
     code varchar(20)  NOT NULL,
     title varchar(45)  NOT NULL,
     profile_id int  NOT NULL,
+    url varchar(45) NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT image_pk PRIMARY KEY (id)
 );
@@ -89,6 +102,7 @@ CREATE TABLE profile (
     last_name varchar(50)  NULL DEFAULT NULL,
     fotoclub_id int  NOT NULL,
     id SERIAL   NOT NULL,
+    img_url varchar(45) NULL,
     CONSTRAINT profile_pk PRIMARY KEY (id)
 );
 
@@ -100,7 +114,7 @@ CREATE TABLE profile_contest (
     contest_id int  NOT NULL,
     id SERIAL   NOT NULL,
     category_id int  NOT NULL,
-    CONSTRAINT profile_enrolled UNIQUE (profile_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT profile_enrolled UNIQUE (profile_id, contest_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT profile_contest_pk PRIMARY KEY (id)
 );
 
