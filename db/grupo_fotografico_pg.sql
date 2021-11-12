@@ -249,8 +249,8 @@ ALTER TABLE "user" ADD CONSTRAINT fk_user_role_id
 -- Reference: profile_contest_category (table: profile_contest)
 ALTER TABLE profile_contest ADD CONSTRAINT profile_contest_category
     FOREIGN KEY (category_id)
-    REFERENCES category (id)  
-    NOT DEFERRABLE 
+    REFERENCES category (id)
+    NOT DEFERRABLE
     INITIALLY IMMEDIATE
 ;
 

@@ -56,3 +56,22 @@ CREATE TRIGGER tr_ingreso_profile_contest
 BEFORE INSERT
 ON profile_contest
 FOR EACH ROW EXECUTE PROCEDURE fn_ingreso_profile_contest();
+
+CREATE OR REPLACE FUNCTION fn_eliminado_profile_contest() RETURNS Trigger AS $$
+DECLARE
+    cant INTEGER;
+BEGIN
+    SELECT count(*) INTO cant
+    FROM image i join contest_result cr on i.id = cr.image_id
+    WHERE i.profile_id = OLD.profile_id;
+    IF (cant > 0) THEN
+     RAISE EXCEPTION 'No se puede eliminar un concursante con obras asociadas';
+    END IF;
+RETURN NEW;
+END $$
+LANGUAGE 'plpgsql';
+
+CREATE TRIGGER tr_eliminado_profile_contest
+BEFORE DELETE
+ON profile_contest
+FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_profile_contest();
