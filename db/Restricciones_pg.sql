@@ -95,3 +95,23 @@ CREATE TRIGGER tr_eliminado_fotoclub
 BEFORE DELETE
 ON fotoclub
 FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_fotoclub();
+
+CREATE OR REPLACE FUNCTION fn_eliminado_profile() RETURNS Trigger AS $$
+DECLARE
+    cant INTEGER;
+BEGIN
+    --si tiene imagenes cargadas debería estar anotado en un concurso, si esta anotado no necesariamente tendrá imagenes
+    SELECT count(*) INTO cant
+    FROM profile_contest pr
+    WHERE pr.profile_id = OLD.id;
+    IF (cant > 0) THEN
+     RAISE EXCEPTION 'No se puede eliminar este perfil porque tiene concursos asociados';
+    END IF;
+RETURN OLD;
+END $$
+LANGUAGE 'plpgsql';
+
+CREATE TRIGGER tr_eliminado_profile
+BEFORE DELETE
+ON profile
+FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_profile();
