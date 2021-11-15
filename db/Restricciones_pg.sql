@@ -63,11 +63,12 @@ DECLARE
 BEGIN
     SELECT count(*) INTO cant
     FROM image i join contest_result cr on i.id = cr.image_id
-    WHERE i.profile_id = OLD.profile_id;
+    WHERE i.profile_id = OLD.profile_id
+    AND cr.contest_id = OLD.contest_id;
     IF (cant > 0) THEN
-     RAISE EXCEPTION 'No se puede eliminar un concursante con obras asociadas';
+     RAISE EXCEPTION 'No se puede eliminar este concursante porque tiene obras asociadas en este concurso';
     END IF;
-RETURN NEW;
+RETURN OLD;
 END $$
 LANGUAGE 'plpgsql';
 
@@ -75,3 +76,22 @@ CREATE TRIGGER tr_eliminado_profile_contest
 BEFORE DELETE
 ON profile_contest
 FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_profile_contest();
+
+CREATE OR REPLACE FUNCTION fn_eliminado_fotoclub() RETURNS Trigger AS $$
+DECLARE
+    cant INTEGER;
+BEGIN
+    SELECT count(*) INTO cant
+    FROM profile p JOIN profile_contest pc ON (p.id = pc.profile_id)
+    WHERE p.fotoclub_id = OLD.id;
+    IF (cant > 0) THEN
+     RAISE EXCEPTION 'No se puede eliminar este fotoclub porque tiene perfiles con concursos asociados';
+    END IF;
+RETURN OLD;
+END $$
+LANGUAGE 'plpgsql';
+
+CREATE TRIGGER tr_eliminado_fotoclub
+BEFORE DELETE
+ON fotoclub
+FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_fotoclub();
