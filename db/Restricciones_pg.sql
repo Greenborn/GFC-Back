@@ -115,3 +115,8 @@ CREATE TRIGGER tr_eliminado_profile
 BEFORE DELETE
 ON profile
 FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_profile();
+
+ALTER TABLE contest
+ ADD CONSTRAINT fecha
+ CHECK (contest.start_date < contest.end_date );
+ 
