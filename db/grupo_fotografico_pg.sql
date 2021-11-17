@@ -25,6 +25,7 @@ CREATE TABLE contest (
     description text  NULL DEFAULT NULL,
     start_date date  NULL DEFAULT NULL,
     end_date date  NULL DEFAULT NULL,
+    max_img_section int DEFAULT 3,
     img_url varchar(45) NULL,
     rules_url varchar(45) NULL,
     id SERIAL   NOT NULL,

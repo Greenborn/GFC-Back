@@ -37,6 +37,7 @@ class Contest extends \yii\db\ActiveRecord
         return [
             [['name'], 'required'],
             [['description'], 'string'],
+            [['max_img_section'], 'number'],
             [['name', 'img_url', 'rules_url'], 'string', 'max' => 45],
             [['start_date', 'end_date'], 'string', 'max' => 33],
         ];
