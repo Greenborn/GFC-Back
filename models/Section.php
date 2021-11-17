@@ -31,8 +31,8 @@ class Section extends \yii\db\ActiveRecord
         return [
             [['name'], 'required'],
             [['name'], 'string', 'max' => 45],            
-            [['parent_id'], 'integer'],
-            [['parent_id'], 'exist', 'skipOnError' => true, 'targetClass' => Section::class, 'targetAttribute' => ['parent_id' => 'id']],
+            // [['parent_id'], 'integer'],
+            // [['parent_id'], 'exist', 'skipOnError' => true, 'targetClass' => Section::class, 'targetAttribute' => ['parent_id' => 'id']],
 
         ];
     }
@@ -45,7 +45,7 @@ class Section extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'name' => 'Name',
-            'parent_id' => 'Parent section ID',
+            // 'parent_id' => 'Parent section ID',
         ];
     }
 

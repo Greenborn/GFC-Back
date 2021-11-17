@@ -133,7 +133,7 @@ CREATE TABLE role (
 CREATE TABLE section (
     name varchar(45)  NOT NULL,
     id SERIAL   NOT NULL,
-    parent_id int  NULL,
+    -- parent_id int  NULL,
     CONSTRAINT section_pk PRIMARY KEY (id)
 );
 
