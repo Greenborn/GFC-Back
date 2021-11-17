@@ -34,8 +34,8 @@ class Image extends \yii\db\ActiveRecord
         return [
             [['code', 'title', 'profile_id'], 'required'],
             [['profile_id'], 'integer'],
-            [['code'], 'string', 'max' => 20],
-            [['title', 'url'], 'string', 'max' => 45],
+            // [['code'], 'string', 'max' => 20],
+            [['title', 'url', 'code'], 'string', 'max' => 45],
             // [['image_file'], 'file', 'skipOnEmpty' => false, 'extensions' => 'png, jpg']
         ];
     }
@@ -77,6 +77,7 @@ class Image extends \yii\db\ActiveRecord
         // $image = $_FILES['image_file'];
         $image = UploadedFile::getInstanceByName('image_file');
         // var_dump($_FILES);
+        $date     = new \DateTime();
 
         if (isset($image)) {
             // cargar img y sobrescribir la url
@@ -89,9 +90,9 @@ class Image extends \yii\db\ActiveRecord
             // $tamano = $image->size;
             // $temp   = $image->tempName;
             // validar img
-            $date     = new \DateTime();
             // $img_name = $date->getTimestamp() . $image['name'];
-            $img_name = $this->code . $date->getTimestamp();
+            $this->code = $this->code . $date->getTimestamp();
+            $img_name = $this->code;
             //Si la imagen es correcta en tamaño y tipo
             //Se intenta subir al servidor
             // $full_path = getcwd().'/user_data/'.$img_name;
@@ -121,6 +122,15 @@ class Image extends \yii\db\ActiveRecord
 
                 // if (!$insert) $insert = true;
         } else {
+            $this->code = $this->code . $date->getTimestamp();
+            if (file_exists($this->url)) {
+                $matches = [];
+                preg_match('/(.[a-zA-Z])*$/', $this->url, $matches);
+                $ext = $matches[0];
+                $new_url = 'images/' . $this->code . $ext;
+                rename($this->url, $new_url);
+                $this->url = $new_url;
+            }
             // no se cargó la imagen
             // if ($insert)
             //     $this->url = 'no se cargó la img';
