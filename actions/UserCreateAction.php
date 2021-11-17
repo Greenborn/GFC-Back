@@ -33,7 +33,8 @@ class UserCreateAction extends CreateAction {
         $user->username = $username;
         $user->role_id = $role_id;
         $user->profile_id = $profile_id;
-        $user->status = $role_id > 2 ? 0 : 1; // admin y delegado activos
+        // $user->status = $role_id > 2 ? 0 : 1; // admin y delegado activos
+        $user->status = 1; // admin y delegado activos
         $user->access_token = "12345;$role_id;$profile_id";
         $user->password_hash = Yii::$app->getSecurity()->generatePasswordHash($password);
         $user->created_at = (string) time();
