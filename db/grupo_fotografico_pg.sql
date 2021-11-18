@@ -4,6 +4,15 @@
 -- tables
 
 -- Table:info_centro
+CREATE TABLE footer (
+    email varchar(45) NULL,
+    address varchar(45) NULL,
+    phone varchar(45) NULL,
+    id SERIAL   NOT NULL,
+    CONSTRAINT footer_pk PRIMARY KEY (id)
+);
+
+-- Table:info_centro
 CREATE TABLE info_centro (
    title varchar(200) NULL,
     content text NULL,
