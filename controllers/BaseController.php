@@ -12,6 +12,7 @@ use app\traits\Filterable;
 class BaseController extends ActiveController {
 
     use Filterable;
+    protected bool $autenticator = true;
 
     public $serializer = [
         'class' => 'yii\rest\Serializer',
@@ -32,10 +33,12 @@ class BaseController extends ActiveController {
 
     public function behaviors() {
         $behaviors = parent::behaviors();
-        $behaviors['authenticator'] = [
-            'class' => HttpTokenAuth::className(),
-             'except' => ['options'],
-        ];
+        if ($this->autenticator){
+          $behaviors['authenticator'] = [
+              'class' => HttpTokenAuth::className(),
+               'except' => ['options'],
+          ];
+        }
         $behaviors['corsFilter'] = [
            'class' => Cors::className(),
            'cors' => [
