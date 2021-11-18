@@ -119,4 +119,41 @@ FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_profile();
 ALTER TABLE contest
  ADD CONSTRAINT fecha
  CHECK (contest.start_date < contest.end_date );
- 
+
+CREATE OR REPLACE FUNCTION fn_limite_fotos_section() RETURNS Trigger AS $$
+DECLARE
+    cant_max INTEGER;
+    cant_actual INTEGER;
+    profile INTEGER;
+BEGIN
+        SELECT max_img_section INTO cant_max FROM contest c WHERE c.id= NEW.contest_id;
+        SELECT ii.profile_id INTO profile FROM image ii JOIN contest_result r on ii.id = r.image_id WHERE NEW.image_id = ii.id;
+        SELECT count(*) INTO cant_actual
+        FROM contest_result cr JOIN image i on cr.image_id = i.id
+        WHERE cr.contest_id = NEW.contest_id
+          AND cr.section_id = NEW.section_id
+          AND i.profile_id = profile;
+        IF TG_OP = 'INSERT' THEN
+                IF (cant_actual > cant_max) THEN
+                   -- DELETE FROM contest_result WHERE contest_result.id=NEW.id;
+                    --DELETE FROM metric WHERE metric.id= NEW.metric_id;
+                   -- DELETE FROM image WHERE image.id= NEW.image_id;
+                 RAISE EXCEPTION 'No se puede cargar mas de % imagenes por sección por perfil', cant_max;
+                END IF;
+        return NEW;
+        end if;
+       IF TG_OP = 'UPDATE' THEN
+                IF (cant_actual > cant_max) THEN
+                 RAISE EXCEPTION 'No se puede cargar mas de % imagenes por sección por perfil', cant_max;
+                END IF;
+            RETURN OLD;
+        end if;
+
+
+END $$
+LANGUAGE 'plpgsql';
+
+CREATE TRIGGER tr_limite_fotos_section
+AFTER INSERT OR UPDATE
+ON contest_result
+FOR EACH ROW EXECUTE PROCEDURE fn_limite_fotos_section();
