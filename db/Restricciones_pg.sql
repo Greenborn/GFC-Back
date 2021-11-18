@@ -82,7 +82,7 @@ DECLARE
     cant INTEGER;
 BEGIN
     SELECT count(*) INTO cant
-    FROM profile p JOIN profile_contest pc ON (p.id = pc.profile_id)
+    FROM profile p
     WHERE p.fotoclub_id = OLD.id;
     IF (cant > 0) THEN
      RAISE EXCEPTION 'No se puede eliminar este fotoclub porque tiene perfiles con concursos asociados';
