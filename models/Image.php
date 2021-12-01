@@ -79,6 +79,7 @@ class Image extends \yii\db\ActiveRecord
         // var_dump($_FILES);
         $date     = new \DateTime();
 
+        $thumb_size = [256,256];
         if (isset($image)) {
             // cargar img y sobrescribir la url
             
@@ -121,6 +122,20 @@ class Image extends \yii\db\ActiveRecord
                 // }
 
                 // if (!$insert) $insert = true;
+
+            //Generaciòn de miniatura
+            $imgResult = $this->newResizedImage(
+                $img_name .  '.' . $image->extension,
+                $this->url,
+                $thumb_size[0],$thumb_size[1]
+            );
+
+            if ($imgResult == Null)
+                var_dump("Error en generacion de miniatura"); //Acà deberìa generar una excepciòn
+            else {
+                imagejpeg($imgResult, 'images/thumbnails/'.$thumb_size[0].'_'.$thumb_size[1].$img_name.'.jpg');
+            }
+
         } else {
             $this->code = $this->code . $date->getTimestamp();
             if (file_exists($this->url)) {
@@ -130,6 +145,18 @@ class Image extends \yii\db\ActiveRecord
                 $new_url = 'images/' . $this->code . $ext;
                 rename($this->url, $new_url);
                 $this->url = $new_url;
+
+                $imgResult = $this->newResizedImage(
+                    $this->code.$ext,
+                    'images/'.$this->code.$ext,
+                    $thumb_size[0],$thumb_size[1]
+                );
+
+                if ($imgResult == Null)
+                    var_dump("Error en generacion de miniatura"); //Acà deberìa generar una excepciòn
+                else {
+                    imagejpeg($imgResult, 'images/thumbnails/'.$thumb_size[0].'_'.$thumb_size[1].$this->code.'.jpg');
+                }
             }
             // no se cargó la imagen
             // if ($insert)
@@ -178,5 +205,45 @@ class Image extends \yii\db\ActiveRecord
 
     public function extraFields() {
         return [ 'profile' ];
+    }
+
+    protected function newResizedImage($imgName, $imgPath, $xmax, $ymax){
+        $ext = explode(".", $imgName);
+        $ext = $ext[count($ext)-1];
+
+        $imagen = Null;
+        if($ext == "jpg" || $ext == 'JPG' || $ext == "jpe" || $ext == "jpeg")
+            $imagen = imagecreatefromjpeg($imgPath);
+        elseif($ext == "png")
+            $imagen = imagecreatefrompng($imgPath);
+        elseif($ext == "gif")
+            $imagen = imagecreatefromgif($imgPath);
+        elseif ($ext == "webp")
+            $imagen = imagecreatefromwebp($imgPath);
+        
+        if ($imagen == Null){
+          return Null;
+        }
+
+        $x = imagesx($imagen);
+        $y = imagesy($imagen);
+
+        if($x <= $xmax && $y <= $ymax){
+            return $imagen;
+        }
+
+        if($x >= $y) {
+            $nuevax = $xmax;
+            $nuevay = $nuevax * $y / $x;
+        }
+        else {
+            $nuevay = $ymax;
+            $nuevax = $x / $y * $nuevay;
+        }
+
+        $img2 = imagecreatetruecolor($nuevax, $nuevay);
+        var_dump($img2);
+        imagecopyresized($img2, $imagen, 0, 0, 0, 0, floor($nuevax), floor($nuevay), $x, $y);
+        return $img2;
     }
 }
