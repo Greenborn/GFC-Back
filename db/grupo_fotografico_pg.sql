@@ -31,7 +31,7 @@ CREATE TABLE category (
 -- Table: contest
 CREATE TABLE contest (
     name varchar(45)  NOT NULL,
-    description text  NULL DEFAULT NULL,
+    description varchar(250)  NULL DEFAULT NULL,
     start_date date  NULL DEFAULT NULL,
     end_date date  NULL DEFAULT NULL,
     max_img_section int DEFAULT 3,

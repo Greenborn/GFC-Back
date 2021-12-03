@@ -69,6 +69,10 @@ class InfoCentro extends \yii\db\ActiveRecord
             $image->saveAs($full_path);
             $this->img_url = $full_path;
         } else {
+            if (isset($params['delete_img']) && file_exists($this->img_url)) {
+                unlink($this->img_url);
+                $this->img_url = '';
+            }
             // no se cargó la imagen
         }
       

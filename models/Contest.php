@@ -11,8 +11,8 @@ use yii\web\UploadedFile;
  * @property int $id
  * @property string $name
  * @property string|null $description
- * @property date|null $start_date
- * @property date|null $end_date
+ * @property string|null $start_date
+ * @property string|null $end_date
  *
  * @property ContestCategory[] $contestCategories
  * @property ContestResult[] $contestResults
@@ -36,7 +36,7 @@ class Contest extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['description'], 'string'],
+            [['description'], 'string', 'max' => 250],
             [['max_img_section'], 'number'],
             [['name', 'img_url', 'rules_url'], 'string', 'max' => 45],
             [['start_date', 'end_date'], 'string', 'max' => 33],

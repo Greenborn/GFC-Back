@@ -4,6 +4,8 @@ namespace app\models;
 
 use Yii;
 use yii\web\UploadedFile;
+use app\models\Thumbnail;
+use app\models\ThumbnailType;
 // use yii\helpers\Url;
 
 /**
@@ -78,7 +80,13 @@ class Image extends \yii\db\ActiveRecord
         $image = UploadedFile::getInstanceByName('image_file');
         // var_dump($_FILES);
         $date     = new \DateTime();
-
+        $id_image = Image::find()->orderBy(['id' => SORT_DESC])->one();
+        if ($id_image == Null){
+            $id_image = 1;
+        } else {
+            $id_image = $id_image->id + 1;
+        }
+        
         if (isset($image)) {
             // cargar img y sobrescribir la url
             
@@ -121,6 +129,10 @@ class Image extends \yii\db\ActiveRecord
                 // }
 
                 // if (!$insert) $insert = true;
+
+            //Generaciòn de miniaturas
+            $this->generateThumbnails('images/', $img_name, $image->extension, 'images/thumbnails/',$id_image);
+
         } else {
             $this->code = $this->code . $date->getTimestamp();
             if (file_exists($this->url)) {
@@ -130,6 +142,8 @@ class Image extends \yii\db\ActiveRecord
                 $new_url = 'images/' . $this->code . $ext;
                 rename($this->url, $new_url);
                 $this->url = $new_url;
+
+                $this->generateThumbnails('images/', $this->code, $ext, 'images/thumbnails/',$id_image); 
             }
             // no se cargó la imagen
             // if ($insert)
@@ -142,9 +156,31 @@ class Image extends \yii\db\ActiveRecord
       
         return parent::beforeSave($insert);
       
-      }
+    }
 
+    protected function generateThumbnails($d_base, $img_name, $img_ext, $d_thumbnails,$id_image){
+        $thumbTypes = ThumbnailType::find()->all();
+        
+        for ($c=0; $c < count($thumbTypes); $c++ ){
+            $imgResult = $this->newResizedImage(
+                $img_name.'.'.$img_ext,
+                $d_base.$img_name.'.'.$img_ext,
+                $thumbTypes[$c]->width,$thumbTypes[$c]->height
+            );
 
+            if ($imgResult == Null)
+                throw new \Exception('Error en generacion de miniatura.');
+            else {
+                $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_'.$thumbTypes[$c]->height.$img_name.'.jpg';
+                imagejpeg($imgResult, $thumbnailPath);
+                $thumb_reg                 = new Thumbnail();
+                $thumb_reg->image_id       = $id_image;
+                $thumb_reg->url            = $thumbnailPath;
+                $thumb_reg->thumbnail_type = $thumbTypes[$c]->id;
+                $thumb_reg->save(false);
+            }
+        }
+    }
 
     // public function upload()
     // {
@@ -176,7 +212,51 @@ class Image extends \yii\db\ActiveRecord
         return $this->hasOne(Profile::className(), ['id' => 'profile_id']);
     }
 
+    public function getThumbnail()
+    {
+        return $this->hasOne(Thumbnail::className(), ['image_id' => 'id']);
+    }
+
     public function extraFields() {
-        return [ 'profile' ];
+        return [ 'profile', 'thumbnail' ];
+    }
+
+    protected function newResizedImage($imgName, $imgPath, $xmax, $ymax){
+        $ext = explode(".", $imgName);
+        $ext = $ext[count($ext)-1];
+
+        $imagen = Null;
+        if($ext == "jpg" || $ext == 'JPG' || $ext == "jpe" || $ext == "jpeg")
+            $imagen = imagecreatefromjpeg($imgPath);
+        elseif($ext == "png")
+            $imagen = imagecreatefrompng($imgPath);
+        elseif($ext == "gif")
+            $imagen = imagecreatefromgif($imgPath);
+        elseif ($ext == "webp")
+            $imagen = imagecreatefromwebp($imgPath);
+        
+        if ($imagen == Null){
+          return Null;
+        }
+
+        $x = imagesx($imagen);
+        $y = imagesy($imagen);
+
+        if($x <= $xmax && $y <= $ymax){
+            return $imagen;
+        }
+
+        if($x >= $y) {
+            $nuevax = $xmax;
+            $nuevay = $nuevax * $y / $x;
+        }
+        else {
+            $nuevay = $ymax;
+            $nuevax = $x / $y * $nuevay;
+        }
+
+        $img2 = imagecreatetruecolor($nuevax, $nuevay);
+        imagecopyresized($img2, $imagen, 0, 0, 0, 0, floor($nuevax), floor($nuevay), $x, $y);
+        return $img2;
     }
 }
