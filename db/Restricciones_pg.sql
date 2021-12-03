@@ -99,18 +99,29 @@ FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_fotoclub();
 CREATE OR REPLACE FUNCTION fn_eliminado_profile() RETURNS Trigger AS $$
 DECLARE
     cant INTEGER;
+    idProfile INTEGER;
+    tipo TEXT = TG_TABLE_NAME;
 BEGIN
+    IF (tipo = 'profile') THEN
+        idProfile = OLD.id;
+    END IF;
+    IF (tipo = 'user') THEN
+        idProfile = OLD.profile_id;
+    end if;
     --si tiene imagenes cargadas debería estar anotado en un concurso, si esta anotado no necesariamente tendrá imagenes
     SELECT count(*) INTO cant
     FROM profile_contest pr
-    WHERE pr.profile_id = OLD.id;
+    WHERE pr.profile_id = idProfile;
     IF (cant > 0) THEN
-     RAISE EXCEPTION 'No se puede eliminar este perfil porque tiene concursos asociados';
+     RAISE EXCEPTION 'No se puede eliminar este % porque tiene concursos asociados', tipo;
     END IF;
 RETURN OLD;
 END $$
 LANGUAGE 'plpgsql';
-
+CREATE TRIGGER tr_eliminado_user
+BEFORE DELETE
+ON "user"
+FOR EACH ROW EXECUTE PROCEDURE fn_eliminado_profile();
 CREATE TRIGGER tr_eliminado_profile
 BEFORE DELETE
 ON profile
