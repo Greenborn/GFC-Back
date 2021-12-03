@@ -163,9 +163,43 @@ CREATE TABLE "user" (
     CONSTRAINT user_pk PRIMARY KEY (id)
 );
 
+-- Table: thumbnail
+CREATE TABLE "thumbnail" (
+    id SERIAL NOT NULL,
+    image_id int NOT NULL,
+    thumbnail_type int NOT NULL,
+    url varchar(45) NULL,
+    CONSTRAINT fk_thumbnail_image_id UNIQUE (image_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    CONSTRAINT thumbnail_pk PRIMARY KEY (id)
+);
+
+-- Table: thumbnail_type
+CREATE TABLE "thumbnail_type" (
+    id SERIAL NOT NULL,
+    width int NOT NULL,
+    height int NOT NULL,
+    CONSTRAINT thumbnail_type_pk PRIMARY KEY (id)
+);
+
 CREATE INDEX fk_user_role_id on "user" (role_id ASC);
 
 -- foreign keys
+-- Reference: thumbnail_image (table: thumbnail)
+ALTER TABLE thumbnail ADD CONSTRAINT thumbnail_image
+    FOREIGN KEY (image_id)
+    REFERENCES image (id)  
+    NOT DEFERRABLE
+    INITIALLY IMMEDIATE
+;
+
+-- Reference: thumbnail_thumbnail_type (table: thumbnail)
+ALTER TABLE thumbnail ADD CONSTRAINT thumbnail_thumbnail_type
+    FOREIGN KEY (thumbnail_type)
+    REFERENCES thumbnail_type (id)  
+    NOT DEFERRABLE
+    INITIALLY IMMEDIATE
+;
+
 -- Reference: contest_result_section (table: contest_result)
 ALTER TABLE contest_result ADD CONSTRAINT contest_result_section
     FOREIGN KEY (section_id)
