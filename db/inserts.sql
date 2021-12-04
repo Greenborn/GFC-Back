@@ -57,7 +57,8 @@ INSERT INTO "fotoclub" ("name") VALUES
 INSERT INTO "role" ("type") VALUES
 ('Administrador'),
 ('Delegado'),
-('Concursante');
+('Concursante'),
+('Juez');
 
 INSERT INTO "profile" ("name", "last_name", "fotoclub_id") VALUES
 ('administrador', 'base', 2),

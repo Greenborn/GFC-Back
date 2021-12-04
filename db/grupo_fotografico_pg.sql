@@ -16,7 +16,7 @@ CREATE TABLE footer (
 CREATE TABLE info_centro (
    title varchar(200) NULL,
     content text NULL,
-    img_url varchar(45) NULL,
+    img_url varchar(200) NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT info_centro_pk PRIMARY KEY (id)
 );
@@ -35,7 +35,7 @@ CREATE TABLE contest (
     start_date date  NULL DEFAULT NULL,
     end_date date  NULL DEFAULT NULL,
     max_img_section int DEFAULT 3,
-    img_url varchar(45) NULL,
+    img_url varchar(200) NULL,
     rules_url varchar(45) NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT contest_pk PRIMARY KEY (id)
@@ -93,7 +93,7 @@ CREATE TABLE image (
     code varchar(20)  NOT NULL,
     title varchar(45)  NOT NULL,
     profile_id int  NOT NULL,
-    url varchar(45) NULL,
+    url varchar(200) NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT image_pk PRIMARY KEY (id)
 );
@@ -112,7 +112,7 @@ CREATE TABLE profile (
     last_name varchar(50)  NULL DEFAULT NULL,
     fotoclub_id int  NOT NULL,
     id SERIAL   NOT NULL,
-    img_url varchar(45) NULL,
+    img_url varchar(200) NULL,
     CONSTRAINT profile_pk PRIMARY KEY (id)
 );
 
@@ -168,8 +168,7 @@ CREATE TABLE "thumbnail" (
     id SERIAL NOT NULL,
     image_id int NOT NULL,
     thumbnail_type int NOT NULL,
-    url varchar(45) NULL,
-    CONSTRAINT fk_thumbnail_image_id UNIQUE (image_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    url varchar(200) NULL,
     CONSTRAINT thumbnail_pk PRIMARY KEY (id)
 );
 
