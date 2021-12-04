@@ -178,6 +178,7 @@ class Image extends \yii\db\ActiveRecord
                 $thumb_reg->url            = $thumbnailPath;
                 $thumb_reg->thumbnail_type = $thumbTypes[$c]->id;
                 $thumb_reg->save(false);
+                imagejpeg($imgResult, $thumbnailPath);
             }
         }
     }
