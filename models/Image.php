@@ -168,6 +168,8 @@ class Image extends \yii\db\ActiveRecord
                 $thumbTypes[$c]->width,$thumbTypes[$c]->height
             );
 
+            echo "<script>console.log( 'image result es: " . $imgResult . "' );</script>";
+
             if ($imgResult == Null)
                 throw new \Exception('Error en generacion de miniatura.');
             else {
