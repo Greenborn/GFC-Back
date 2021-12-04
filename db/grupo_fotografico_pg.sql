@@ -183,13 +183,6 @@ CREATE TABLE "thumbnail_type" (
 CREATE INDEX fk_user_role_id on "user" (role_id ASC);
 
 -- foreign keys
--- Reference: thumbnail_image (table: thumbnail)
-ALTER TABLE thumbnail ADD CONSTRAINT thumbnail_image
-    FOREIGN KEY (image_id)
-    REFERENCES image (id)
-    NOT DEFERRABLE
-    INITIALLY IMMEDIATE
-;
 
 -- Reference: contest_result_section (table: contest_result)
 ALTER TABLE contest_result ADD CONSTRAINT contest_result_section

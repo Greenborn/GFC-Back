@@ -172,7 +172,7 @@ class Image extends \yii\db\ActiveRecord
                 throw new \Exception('Error en generacion de miniatura.');
             else {
                 $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_'.$thumbTypes[$c]->height.$img_name.'.jpg';
-                // imagejpeg($imgResult, $thumbnailPath);
+                imagejpeg($imgResult, $thumbnailPath);
                 $thumb_reg                 = new Thumbnail();
                 $thumb_reg->image_id       = $id_image;
                 $thumb_reg->url            = $thumbnailPath;
