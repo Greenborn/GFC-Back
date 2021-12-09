@@ -123,7 +123,7 @@ CREATE TABLE profile_contest (
     profile_id int  NOT NULL,
     contest_id int  NOT NULL,
     id SERIAL   NOT NULL,
-    category_id int  NOT NULL,
+    category_id int ,
     CONSTRAINT profile_enrolled UNIQUE (profile_id, contest_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT profile_contest_pk PRIMARY KEY (id)
 );
