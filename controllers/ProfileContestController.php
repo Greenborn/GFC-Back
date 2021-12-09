@@ -16,6 +16,10 @@ class ProfileContestController extends BaseController {
 
     public function prepareDataProvider(){
         $user = Yii::$app->user->identity;
+         $roleGet = Yii::$app->request->get('role');
+        if (!isset($roleGet)) {
+          $roleGet = 3;
+         }
         $esAdmin = $user->role_id == 1;
         $esDelegado = $user->role_id == 2;
 
@@ -27,15 +31,21 @@ class ProfileContestController extends BaseController {
         //   $query = $query->andWhere( ['in', 'profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])]);
         // }
         
-        if (!$esAdmin) {
-          $cond = $esDelegado ? ['in', 'profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] :
-            ['profile_id' => $user->profile_id];
-          $query->andWhere([
-            'or',
-            [ 'in', 'contest_id',  Contest::find()->select('id')->where(['>', 'extract(epoch from age(end_date))', 0])],
-            $cond
-          ]);
+          if (!$esAdmin) {
+  
+            $cond = $esDelegado && ($roleGet == 3) ? ['in', 'profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] : ['profile_id' => $user->profile_id];
+            if (($roleGet == 4) && $esDelegado){
+              $cond = ['in', 'profile_id', Profile::find()->select('id')->where(['role_id' => $roleGet])];
+            }
+  
+            $query->andWhere([
+              'or',
+              [ 'in', 'contest_id',  Contest::find()->select('id')->where(['>', 'extract(epoch from age(end_date))', 0])],
+              $cond
+            ]);
+          
         }
+
   
         return new ActiveDataProvider([
           'query' => $query->orderBy(['id' => SORT_ASC]),
