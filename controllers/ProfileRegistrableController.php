@@ -40,7 +40,7 @@ class ProfileRegistrableController extends BaseController {
         $user = Yii::$app->user->identity;
         $query = $query->where(['in', 'id', User::find()->select('profile_id')->where(['role_id' => $roleGet])]);
         $query = $query->andWhere(['not in', 'id', ProfileContest::find()->select('profile_id')->where(['contest_id' => $contest_id])]);
-        if ($user->role_id == 2) { // delegado
+        if ($user->role_id == 2 && $roleGet != 4) { // delegado
           $query = $query->andWhere( ['fotoclub_id' => $user->profile->fotoclub_id] );
           // $query = $query->andWhere( ['in', 'id', User::find()->select('profile_id')->where(['role_id' => 3])] );
         }
