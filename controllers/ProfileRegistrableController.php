@@ -31,15 +31,20 @@ class ProfileRegistrableController extends BaseController {
         // $query = $this->addFilterConditions($query);
 
         $contest_id = Yii::$app->request->get('contest_id');
+        $roleGet = Yii::$app->request->get('role');
+        if (!isset($roleGet)) {
+          $roleGet = 3;
+         }
 
       if (!empty($contest_id) && is_numeric($contest_id)) {
         $user = Yii::$app->user->identity;
-        $query = $query->where(['in', 'id', User::find()->select('profile_id')->where(['role_id' => 3])]);
+        $query = $query->where(['in', 'id', User::find()->select('profile_id')->where(['role_id' => $roleGet])]);
         $query = $query->andWhere(['not in', 'id', ProfileContest::find()->select('profile_id')->where(['contest_id' => $contest_id])]);
         if ($user->role_id == 2) { // delegado
           $query = $query->andWhere( ['fotoclub_id' => $user->profile->fotoclub_id] );
           // $query = $query->andWhere( ['in', 'id', User::find()->select('profile_id')->where(['role_id' => 3])] );
         }
+     
   
         return new ActiveDataProvider([
           'query' => $query->orderBy(['id' => SORT_ASC]),
