@@ -33,11 +33,11 @@ class ProfileContestController extends BaseController {
         
           if (!$esAdmin) {
   
-            $cond = $esDelegado && ($roleGet == 3) ? ['in', 'profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] : ['profile_id' => $user->profile_id];
-            if (($roleGet == 4) && $esDelegado){
-              $cond = ['in', 'profile_id', Profile::find()->select('id')->where(['role_id' => $roleGet])];
-            }
-  
+            $cond = $esDelegado ? ['in', 'profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] : ['profile_id' => $user->profile_id];
+            // if (($roleGet == 4) && $esDelegado){
+            //   $cond = ['in', 'profile_id', Profile::find()->select('id')->where(['role_id' => $roleGet])];
+            // }
+            $query->andWhere(['role_id' => $roleGet]);
             $query->andWhere([
               'or',
               [ 'in', 'contest_id',  Contest::find()->select('id')->where(['>', 'extract(epoch from age(end_date))', 0])],
