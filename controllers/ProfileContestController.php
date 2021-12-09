@@ -49,12 +49,13 @@ class ProfileContestController extends BaseController {
             //   $query->andWhere(['role_id' => $roleGet]);
 
             // }
-            $query->andWhere(['in', Profile::find()->select('id')->where(['role_id' => $roleGet])]);
+            // $query->andWhere(['in', Profile::find()->select('id')->where(['role_id' => $roleGet])]);
+            $query->andWhere(['role_id' => $roleGet]);
         }
 
   
         return new ActiveDataProvider([
-          'query' => $query->orderBy(['id' => SORT_ASC]),
+          'query' => $query->orderBy(['id' => SORT_ASC]),$query->andWhere(['role_id' => $roleGet])
         ]);
     }
 }
