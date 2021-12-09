@@ -50,6 +50,7 @@ class ProfileContestController extends BaseController {
             //   $query->andWhere(['role_id' => $roleGet]);
 
             // }
+            
             $query->andWhere(['in','profile_id', User::find()->select('profile_id')->where(['role_id' => $roleGet])]);
           }
           $query->andWhere(['in','profile_id', User::find()->select('profile_id')->where(['role_id' => $roleGet])]);
