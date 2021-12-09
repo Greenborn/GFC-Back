@@ -7,6 +7,7 @@ use yii\data\ActiveDataProvider;
 
 // use app\modules\v1\models\User;
 use app\models\Profile;
+use app\models\User;
 use app\models\Contest;
 
 
@@ -49,7 +50,7 @@ class ProfileContestController extends BaseController {
             //   $query->andWhere(['role_id' => $roleGet]);
 
             // }
-            $query->andWhere(['role_id' => $roleGet]);
+            $query->andWhere(['in','profile_id', User::find()->select('profile_id')->where(['role_id' => $roleGet])]);
           }
         return new ActiveDataProvider([
           'query' => $query->orderBy(['id' => SORT_ASC]),
