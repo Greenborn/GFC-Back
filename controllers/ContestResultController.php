@@ -16,6 +16,7 @@ class ContestResultController extends BaseController {
         $user = Yii::$app->user->identity;
         $esAdmin = $user->role_id == 1;
         $esDelegado = $user->role_id == 2;
+        $esJuez = $user->role_id == 4;
 
         $query = $this->modelClass::find();
 
@@ -25,7 +26,7 @@ class ContestResultController extends BaseController {
 
         $query = $this->addFilterConditions($query);
 
-        if (!$esAdmin) {
+        if (!$esAdmin || !$esJuez) {
           $cond = $esDelegado ? ['in', 'image.profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] :
             ['image.profile_id' => $user->profile_id];
           $query->andWhere([
