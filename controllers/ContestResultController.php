@@ -26,7 +26,7 @@ class ContestResultController extends BaseController {
 
         $query = $this->addFilterConditions($query);
 
-        if (!$esAdmin || !$esJuez) {
+        if (!$esAdmin && !$esJuez) {
           $cond = $esDelegado ? ['in', 'image.profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] :
             ['image.profile_id' => $user->profile_id];
           $query->andWhere([
