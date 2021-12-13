@@ -62,12 +62,22 @@ class Image extends \yii\db\ActiveRecord
             unlink($this->url);
             // echo 'se elimnó la img';
         }
+
+        //se buscan las miniaturas y se eliminan
+        $thumbs = $this->getThumbnail()->all();
+        for ($c=0; $c < count($thumbs); $c++ ){
+            var_dump($thumbs[$c]);
+            if (!empty($thumbs[$c]->url) && file_exists($thumbs[$c]->url)) {
+                unlink($thumbs[$c]->url);
+            }
+
+            $thumbs[$c]->delete();
+        }
+
         return true;
     }
 
     public function beforeSave($insert) {
-
-  
 
         // do transformations here
 
