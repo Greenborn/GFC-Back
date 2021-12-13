@@ -34,7 +34,7 @@ class ProfileContestController extends BaseController {
         
           if (!$esAdmin) {
            
-              $cond = $esDelegado ? ['in', 'profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] :  ['in', 'profile_id',  Profile::find()->select('profile_id')->where(['id' => $user->profile_id])];
+              $cond = $esDelegado ? ['in', 'profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] :  ['in', 'profile_id',  Profile::find()->select('id')->where(['id' => $user->profile_id])];
   
             // if (($roleGet == 4) && $esDelegado){
             //   $cond = ['in', 'profile_id', Profile::find()->select('id')->where(['role_id' => $roleGet])];
