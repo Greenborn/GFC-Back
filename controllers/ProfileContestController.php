@@ -20,6 +20,7 @@ class ProfileContestController extends BaseController {
     
     public function checkAccess($action, $model = null, $params = [])
     {
+      $model = new $this->modelClass;
       // check if the user can access $action and $model
       // throw ForbiddenHttpException if access should be denied
       if ($action === 'create' ) {
