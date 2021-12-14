@@ -20,13 +20,18 @@ class ProfileContestController extends BaseController {
     
     public function checkAccess($action, $model = null, $params = [])
     {
-      $model = new $this->modelClass;
-      // check if the user can access $action and $model
+      $paramsGet = Yii::$app->getRequest()->getBodyParams();
+      if ($model == null) {
+        $prf_id = $paramsGet["profile_id"];
+        // $prf_id = $params["profile_id"];
+      } else {
+        $prf_id = $model->profile_id;
+      }
       // throw ForbiddenHttpException if access should be denied
       if ($action === 'create' ) {
-          if ($model->profile_id !==  Yii::$app->user->identity->profile_id
+          if (($prf_id !==  Yii::$app->user->identity->profile_id)
           && Yii::$app->user->identity->role_id == 3)
-              throw new \yii\web\ForbiddenHttpException(sprintf('No puede inscribir porque no es su usuario, , %s', $model->profile_id, Yii::$app->user->identity->profile_id));
+              throw new \yii\web\ForbiddenHttpException(sprintf('No puede inscribir porque no es su usuario. Usuario que quiere inscribir: %d, su usuario: %d',  $prf_id, Yii::$app->user->identity->profile_id));
       }
     }
     
