@@ -17,14 +17,17 @@ class ProfileContestController extends BaseController {
     public $modelClass = 'app\models\ProfileContest';
 
 
+    
     public function checkAccess($action, $model = null, $params = [])
     {
+      function debug_log( $object=null, $label=null, $priority=1 ){ $priority = $priority<1? 1: $priority; $message = json_encode($object, JSON_PRETTY_PRINT); $label = "Debug" . ($label ? " ($label): " : ': '); echo ""; } 
       // check if the user can access $action and $model
       // throw ForbiddenHttpException if access should be denied
+      debug_log( 'model: ' + $model->profile_id,'',7 );
       if ($action === 'create' ) {
           if ($model->profile_id !==  \Yii::$app->user->identity->profile_id
           && \Yii::$app->user->identity->role_id == 3)
-              throw new \yii\web\ForbiddenHttpException(sprintf('You can only %s articles that you\'ve created.', $action));
+              throw new \yii\web\ForbiddenHttpException(sprintf('No puede %s porque no es su usuario', $action));
       }
     }
     
