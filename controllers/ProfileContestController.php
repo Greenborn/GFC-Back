@@ -26,7 +26,7 @@ class ProfileContestController extends BaseController {
       if ($action === 'create' ) {
           if ($model->profile_id !==  Yii::$app->user->identity->profile_id
           && Yii::$app->user->identity->role_id == 3)
-              throw new \yii\web\ForbiddenHttpException(sprintf('No puede %s porque no es su usuario', $action));
+              throw new \yii\web\ForbiddenHttpException(sprintf('No puede inscribir porque no es su usuario, , %s', $model->profile_id, Yii::$app->user->identity->profile_id));
       }
     }
     
