@@ -20,7 +20,7 @@ class ImageController extends BaseController {
           $prf_id = $paramsGet["profile_id"];
           // $prf_id = $params["profile_id"];
         } 
-          if (($prf_id !==  Yii::$app->user->identity->profile_id)
+          if (($prf_id !=  Yii::$app->user->identity->profile_id)
           && Yii::$app->user->identity->role_id == 3)
               throw new \yii\web\ForbiddenHttpException(sprintf('No puede inscribir porque no es su usuario. Usuario que quiere inscribir: %d, su usuario: %d',  $prf_id, Yii::$app->user->identity->profile_id));
               if (($prf_id ==  Yii::$app->user->identity->profile_id)
