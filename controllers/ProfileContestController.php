@@ -9,12 +9,25 @@ use yii\data\ActiveDataProvider;
 use app\models\Profile;
 use app\models\User;
 use app\models\Contest;
+// use app\models\ProfileContest;
 
 
 class ProfileContestController extends BaseController {
 
     public $modelClass = 'app\models\ProfileContest';
 
+
+    public function checkAccess($action, $model = null, $params = [])
+    {
+      // check if the user can access $action and $model
+      // throw ForbiddenHttpException if access should be denied
+      if ($action === 'create' ) {
+          if ($model->profile_id !==  \Yii::$app->user->identity->profile_id
+          && \Yii::$app->user->identity->role_id == 3)
+              throw new \yii\web\ForbiddenHttpException(sprintf('You can only %s articles that you\'ve created.', $action));
+      }
+    }
+    
     public function prepareDataProvider(){
         $user = Yii::$app->user->identity;
          $roleGet = Yii::$app->request->get('role');

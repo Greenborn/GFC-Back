@@ -33,7 +33,7 @@ class Profile extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['fotoclub_id'], 'required'],
+            // [['fotoclub_id'], 'required'],
             [['fotoclub_id'], 'integer'],
             [['name'], 'string', 'max' => 59],
             [['last_name', 'img_url'], 'string', 'max' => 50],

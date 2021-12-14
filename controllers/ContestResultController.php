@@ -16,6 +16,7 @@ class ContestResultController extends BaseController {
         $user = Yii::$app->user->identity;
         $esAdmin = $user->role_id == 1;
         $esDelegado = $user->role_id == 2;
+        $esConcursante = $user->role_id == 3;
         $esJuez = $user->role_id == 4;
 
         $query = $this->modelClass::find();

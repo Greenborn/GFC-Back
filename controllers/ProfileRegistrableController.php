@@ -27,6 +27,12 @@ class ProfileRegistrableController extends BaseController {
 
     public function prepareDataProvider(){
         $query = $this->modelClass::find();
+
+        $user = Yii::$app->user->identity;
+        // $esAdmin = $user->role_id == 1;
+        // $esDelegado = $user->role_id == 2;
+        $esConcursante = $user->role_id == 3;
+        // $esJuez = $user->role_id == 4;
   
         // $query = $this->addFilterConditions($query);
 
@@ -36,22 +42,25 @@ class ProfileRegistrableController extends BaseController {
           $roleGet = 3;
          }
 
-      if (!empty($contest_id) && is_numeric($contest_id)) {
-        $user = Yii::$app->user->identity;
-        $query = $query->where(['in', 'id', User::find()->select('profile_id')->where(['role_id' => $roleGet])]);
-        $query = $query->andWhere(['not in', 'id', ProfileContest::find()->select('profile_id')->where(['contest_id' => $contest_id])]);
-        if ($user->role_id == 2 && $roleGet != 4) { // delegado
-          $query = $query->andWhere( ['fotoclub_id' => $user->profile->fotoclub_id] );
-          // $query = $query->andWhere( ['in', 'id', User::find()->select('profile_id')->where(['role_id' => 3])] );
-        }
-     
-  
-        return new ActiveDataProvider([
-          'query' => $query->orderBy(['id' => SORT_ASC]),
-        ]);
-      } else {
-        throw new BadRequestHttpException('Especificar el id concurso del que se quiere saber los concursantes inscribibles');
-      }
+         if(!$esConcursante) {
+           if (!empty($contest_id) && is_numeric($contest_id)) {
+             $user = Yii::$app->user->identity;
+             $query = $query->where(['in', 'id', User::find()->select('profile_id')->where(['role_id' => $roleGet])]);
+             $query = $query->andWhere(['not in', 'id', ProfileContest::find()->select('profile_id')->where(['contest_id' => $contest_id])]);
+             if ($user->role_id == 2 && $roleGet != 4) { // delegado
+               $query = $query->andWhere( ['fotoclub_id' => $user->profile->fotoclub_id] );
+               // $query = $query->andWhere( ['in', 'id', User::find()->select('profile_id')->where(['role_id' => 3])] );
+             }
+          
+       
+             return new ActiveDataProvider([
+               'query' => $query->orderBy(['id' => SORT_ASC]),
+             ]);
+           } else {
+             throw new BadRequestHttpException('Especificar el id concurso del que se quiere saber los concursantes inscribibles');
+           }
+
+         }
 
     }
 
