@@ -28,9 +28,11 @@ class LoginAction extends CreateAction {
           $message = 'Contraseña incorrecta';
         } else {
           $status = true;
+          //se genera un nuevo token
+          $user->access_token = $user->generateAccessToken();
+          $user->save(false);
         }
 
-        // $status = $user && $user->status && Yii::$app->getSecurity()->validatePassword($password, $user->password_hash);
       }
 
     if ($status)

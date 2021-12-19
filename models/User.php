@@ -223,4 +223,10 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
         $this->password_reset_token = Yii::$app->security->generateRandomString() . '_' . time();
     }
 
+    public function generateAccessToken()
+    {
+        $this->access_token=Yii::$app->security->generateRandomString();
+        return $this->access_token;
+    }
+
 }
