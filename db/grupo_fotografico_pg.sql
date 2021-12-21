@@ -110,7 +110,7 @@ CREATE TABLE metric (
 CREATE TABLE profile (
     name varchar(59)  NULL DEFAULT NULL,
     last_name varchar(50)  NULL DEFAULT NULL,
-    fotoclub_id int  NOT NULL,
+    fotoclub_id int  NULL,
     id SERIAL   NOT NULL,
     img_url varchar(200) NULL,
     CONSTRAINT profile_pk PRIMARY KEY (id)
