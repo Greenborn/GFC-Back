@@ -106,6 +106,14 @@ CREATE TABLE metric (
     CONSTRAINT metric_pk PRIMARY KEY (id)
 );
 
+-- Table: metricABM
+CREATE TABLE metric_abm (
+    prize varchar(10)  NOT NULL,
+    score int  NULL DEFAULT NULL,
+    id SERIAL   NOT NULL,
+    CONSTRAINT metric_abm_pk PRIMARY KEY (id)
+);
+
 -- Table: profile
 CREATE TABLE profile (
     name varchar(59)  NULL DEFAULT NULL,
