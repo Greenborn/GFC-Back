@@ -35,9 +35,9 @@ $config = [
           'class' => 'yii\swiftmailer\Mailer',
           'transport' => [
               'class' => 'Swift_SmtpTransport',
-              'host' => 'test.com.ar',  // ej. smtp.mandrillapp.com o smtp.gmail.com
-              'username' => 'test@testz.com.ar',
-              'password' => 'test',
+              'host' => 'unserver.com',  // ej. smtp.mandrillapp.com o smtp.gmail.com
+              'username' => 'test.greenborn',
+              'password' => 'pastworita',
               'port' => '587', // El puerto 25 es un puerto común también
               'encryption' => 'tls', // Es usado también a menudo, revise la configuración del servidor
             ],
@@ -139,6 +139,10 @@ $config = [
                 ],
                 [ 'class' => 'yii\rest\UrlRule',
                     'controller' => 'footer',
+                    'pluralize' => false,
+                ],
+                [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'sign-up',
                     'pluralize' => false,
                 ],
             ],
