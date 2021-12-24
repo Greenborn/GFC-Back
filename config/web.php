@@ -142,6 +142,10 @@ $config = [
                     'pluralize' => false,
                 ],
                 [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'stadistics',
+                    'pluralize' => false,
+            ],[
+            'class' => 'yii\rest\UrlRule',
                     'controller' => 'sign-up',
                     'pluralize' => false,
                 ],
