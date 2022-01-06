@@ -140,6 +140,9 @@ class m211224_125425_create_database_tables extends Migration
             'status'                 => $this->integer(1)->notNull(),
             'role_id'                => $this->integer()->notNull(),
             'profile_id'             => $this->integer()->notNull(),
+            'email'                  => $this->string(),
+            'sign_up_verif_code'     => $this->string(),
+            'sign_up_verif_token'    => $this->string()
         ]);
         $this->createIndex('fk_user_role_id', 'user', 'role_id');
         $this->addForeignKey(
