@@ -16,7 +16,17 @@ class SignUpAction extends CreateAction {
     
     $response = Yii::$app->getResponse();
     $response->format = \yii\web\Response::FORMAT_JSON;
-    $out = [ 'sign_up_verif_token' => $user->sign_up_verif_token, 'success' => false ];
+    $out = [ 'sign_up_verif_token' => '', 'success' => false, 'error' => '' ];
+
+    //se verifica que el usuario no exista
+    $user = User::find()->where(['username' => $params["userData"]["username"]])->orWhere(['username' => $params["userData"]["email"]])->one();
+    if ( $user !== NULL ){
+      if ($user->email == $params["userData"]["email"]){
+        $out['error'] = 'Ya existe un usuario con registrado con el email ingresado';
+      } else
+        $out['error'] = 'El usuario ya existe, pruebe con un nombre de usuario diferente';
+      return $out;
+    }
 
     $transaction_p = Profile::getDb()->beginTransaction();
     //crear perfil
