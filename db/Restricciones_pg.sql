@@ -168,3 +168,25 @@ CREATE TRIGGER tr_limite_fotos_section
 AFTER INSERT OR UPDATE
 ON contest_result
 FOR EACH ROW EXECUTE PROCEDURE fn_limite_fotos_section();
+
+--TODO: delete interno de fn_check_fotoclub() no funciona ¿?
+
+CREATE OR REPLACE FUNCTION fn_check_fotoclub() RETURNS Trigger AS $$
+DECLARE
+
+BEGIN
+    IF ( ((SELECT fotoclub_id
+    FROM profile p
+    WHERE NEW.profile_id = p.id) IS NULL) and
+     ((NEW.role_id = 2 ) or (NEW.role_id = 3)) ) THEN
+        delete from profile p2 where p2.id = NEW.profile_id;
+        RAISE EXCEPTION 'Este usuario debe pertenecer a un fotoclub/agrupación';
+    END IF;
+RETURN NEW;
+END $$
+LANGUAGE 'plpgsql';
+
+CREATE TRIGGER tr_check_fotoclub
+BEFORE INSERT OR UPDATE
+ON "user"
+FOR EACH ROW EXECUTE PROCEDURE fn_check_fotoclub();
