@@ -48,6 +48,9 @@ BEGIN
     IF (fecha < date(now())) THEN
      RAISE EXCEPTION 'No se puede ingresar un nuevo profile_contest pasado el tiempo límite del concurso';
     END IF;
+    IF (( select role_id from "user" where profile_id = NEW.profile_id) = 4) THEN
+        RAISE EXCEPTION 'Un juez no puede inscribirse como concursante';
+    end if;
 RETURN NEW;
 END $$
 LANGUAGE 'plpgsql';
