@@ -23,8 +23,11 @@ class SignUpAction extends CreateAction {
     if ( $user !== NULL ){
       if ($user->email == $params["userData"]["email"]){
         $out['error'] = 'Ya existe un usuario con registrado con el email ingresado';
-      } else
+        $out['field'] = 'email';
+      } else {
         $out['error'] = 'El usuario ya existe, pruebe con un nombre de usuario diferente';
+        $out['field'] = 'username';
+      }
       return $out;
     }
 

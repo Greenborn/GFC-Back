@@ -11,7 +11,7 @@ use yii\web\BadRequestHttpException;
 
 class ValidateVerifyCodeAction extends UpdateAction {
 
-  public function run() {
+  public function run($id) {
     $params = Yii::$app->getRequest()->getBodyParams();
     
     $response = Yii::$app->getResponse();

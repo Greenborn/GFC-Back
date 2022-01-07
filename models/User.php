@@ -83,56 +83,6 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
     }
 
     /**
-     * Gets query for [[Chat-rooms]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getChatRooms()
-    {
-        return $this->hasMany(ChatRoom::className(), ['user_receiver_id' => 'id'])->inverseOf('userReceiver');
-    }
-
-    /**
-     * Gets query for [[Chat-rooms0]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getChatRooms0()
-    {
-        return $this->hasMany(ChatRoom::className(), ['user_sender_id' => 'id'])->inverseOf('userSender');
-    }
-
-    /**
-     * Gets query for [[Matches]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getMatches()
-    {
-        return $this->hasMany(Matches::className(), ['user_matched_id' => 'id'])->inverseOf('userMatched');
-    }
-
-    /**
-     * Gets query for [[Matches0]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getMatches0()
-    {
-        return $this->hasMany(Matches::className(), ['user_matcher_id' => 'id'])->inverseOf('userMatcher');
-    }
-
-    /**
-     * Gets query for [[Messages]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getMessages()
-    {
-        return $this->hasMany(Message::className(), ['user_sender_id' => 'id'])->inverseOf('userSender');
-    }
-
-    /**
      * Gets query for [[Role]].
      *
      * @return \yii\db\ActiveQuery
@@ -142,15 +92,6 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
         return $this->hasOne(Role::className(), ['id' => 'role_id'])->inverseOf('users');
     }
 
-    /**
-     * Gets query for [[State]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getState()
-    {
-        return $this->hasOne(Role::className(), ['id' => 'state_id'])->inverseOf('users0');
-    }
 
     /**
      * Gets query for [[Profile]].
