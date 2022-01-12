@@ -16,7 +16,7 @@ class SignUpAction extends CreateAction {
     
     $response = Yii::$app->getResponse();
     $response->format = \yii\web\Response::FORMAT_JSON;
-    $out = [ 'sign_up_verif_token' => '', 'success' => false, 'error' => '' ];
+    $out = [ 'sign_up_verif_token' => '', 'success' => false, 'error' => '', 'profile' => [] ];
     $transaction_created = False;
 
     //se verifica que el usuario no exista
@@ -80,6 +80,7 @@ class SignUpAction extends CreateAction {
     
     $out['success']             = true;
     $out['sign_up_verif_token'] = $user->sign_up_verif_token;
+    $out['profile']             = [ 'id' => $perfil->id ];
 
     //Se envia el email
     \Yii::$app->mailer->compose('signupcode',['code' => $user->sign_up_verif_code, 'username' => $user->username ])
