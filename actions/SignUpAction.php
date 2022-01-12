@@ -17,10 +17,11 @@ class SignUpAction extends CreateAction {
     $response = Yii::$app->getResponse();
     $response->format = \yii\web\Response::FORMAT_JSON;
     $out = [ 'sign_up_verif_token' => '', 'success' => false, 'error' => '' ];
+    $transaction_created = False;
 
     //se verifica que el usuario no exista
-    $user = User::find()->where(['username' => $params["userData"]["username"]])->orWhere(['username' => $params["userData"]["email"]])->one();
-    if ( $user !== NULL ){
+    $user = User::find()->where(['username' => $params["userData"]["username"]])->orWhere(['email' => $params["userData"]["email"]])->one();
+    if ( $user !== NULL && $user->status == 1 ){
       if ($user->email == $params["userData"]["email"]){
         $out['error'] = 'Ya existe un usuario con registrado con el email ingresado';
         $out['field'] = 'email';
@@ -31,19 +32,33 @@ class SignUpAction extends CreateAction {
       return $out;
     }
 
-    $transaction_p = Profile::getDb()->beginTransaction();
-    //crear perfil
-    $perfil = new Profile();
+    //Si no existe ningun usuario no debe existir ningun perfil
+    if ($user == NULL){
+      $transaction_p       = Profile::getDb()->beginTransaction();
+      $transaction_created = True;
+      $perfil              = new Profile();
+      $user                = new User();
+    } else {
+      $perfil = Profile::find()->where(['id' => $user->profile_id])->one();
+    }
+
+    //se completa la información de perfil
     $perfil->name        = $params["profileData"]["name"];
     $perfil->last_name   = $params["profileData"]["last_name"];
     $perfil->fotoclub_id = $params["profileData"]["fotoclub_id"];
-    if(!$perfil->insert()){
+    if ($transaction_created){
+      if(!$perfil->insert()){
         $transaction_p->rollBack();
         return $out;
-    } 
-        
-    //crear usuario
-    $user = new User();
+      }
+    } else {
+      if(!$perfil->save(false)){
+        $transaction_p->rollBack();
+        return $out;
+      }
+    }
+    
+    //se completa la información del usuario
     $user->username            = $params["userData"]["username"];
     $user->role_id             = $params["userData"]["role_id"];
     $user->email               = $params["userData"]["email"];
@@ -53,22 +68,28 @@ class SignUpAction extends CreateAction {
     $user->sign_up_verif_token = Yii::$app->getSecurity()->generatePasswordHash(rand(10000,99999));
     $user->sign_up_verif_code  = rand(10000,99999);
     if(!$user->save(false)){
+      if ($transaction_created){
         $transaction_p->rollBack();
-        return $out;
+      }
+      return $out;
     } 
 
-    $transaction_p->commit();
+    if ($transaction_created){
+      $transaction_p->commit();
+    }
+    
     $out['success']             = true;
     $out['sign_up_verif_token'] = $user->sign_up_verif_token;
 
     //Se envia el email
     \Yii::$app->mailer->compose('signupcode',['code' => $user->sign_up_verif_code, 'username' => $user->username ])
-        ->setFrom(['test.greenborn@outlook.com'])
+        ->setFrom([\Yii::$app->params['adminEmail']])
         ->setTo($user->email)
         ->setSubject('[Grupo Fotográfico Centro] Código de verificación' )
         ->send();
 
     return $out;
   }
+
 }
 
