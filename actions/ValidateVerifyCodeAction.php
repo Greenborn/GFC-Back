@@ -32,7 +32,9 @@ class ValidateVerifyCodeAction extends UpdateAction {
       return $out;
     }
 
-    $user->state = 1;
+    $user->status              = 1;
+    $user->sign_up_verif_code  = Null;
+    $user->sign_up_verif_token = Null;
     $out['success'] = $user->save(false);
     
     return $out;
