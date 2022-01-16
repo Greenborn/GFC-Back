@@ -2,18 +2,18 @@
 namespace app\controllers;
 
 use yii\rest\ActiveController;
-use yii\filters\Cors;
-use yii\data\ActiveDataProvider;
+
+
 use app\components\HttpTokenAuth;
-use app\models\Stadistics;
+use app\models\VistaDetallePerfil;
+use yii\filters\Cors;
 
 class StadisticsController extends BaseController {
 
-    public $modelClass = 'app\models\Stadistics';
+    public $modelClass = 'app\models\VistaDetallePerfil';
     public function prepareDataProvider(){
-       return Stadistics::model()->findAll();
-    }
-
+        return VistaDetallePerfil::find()->all();
+     }
 
     public function actions(){
 

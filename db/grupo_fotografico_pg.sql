@@ -188,7 +188,7 @@ CREATE TABLE "thumbnail_type" (
     CONSTRAINT thumbnail_type_pk PRIMARY KEY (id)
 );
 
-CREATE INDEX fk_user_role_id on "user" (role_id ASC);
+CREATE INDEX index_user_role_id on "user" (role_id ASC);
 
 -- foreign keys
 
@@ -304,13 +304,28 @@ ALTER TABLE profile_contest ADD CONSTRAINT profile_contest_category
     INITIALLY IMMEDIATE
 ;
 
--- Reference: section_section (table: section)
-ALTER TABLE section ADD CONSTRAINT section_section
-    FOREIGN KEY (parent_id)
-    REFERENCES section (id)  
-    NOT DEFERRABLE 
-    INITIALLY IMMEDIATE
-;
+-- -- Reference: section_section (table: section)
+-- ALTER TABLE section ADD CONSTRAINT section_section
+--     FOREIGN KEY (parent_id)
+--     REFERENCES section (id)  
+--     NOT DEFERRABLE 
+--     INITIALLY IMMEDIATE
+-- ;
+
+--vistas
+
+create view vista_detalle_perfil as
+select p.id,
+( select distinct COUNT(*) from profile_contest where profile_id = p.id) as concursos,
+( select COUNT(*) from image where profile_id = p.id ) as fotografias,
+( select Count(*) from contest_result cr1 join metric m on m.id = cr1.metric_id
+join image i on i.id = cr1.image_id
+    where i.profile_id = p.id and m.prize ILIKE '%menci_n%' ) as mencion,
+( select count(*) from metric m join contest_result cr on m.id = cr.metric_id
+join image i on i.id = cr.image_id where i.profile_id = p.id and  m.score IN (
+    select max(m2.score) from metric m2 join contest_result cr2 on m2.id = cr2.metric_id) ) as primer_puesto
+from profile p;
+
 
 -- End of file.
 
