@@ -50,7 +50,7 @@ class VistaDetallePerfil extends \yii\db\ActiveRecord
 
     public function getStadistics()
     {
-        return $this->hasMany(VistaDetallePerfil::className(), ['id' => 'id']);
+        return $this->hasMany(VistaDetallePerfil::className(), ['profile_id' => 'id']);
     }
 
 
