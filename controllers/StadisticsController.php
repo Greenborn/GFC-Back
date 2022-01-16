@@ -11,9 +11,9 @@ use yii\filters\Cors;
 class StadisticsController extends BaseController {
 
     public $modelClass = 'app\models\VistaDetallePerfil';
-    public function prepareDataProvider(){
-        return VistaDetallePerfil::find()->all();
-     }
+    // public function prepareDataProvider(){
+    //     return VistaDetallePerfil::find()->all();
+    //  }
 
     public function actions(){
 
