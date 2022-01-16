@@ -45,7 +45,9 @@ class SignUpAction extends CreateAction {
     //se completa la información de perfil
     $perfil->name        = $params["profileData"]["name"];
     $perfil->last_name   = $params["profileData"]["last_name"];
-    $perfil->fotoclub_id = $params["profileData"]["fotoclub_id"];
+    if (isset($params["profileData"]["fotoclub_id"])){
+      $perfil->fotoclub_id = $params["profileData"]["fotoclub_id"];
+    }
     if ($transaction_created){
       if(!$perfil->insert()){
         $transaction_p->rollBack();
