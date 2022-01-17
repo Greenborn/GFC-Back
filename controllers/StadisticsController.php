@@ -6,6 +6,7 @@ use yii\rest\ActiveController;
 
 use app\components\HttpTokenAuth;
 use app\models\VistaDetallePerfil;
+use yii\data\ActiveDataProvider;
 use yii\filters\Cors;
 
 class StadisticsController extends BaseController {
@@ -14,6 +15,18 @@ class StadisticsController extends BaseController {
     // public function prepareDataProvider(){
     //     return VistaDetallePerfil::find()->all();
     //  }
+    public function prepareDataProvider(){
+        // return VistaDetallePerfil::findOne('id');
+        $query = $this->modelClass::find();
+        $query = $this->addFilterConditions($query);
+        return new ActiveDataProvider([
+            'query' => $query->orderBy(['id' => SORT_ASC]),
+          ]);
+     }
+     public function actionView($id)
+{
+    return  $this->modelClass::findOne($id);
+}
 
     public function actions(){
 
