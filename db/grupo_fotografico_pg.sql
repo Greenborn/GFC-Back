@@ -6,8 +6,9 @@
 -- Table:info_centro
 CREATE TABLE footer (
     email varchar(45) NULL,
-    address varchar(45) NULL,
-    phone varchar(45) NULL,
+    facebook varchar(45) NULL,
+    instagram varchar(45) NULL,
+    youtube varchar(45) NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT footer_pk PRIMARY KEY (id)
 );

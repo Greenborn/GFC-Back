@@ -29,7 +29,7 @@ class Footer extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['address', 'phone', 'email'], 'string', 'max' => 45],
+            [['instagram','youtube', 'facebook', 'email'], 'string', 'max' => 45],
         ];
     }
 
@@ -40,8 +40,9 @@ class Footer extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
-            'address' => 'Address',
-            'phone' => 'Phone',
+            'facebook' => 'Facebook',
+            'youtube' => 'Youtube',
+            'instagram' => 'Instagram',
             'email' => 'Email',
         ];
     }
