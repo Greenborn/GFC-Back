@@ -7,7 +7,7 @@ BEGIN
     WHERE pc.contest_id = OLD.contest_id
     AND pc.category_id = OLD.category_id;
     IF (cant > 0) THEN
-     RAISE EXCEPTION 'La contest_category que quiere eliminar contiene profile_contest asociados';
+     RAISE EXCEPTION 'La categoría que quiere eliminar contiene perfiles de usuario en concursos asociados';
     END IF;
 RETURN OLD;
 END $$
@@ -27,7 +27,7 @@ BEGIN
     WHERE cr.contest_id = OLD.contest_id
     AND cr.section_id = OLD.section_id;
     IF (cant > 0) THEN
-     RAISE EXCEPTION 'La contest_section que quiere eliminar contiene contest_result asociados';
+     RAISE EXCEPTION 'La sección que quiere eliminar contiene perfiles de usuarios en concursos asociados';
     END IF;
 RETURN OLD;
 END $$
@@ -193,3 +193,25 @@ FOR EACH ROW EXECUTE PROCEDURE fn_limite_fotos_section();
 -- BEFORE INSERT OR UPDATE
 -- ON "user"
 -- FOR EACH ROW EXECUTE PROCEDURE fn_check_fotoclub();
+
+ CREATE OR REPLACE FUNCTION fn_delete_contest() RETURNS Trigger AS $$
+ DECLARE
+ BEGIN
+    IF (( select count(*) from profile_contest p join "user" u2 on p.profile_id = u2.profile_id
+            where u2.role_id = 3 and p.contest_id = OLD.id ) <= 0 )THEN
+     -- si cumple con las condiciones a especificar
+         delete from contest_section cs where cs.contest_id = OLD.id;
+         delete from contest_category cc where  cc.contest_id = OLD.id;
+         delete from profile_contest pc USING "user" u where pc.profile_id = u.profile_id
+            and u.role_id = 4 and pc.contest_id = OLD.id;
+     ELSE
+        RAISE EXCEPTION 'Este concurso no se puede borrar ya que contiene inscriptos';
+     END IF;
+ RETURN OLD;
+ END $$
+ LANGUAGE 'plpgsql';
+
+ CREATE TRIGGER tr_delete_contest
+ BEFORE DELETE
+ ON contest
+ FOR EACH ROW EXECUTE PROCEDURE fn_delete_contest();

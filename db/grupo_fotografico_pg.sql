@@ -50,9 +50,9 @@ CREATE TABLE contest_category (
     CONSTRAINT contest_category_pk PRIMARY KEY (id)
 );
 
-CREATE INDEX fk_contest_category_id on contest_category (category_id ASC);
+CREATE INDEX index_contest_category_id on contest_category (category_id ASC);
 
-CREATE INDEX fk_contest_contest_id on contest_category (contest_id ASC);
+CREATE INDEX index_contest_contest_id on contest_category (contest_id ASC);
 
 -- Table: contest_result
 CREATE TABLE contest_result (
@@ -64,11 +64,11 @@ CREATE TABLE contest_result (
     CONSTRAINT contest_result_pk PRIMARY KEY (id)
 );
 
-CREATE INDEX fk_contest_result_metric_id on contest_result (metric_id ASC);
+CREATE INDEX index_contest_result_metric_id on contest_result (metric_id ASC);
 
-CREATE INDEX fk_contest_result_contest_id on contest_result (contest_id ASC);
+CREATE INDEX index_contest_result_contest_id on contest_result (contest_id ASC);
 
-CREATE INDEX fk_contest_result_image_id on contest_result (image_id ASC);
+CREATE INDEX index_contest_result_image_id on contest_result (image_id ASC);
 
 -- Table: contest_section
 CREATE TABLE contest_section (
@@ -78,9 +78,9 @@ CREATE TABLE contest_section (
     CONSTRAINT contest_section_pk PRIMARY KEY (id)
 );
 
-CREATE INDEX fk_contest_section_id on contest_section (section_id ASC);
+CREATE INDEX index_contest_section_id on contest_section (section_id ASC);
 
-CREATE INDEX fk_contest_contest2_id on contest_section (contest_id ASC);
+CREATE INDEX index_contest_contest2_id on contest_section (contest_id ASC);
 
 -- Table: fotoclub
 CREATE TABLE fotoclub (
@@ -125,7 +125,7 @@ CREATE TABLE profile (
     CONSTRAINT profile_pk PRIMARY KEY (id)
 );
 
-CREATE INDEX fk_profile_fotoclub_id on profile (fotoclub_id ASC);
+CREATE INDEX index_profile_fotoclub_id on profile (fotoclub_id ASC);
 
 -- Table: profile_contest
 CREATE TABLE profile_contest (
@@ -137,9 +137,9 @@ CREATE TABLE profile_contest (
     CONSTRAINT profile_contest_pk PRIMARY KEY (id)
 );
 
-CREATE INDEX fk_profile_contest_id on profile_contest (contest_id ASC);
+CREATE INDEX index_profile_contest_id on profile_contest (contest_id ASC);
 
-CREATE INDEX fk_profile_profile_id on profile_contest (profile_id ASC);
+CREATE INDEX index_profile_profile_id on profile_contest (profile_id ASC);
 
 -- Table: role
 CREATE TABLE role (
@@ -168,7 +168,7 @@ CREATE TABLE "user" (
     role_id int  NOT NULL,
     profile_id int  NOT NULL,
     id SERIAL   NOT NULL,
-    CONSTRAINT fk_user_profile_id UNIQUE (profile_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
+    -- CONSTRAINT fk_user_profile_id UNIQUE (profile_id) NOT DEFERRABLE  INITIALLY IMMEDIATE,
     CONSTRAINT user_pk PRIMARY KEY (id)
 );
 
@@ -284,7 +284,7 @@ ALTER TABLE profile_contest ADD CONSTRAINT fk_profile_profile_id
 -- Reference: fk_user_profile_id (table: user)
 ALTER TABLE "user" ADD CONSTRAINT fk_user_profile_id
     FOREIGN KEY (profile_id)
-    REFERENCES profile (id)  
+    REFERENCES profile (id) ON DELETE CASCADE
     NOT DEFERRABLE 
     INITIALLY IMMEDIATE
 ;
@@ -297,8 +297,8 @@ ALTER TABLE "user" ADD CONSTRAINT fk_user_role_id
     INITIALLY IMMEDIATE
 ;
 
--- Reference: profile_contest_category (table: profile_contest)
-ALTER TABLE profile_contest ADD CONSTRAINT profile_contest_category
+-- Reference: fk_profile_contest_category (table: profile_contest)
+ALTER TABLE profile_contest ADD CONSTRAINT fk_profile_contest_category
     FOREIGN KEY (category_id)
     REFERENCES category (id)
     NOT DEFERRABLE
