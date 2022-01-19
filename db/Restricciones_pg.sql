@@ -215,3 +215,23 @@ FOR EACH ROW EXECUTE PROCEDURE fn_limite_fotos_section();
  BEFORE DELETE
  ON contest
  FOR EACH ROW EXECUTE PROCEDURE fn_delete_contest();
+
+ CREATE OR REPLACE FUNCTION fn_create_contest() RETURNS Trigger AS $$
+ DECLARE
+     cantSec INTEGER;
+     cantCat INTEGER;
+ BEGIN
+      select count(*) into cantSec from contest_section cs where cs.contest_id = NEW.id;
+      select count(*) into cantCat from contest_category cc where cc.contest_id = NEW.id;
+
+     IF (( TG_OP = 'UPDATE' or TG_OP = 'INSERT' ) and ( cantSec <= 0 and cantCat <= 0 )) THEN
+        RAISE EXCEPTION 'El concurso debe contener al menos una categoría y una sección';
+     END IF;
+ RETURN NEW;
+ END $$
+ LANGUAGE 'plpgsql';
+
+ CREATE TRIGGER tr_create_contest
+ BEFORE INSERT or UPDATE
+ ON contest
+ FOR EACH ROW EXECUTE PROCEDURE fn_create_contest();
