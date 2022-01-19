@@ -5,6 +5,7 @@ use Yii;
 use yii\rest\UpdateAction;
 use yii\helpers\Url;
 use app\models\User;
+use yii\web\BadRequestHttpException;
 
 class ChangePasswordAction extends UpdateAction {
 
@@ -31,24 +32,27 @@ class ChangePasswordAction extends UpdateAction {
                 ];
             }else{
                 $transaction->rollBack();
-                $response->data = [
-                    'status' => false,
-                    'message' => 'Error no se pudo cambiar la contraseña!',
-                ];                   
+                throw new BadRequestHttpException('Hubo un problema con la nueva contraseña');
+                // $response->data = [
+                //     'status' => false,
+                //     'message' => 'Error no se pudo cambiar la contraseña!',
+                // ];                   
             }
         }else{
-            $transaction->rollBack();
-            $response->data = [
-                'status' => false,
-                'message' => 'Error no se pudo cambiar la contraseña!',
-            ];                   
+            // $transaction->rollBack();
+          throw new BadRequestHttpException('Contraseña equivocada');
+            // $response->data = [
+            //     'status' => false,
+            //     'message' => 'Error no se pudo cambiar la contraseña!',
+            // ];                   
         }
-      }else{
-        $transaction->rollBack();
-        $response->data = [
-            'status' => false,
-            'message' => 'Error no se pudo cambiar la contraseña!',
-        ];                   
+      } else{
+        // $transaction->rollBack();
+        throw new BadRequestHttpException('Faltan datos');
+        // $response->data = [
+        //     'status' => false,
+        //     'message' => 'Error no se pudo cambiar la contraseña!',
+        // ];                   
     }
  }
 }

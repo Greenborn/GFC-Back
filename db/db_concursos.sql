@@ -50,8 +50,8 @@ CREATE TABLE `contest` (
   `id` int(11) NOT NULL,
   `name` varchar(45) NOT NULL,
   `description` longtext DEFAULT NULL,
-  `start_date` varchar(12) DEFAULT NULL,
-  `end_date` varchar(12) DEFAULT NULL
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --

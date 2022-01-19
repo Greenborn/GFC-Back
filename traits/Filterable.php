@@ -24,7 +24,7 @@ trait Filterable {
   public function buildComplexConditions($query, $value, $expressions){
     foreach ($expressions as $key => $values) {
       switch ($key) {
-        case 'between':
+        case 'between': // &filter[profile.id][between]=4,7
           $expArray = explode(',', $values);
           //se ordena para garantizar que el primer valor es menor
           sort($expArray);
@@ -33,13 +33,17 @@ trait Filterable {
           $query->andFilterCompare($value, '<='.$expArray[1]);
 
           break;
-        case 'inside':
+        case 'inside': // &filter[profile.id][inside]=4,7
           $expArray = explode(',', $values);
           //se ordena para garantizar que el primer valor es menor
           sort($expArray);
           $query->andFilterCompare($value, '>'.$expArray[0]);
           $query->andFilterCompare($value, '<'.$expArray[1]);
 
+        break;
+        case 'in': // &filter[profile.id][in]=4,6
+          $expArray = explode(',', $values);
+          $query->where(['in', $value,$expArray]);
         break;
       }
     }

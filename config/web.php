@@ -17,6 +17,7 @@ $config = [
             'cookieValidationKey' => '7hSF802zvlVYMSbq6E6hQlhCvJ-dQw0C',
             'parsers' => [
                'application/json' => 'yii\web\JsonParser',
+               'multipart/form-data' => 'yii\web\MultipartFormDataParser'
             ],
         ],
         'cache' => [
@@ -34,9 +35,9 @@ $config = [
           'class' => 'yii\swiftmailer\Mailer',
           'transport' => [
               'class' => 'Swift_SmtpTransport',
-              'host' => 'test.com.ar',  // ej. smtp.mandrillapp.com o smtp.gmail.com
-              'username' => 'test@testz.com.ar',
-              'password' => 'test',
+              'host' => 'unserver.com',  // ej. smtp.mandrillapp.com o smtp.gmail.com
+              'username' => 'test.greenborn',
+              'password' => 'pastworita',
               'port' => '587', // El puerto 25 es un puerto común también
               'encryption' => 'tls', // Es usado también a menudo, revise la configuración del servidor
             ],
@@ -101,6 +102,10 @@ $config = [
                     'pluralize' => false,
                 ],
                 [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'metric-abm',
+                    'pluralize' => false,
+                ],
+                [ 'class' => 'yii\rest\UrlRule',
                     'controller' => 'password-reset',
                     'pluralize' => false,
                 ],
@@ -113,6 +118,10 @@ $config = [
                     'pluralize' => false,
                 ],
                 [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'profile-registrable',
+                    'pluralize' => false,
+                ],
+                [ 'class' => 'yii\rest\UrlRule',
                     'controller' => 'role',
                     'pluralize' => false,
                 ],
@@ -122,6 +131,22 @@ $config = [
                 ],
                 [ 'class' => 'yii\rest\UrlRule',
                     'controller' => 'user',
+                    'pluralize' => false,
+                ],
+                [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'info-centro',
+                    'pluralize' => false,
+                ],
+                [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'footer',
+                    'pluralize' => false,
+                ],
+                [ 'class' => 'yii\rest\UrlRule',
+                    'controller' => 'stadistics',
+                    'pluralize' => false,
+            ],[
+            'class' => 'yii\rest\UrlRule',
+                    'controller' => 'sign-up',
                     'pluralize' => false,
                 ],
             ],
@@ -146,5 +171,6 @@ if (YII_ENV_DEV) {
         //'allowedIPs' => ['127.0.0.1', '::1'],
     ];
 }
+
 
 return $config;

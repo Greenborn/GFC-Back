@@ -52,8 +52,8 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
     public function rules()
     {
         return [
-            [['state_id', 'role_id'], 'required'],
-            [['state_id', 'online', 'role_id'], 'integer'],
+            // [['state_id', 'role_id'], 'required'],
+            // [['state_id', 'online', 'role_id'], 'integer'],
             [['username', 'created_at', 'updated_at'], 'string', 'max' => 45],
             [['password_hash', 'password_reset_token'], 'string', 'max' => 255],
             [['access_token'], 'string', 'max' => 128],
@@ -73,63 +73,13 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
             'password_hash' => 'Password Hash',
             'password_reset_token' => 'Password Reset Token',
             'access_token' => 'Access Token',
-            'state_id' => 'State ID',
+            // 'state_id' => 'State ID',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
-            'online' => 'Online',
+            // 'online' => 'Online',
             'role_id' => 'Role ID',
             'profile_id' => 'Profile ID',
         ];
-    }
-
-    /**
-     * Gets query for [[Chat-rooms]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getChatRooms()
-    {
-        return $this->hasMany(ChatRoom::className(), ['user_receiver_id' => 'id'])->inverseOf('userReceiver');
-    }
-
-    /**
-     * Gets query for [[Chat-rooms0]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getChatRooms0()
-    {
-        return $this->hasMany(ChatRoom::className(), ['user_sender_id' => 'id'])->inverseOf('userSender');
-    }
-
-    /**
-     * Gets query for [[Matches]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getMatches()
-    {
-        return $this->hasMany(Matches::className(), ['user_matched_id' => 'id'])->inverseOf('userMatched');
-    }
-
-    /**
-     * Gets query for [[Matches0]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getMatches0()
-    {
-        return $this->hasMany(Matches::className(), ['user_matcher_id' => 'id'])->inverseOf('userMatcher');
-    }
-
-    /**
-     * Gets query for [[Messages]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getMessages()
-    {
-        return $this->hasMany(Message::className(), ['user_sender_id' => 'id'])->inverseOf('userSender');
     }
 
     /**
@@ -142,15 +92,6 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
         return $this->hasOne(Role::className(), ['id' => 'role_id'])->inverseOf('users');
     }
 
-    /**
-     * Gets query for [[State]].
-     *
-     * @return \yii\db\ActiveQuery
-     */
-    public function getState()
-    {
-        return $this->hasOne(Role::className(), ['id' => 'state_id'])->inverseOf('users0');
-    }
 
     /**
      * Gets query for [[Profile]].
@@ -221,6 +162,12 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
     public function generatePasswordResetToken()
     {
         $this->password_reset_token = Yii::$app->security->generateRandomString() . '_' . time();
+    }
+
+    public function generateAccessToken()
+    {
+        $this->access_token=Yii::$app->security->generateRandomString();
+        return $this->access_token;
     }
 
 }

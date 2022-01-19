@@ -11,10 +11,12 @@ use Yii;
  * @property int $metric_id
  * @property int $image_id
  * @property int $contest_id
- *
+ * @property int $section_id
+ * 
  * @property Contest $contest
  * @property Image $image
  * @property Metric $metric
+ * @property Section $section
  */
 class ContestResult extends \yii\db\ActiveRecord
 {
@@ -32,11 +34,12 @@ class ContestResult extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['metric_id', 'image_id', 'contest_id'], 'required'],
-            [['metric_id', 'image_id', 'contest_id'], 'integer'],
-            [['contest_id'], 'exist', 'skipOnError' => true, 'targetClass' => Contest::className(), 'targetAttribute' => ['contest_id' => 'id']],
-            [['image_id'], 'exist', 'skipOnError' => true, 'targetClass' => Image::className(), 'targetAttribute' => ['image_id' => 'id']],
-            [['metric_id'], 'exist', 'skipOnError' => true, 'targetClass' => Metric::className(), 'targetAttribute' => ['metric_id' => 'id']],
+            [['metric_id', 'image_id', 'contest_id', 'section_id'], 'required'],
+            [['metric_id', 'image_id', 'contest_id', 'section_id'], 'integer'],
+            [['contest_id'], 'exist', 'skipOnError' => true, 'targetClass' => Contest::class, 'targetAttribute' => ['contest_id' => 'id']],
+            [['image_id'], 'exist', 'skipOnError' => true, 'targetClass' => Image::class, 'targetAttribute' => ['image_id' => 'id']],
+            [['metric_id'], 'exist', 'skipOnError' => true, 'targetClass' => Metric::class, 'targetAttribute' => ['metric_id' => 'id']],
+            [['section_id'], 'exist', 'skipOnError' => true, 'targetClass' => Section::class, 'targetAttribute' => ['section_id' => 'id']],
         ];
     }
 
@@ -50,7 +53,18 @@ class ContestResult extends \yii\db\ActiveRecord
             'metric_id' => 'Metric ID',
             'image_id' => 'Image ID',
             'contest_id' => 'Contest ID',
+            'section_id' => 'Section ID',
         ];
+    }
+    
+    /**
+     * Gets query for [[Section]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getSection()
+    {
+        return $this->hasOne(Section::className(), ['id' => 'section_id']);
     }
 
     /**
@@ -93,6 +107,7 @@ class ContestResult extends \yii\db\ActiveRecord
         //      );
         $fields[] = 'image'; 
         $fields[] = 'metric'; 
+        $fields[] = 'section';
 
         return $fields;
     }

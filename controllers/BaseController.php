@@ -12,12 +12,19 @@ use app\traits\Filterable;
 class BaseController extends ActiveController {
 
     use Filterable;
+    protected bool $autenticator = true;
 
     public $serializer = [
         'class' => 'yii\rest\Serializer',
-        'collectionEnvelope' => 'items',
+        'collectionEnvelope' => 'items'
     ];
 
+    // index: list resources page by page;
+    // view: return the details of a specified resource;
+    // create: create a new resource;
+    // update: update an existing resource;
+    // delete: delete the specified resource;
+    // options: return the supported HTTP methods.
     public function actions(){
       $actions = parent::actions();
       $actions['index']['prepareDataProvider'] = [$this, 'prepareDataProvider'];
@@ -26,10 +33,12 @@ class BaseController extends ActiveController {
 
     public function behaviors() {
         $behaviors = parent::behaviors();
-        $behaviors['authenticator'] = [
-            'class' => HttpTokenAuth::className(),
-             'except' => ['options'],
-        ];
+        if ($this->autenticator){
+          $behaviors['authenticator'] = [
+              'class' => HttpTokenAuth::className(),
+               'except' => ['options'],
+          ];
+        }
         $behaviors['corsFilter'] = [
            'class' => Cors::className(),
            'cors' => [
