@@ -63,7 +63,7 @@ class Fotoclub extends \yii\db\ActiveRecord
 
         $params = Yii::$app->getRequest()->getBodyParams();
         
-        $image = UploadedFile::getInstanceByName('photo_file');
+        $image = UploadedFile::getInstanceByName('image_file');
         $date     = new \DateTime();
 
         if (isset($image)) {
