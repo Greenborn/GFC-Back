@@ -240,6 +240,7 @@ FOR EACH ROW EXECUTE PROCEDURE fn_limite_fotos_section();
  DECLARE
  BEGIN
      IF ((select (i.url IS NULL or i.url LIKE '') from image i where i.id = NEW.image_id) = TRUE ) THEN
+        delete from image where id = NEW.image_id;
         RAISE EXCEPTION 'La imagen debe tener un formato válido';
      END IF;
  RETURN NEW;

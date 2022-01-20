@@ -84,8 +84,13 @@ CREATE INDEX index_contest_contest2_id on contest_section (contest_id ASC);
 
 -- Table: fotoclub
 CREATE TABLE fotoclub (
-    name varchar(45)  NULL DEFAULT NULL,
+    name varchar(45)  NOT NULL,
     id SERIAL   NOT NULL,
+    facebook varchar(45) NULL DEFAULT NULL, 
+    instagram varchar(45) NULL DEFAULT NULL,
+    email varchar(45) NULL DEFAULT NULL,
+    photo_url varchar(255) NULL DEFAULT NULL,
+    description varchar(255) NULL DEFAULT NULL,
     CONSTRAINT fotoclub_pk PRIMARY KEY (id)
 );
 
