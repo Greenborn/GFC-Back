@@ -3,6 +3,7 @@
 namespace app\models;
 
 use Yii;
+use yii\web\UploadedFile;
 
 /**
  * This is the model class for table "fotoclub".
@@ -48,6 +49,50 @@ class Fotoclub extends \yii\db\ActiveRecord
             'description' => 'Description'
         ];
     }
+
+    public function beforeDelete() {
+        if (!empty($this->photo_url) && file_exists($this->photo_url)) {
+            unlink($this->photo_url);
+            // echo 'se elimnó la img';
+        }
+        return true;
+    }
+
+    public function beforeSave($insert) {
+
+        $params = Yii::$app->getRequest()->getBodyParams();
+        
+        $image = UploadedFile::getInstanceByName('photo_file');
+
+        if (isset($image)) {
+            // cargar img y sobrescribir la url
+            // $tipo   = $image->type;
+            // $tamano = $image->size;
+            // $temp   = $image->tempName;
+            // validar img
+            $date     = new \DateTime();
+            $img_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->name))) . '-img-' . $date->getTimestamp();
+            $full_path = 'images/' . $img_name .  '.' . $image->extension;
+
+            if (!$insert) {
+                if (!empty($this->photo_url) && file_exists($this->photo_url)) {
+                    unlink($this->photo_url);
+                    $this->photo_url = '';
+                    // echo 'se elimnó la img';
+                } else {
+                    // echo 'no se elimnó la img';
+                }
+            }
+
+            $image->saveAs($full_path);
+            $this->photo_url = $full_path;
+
+        } else {
+            // no se cargó la imagen
+        }
+        return parent::beforeSave($insert);
+      
+      }
 
     /**
      * Gets query for [[Profiles]].
