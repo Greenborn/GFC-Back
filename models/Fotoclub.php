@@ -46,7 +46,8 @@ class Fotoclub extends \yii\db\ActiveRecord
             'facebook' => 'Facebook',
             'instagram' => 'Instagram',
             'email' => 'Email',
-            'description' => 'Description'
+            'description' => 'Description',
+            'photo_url' => 'Photo_url',
         ];
     }
 
@@ -63,6 +64,7 @@ class Fotoclub extends \yii\db\ActiveRecord
         $params = Yii::$app->getRequest()->getBodyParams();
         
         $image = UploadedFile::getInstanceByName('photo_file');
+        $date     = new \DateTime();
 
         if (isset($image)) {
             // cargar img y sobrescribir la url
@@ -70,8 +72,7 @@ class Fotoclub extends \yii\db\ActiveRecord
             // $tamano = $image->size;
             // $temp   = $image->tempName;
             // validar img
-            $date     = new \DateTime();
-            $img_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->name))) . '-img-' . $date->getTimestamp();
+            $img_name = $this->name . '-imgOrg-' . $date->getTimestamp();
             $full_path = 'images/' . $img_name .  '.' . $image->extension;
 
             if (!$insert) {
@@ -89,6 +90,16 @@ class Fotoclub extends \yii\db\ActiveRecord
 
         } else {
             // no se cargó la imagen
+
+            if (file_exists($this->photo_url)) {
+                $img_name = $this->name . '-imgOrg-' . $date->getTimestamp();
+                $matches = [];
+                preg_match('/(.[a-zA-Z])*$/', $this->photo_url, $matches);
+                $ext = $matches[0];
+                $new_url = 'images/' . $img_name . $ext;
+                rename($this->photo_url, $new_url);
+                $this->photo_url = $new_url;
+            }
         }
         return parent::beforeSave($insert);
       
