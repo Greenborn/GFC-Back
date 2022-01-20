@@ -94,7 +94,7 @@ CREATE TABLE image (
     code varchar(20)  NOT NULL,
     title varchar(45)  NOT NULL,
     profile_id int  NOT NULL,
-    url varchar(200) NULL,
+    url varchar(200) NOT NULL,
     id SERIAL   NOT NULL,
     CONSTRAINT image_pk PRIMARY KEY (id)
 );

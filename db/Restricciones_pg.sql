@@ -235,3 +235,18 @@ FOR EACH ROW EXECUTE PROCEDURE fn_limite_fotos_section();
  BEFORE INSERT or UPDATE
  ON contest
  FOR EACH ROW EXECUTE PROCEDURE fn_create_contest();
+
+  CREATE OR REPLACE FUNCTION fn_image_contest() RETURNS Trigger AS $$
+ DECLARE
+ BEGIN
+     IF ((select (i.url IS NULL or i.url LIKE '') from image i where i.id = NEW.image_id) = TRUE ) THEN
+        RAISE EXCEPTION 'La imagen debe tener un formato válido';
+     END IF;
+ RETURN NEW;
+ END $$
+ LANGUAGE 'plpgsql';
+
+ CREATE TRIGGER tr_create_contest
+ BEFORE INSERT or UPDATE
+ ON contest_result
+ FOR EACH ROW EXECUTE PROCEDURE fn_image_contest();
