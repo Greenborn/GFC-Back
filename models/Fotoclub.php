@@ -47,7 +47,7 @@ class Fotoclub extends \yii\db\ActiveRecord
             'instagram' => 'Instagram',
             'email' => 'Email',
             'description' => 'Description',
-            'photo_url' => 'Photo_url',
+            // 'photo_url' => 'Photo_url',
         ];
     }
 
@@ -72,7 +72,7 @@ class Fotoclub extends \yii\db\ActiveRecord
             // $tamano = $image->size;
             // $temp   = $image->tempName;
             // validar img
-            $img_name = $this->name . '-imgOrg-' . $date->getTimestamp();
+            $img_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->name))) . '-imgOrg-' . $date->getTimestamp();
             $full_path = 'images/' . $img_name .  '.' . $image->extension;
 
             if (!$insert) {
