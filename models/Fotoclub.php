@@ -92,7 +92,7 @@ class Fotoclub extends \yii\db\ActiveRecord
             // no se cargó la imagen
 
             if (file_exists($this->photo_url)) {
-                $img_name = $this->name . '-imgOrg-' . $date->getTimestamp();
+                $img_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->name))) . '-imgOrg-' . $date->getTimestamp();
                 $matches = [];
                 preg_match('/(.[a-zA-Z])*$/', $this->photo_url, $matches);
                 $ext = $matches[0];
