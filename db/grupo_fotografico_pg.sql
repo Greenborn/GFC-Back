@@ -124,6 +124,8 @@ CREATE TABLE metric_abm (
 CREATE TABLE profile (
     name varchar(59)  NULL DEFAULT NULL,
     last_name varchar(50)  NULL DEFAULT NULL,
+    executive boolean  NULL DEFAULT false,
+    executive_rol varchar(59) NULL DEFAULT NULL,
     fotoclub_id int  NULL,
     id SERIAL   NOT NULL,
     img_url varchar(200) NULL,
