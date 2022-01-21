@@ -59,21 +59,40 @@ class Fotoclub extends \yii\db\ActiveRecord
         return true;
     }
 
+    private function base64_to_file($base64_string, $output_file) {
+        // open the output file for writing
+        $ifp = fopen( $output_file, 'wb' ); 
+    
+        // split the string on commas
+        // $data[ 0 ] == "data:image/png;base64"
+        // $data[ 1 ] == <actual base64 string>
+        $data = explode( ',', $base64_string );
+    
+        // we could add validation here with ensuring count( $data ) > 1
+        fwrite( $ifp, base64_decode( $data[ 1 ] ) );
+    
+        // clean up the file resource
+        fclose( $ifp ); 
+    
+        return $output_file; 
+    }
+
     public function beforeSave($insert) {
 
         $params = Yii::$app->getRequest()->getBodyParams();
         
-        $image = UploadedFile::getInstanceByName('image_file');
         $date     = new \DateTime();
 
-        if (isset($image)) {
+        if (isset($params['photo_base64'])) {
             // cargar img y sobrescribir la url
             // $tipo   = $image->type;
             // $tamano = $image->size;
             // $temp   = $image->tempName;
             // validar img
+            $arr_filename = explode('.', $params['photo_base64']['name']);
+            $extension = end($arr_filename);
             $img_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->name))) . '-imgOrg-' . $date->getTimestamp();
-            $full_path = 'images/' . $img_name .  '.' . $image->extension;
+            $full_path = 'images/' . $img_name .  '.' . $extension;
 
             if (!$insert) {
                 if (!empty($this->photo_url) && file_exists($this->photo_url)) {
@@ -85,7 +104,7 @@ class Fotoclub extends \yii\db\ActiveRecord
                 }
             }
 
-            $image->saveAs($full_path);
+            $this->base64_to_file($params['photo_base64']['file'], $full_path);
             $this->photo_url = $full_path;
 
         } else {
