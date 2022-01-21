@@ -35,7 +35,8 @@ class Profile extends \yii\db\ActiveRecord
         return [
             // [['fotoclub_id'], 'required'],
             [['fotoclub_id'], 'integer'],
-            [['name'], 'string', 'max' => 59],
+            [['executive'], 'boolean'],
+            [['name', 'executive_rol'], 'string', 'max' => 59],
             [['last_name', 'img_url'], 'string', 'max' => 50],
             [['fotoclub_id'], 'exist', 'skipOnError' => true, 'targetClass' => Fotoclub::className(), 'targetAttribute' => ['fotoclub_id' => 'id']],
         ];
@@ -51,6 +52,8 @@ class Profile extends \yii\db\ActiveRecord
             'name' => 'Name',
             'last_name' => 'Last Name',
             'fotoclub_id' => 'Fotoclub ID',
+            'executive' => 'Executive',
+            'executive_rol' => 'Executive_rol'
         ];
     }
 

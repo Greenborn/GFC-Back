@@ -105,6 +105,12 @@ class Fotoclub extends \yii\db\ActiveRecord
       
       }
 
+      public function fields() {
+        $fields = parent::fields();
+
+        return $fields;
+    }
+
     /**
      * Gets query for [[Profiles]].
      *
