@@ -35,7 +35,7 @@ class Profile extends \yii\db\ActiveRecord
         return [
             // [['fotoclub_id'], 'required'],
             [['fotoclub_id'], 'integer'],
-            [['executive'], 'boolean', 'trueValue' => true, 'falseValue' => false, 'strict' => true], // 0 o 1
+            [['executive'], 'boolean', 'trueValue' => true, 'falseValue' => false], 
             ['executive_rol', 'required', 'when' => function($model) {
                 return $model->executive == true;
             }],
