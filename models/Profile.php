@@ -35,7 +35,10 @@ class Profile extends \yii\db\ActiveRecord
         return [
             // [['fotoclub_id'], 'required'],
             [['fotoclub_id'], 'integer'],
-            [['executive'], 'boolean'], // 0 o 1
+            [['executive'], 'boolean', 'trueValue' => true, 'falseValue' => false, 'strict' => true], // 0 o 1
+            ['executive_rol', 'required', 'when' => function($model) {
+                return $model->executive == true;
+            }],
             [['name', 'executive_rol'], 'string', 'max' => 59],
             [['last_name', 'img_url'], 'string', 'max' => 50],
             [['fotoclub_id'], 'exist', 'skipOnError' => true, 'targetClass' => Fotoclub::className(), 'targetAttribute' => ['fotoclub_id' => 'id']],
@@ -55,10 +58,6 @@ class Profile extends \yii\db\ActiveRecord
             'executive' => 'Executive',
             'executive_rol' => 'Executive_rol'
         ];
-    }
-    public function afterFind() {
-        $this->executive = ($this->executive === 1);
-        parent::afterFind();
     }
 
     public function beforeDelete() {
