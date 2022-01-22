@@ -36,9 +36,9 @@ class Contest extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['description'], 'string', 'max' => 250],
+            [['description'], 'string', 'max' => 255],
             [['max_img_section'], 'number'],
-            [['name', 'img_url', 'rules_url'], 'string', 'max' => 45],
+            [['name', 'img_url', 'sub_title', 'rules_url'], 'string', 'max' => 255],
             [['start_date', 'end_date'], 'string', 'max' => 33],
         ];
     }
@@ -49,11 +49,12 @@ class Contest extends \yii\db\ActiveRecord
     public function attributeLabels()
     {
         return [
-            'id' => 'ID',
-            'name' => 'Name',
-            'description' => 'Description',
-            'start_date' => 'Start Date',
-            'end_date' => 'End Date',
+            'id'          => 'ID',
+            'name'        => 'Nombre',
+            'description' => 'Descripción',
+            'start_date'  => 'Comienzo',
+            'end_date'    => 'Cierre',
+            'sub_title'   => 'Sub título'
         ];
     }
 

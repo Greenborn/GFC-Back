@@ -1,7 +1,8 @@
 <?php
 
 $params = require __DIR__ . '/params.php';
-$db = require __DIR__ . '/db.php';
+$db     = require __DIR__ . '/db.php';
+$email  = require __DIR__ . '/email.php';
 
 $config = [
     'id' => 'basic',
@@ -31,17 +32,7 @@ $config = [
         'errorHandler' => [
             'errorAction' => 'site/error',
         ],
-        'mailer' => [
-          'class' => 'yii\swiftmailer\Mailer',
-          'transport' => [
-              'class' => 'Swift_SmtpTransport',
-              'host' => 'unserver.com',  // ej. smtp.mandrillapp.com o smtp.gmail.com
-              'username' => 'test.greenborn',
-              'password' => 'pastworita',
-              'port' => '587', // El puerto 25 es un puerto común también
-              'encryption' => 'tls', // Es usado también a menudo, revise la configuración del servidor
-            ],
-        ],
+        'mailer' => $email,
         'log' => [
             'traceLevel' => YII_DEBUG ? 3 : 0,
             'targets' => [
@@ -144,11 +135,14 @@ $config = [
                 [ 'class' => 'yii\rest\UrlRule',
                     'controller' => 'stadistics',
                     'pluralize' => false,
-            ],[
-            'class' => 'yii\rest\UrlRule',
-                    'controller' => 'sign-up',
-                    'pluralize' => false,
+                ],[
+                'class' => 'yii\rest\UrlRule',
+                        'controller' => 'sign-up',
+                        'pluralize' => false,
                 ],
+
+                ['class' => 'yii\rest\UrlRule', 'controller' => 'public-info-centro', 'pluralize' => false ],
+                ['class' => 'yii\rest\UrlRule', 'controller' => 'public-contest', 'pluralize' => false ],
             ],
         ],
     ],
