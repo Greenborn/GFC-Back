@@ -328,7 +328,7 @@ select p.id,
 ( select COUNT(*) from image where profile_id = p.id ) as fotografias,
 ( select Count(*) from contest_result cr1 join metric m on m.id = cr1.metric_id
 join image i on i.id = cr1.image_id
-    where i.profile_id = p.id and m.prize ILIKE '%menci_n%' ) as mencion,
+    where i.profile_id = p.id and m.prize ILIKE '%menci_n%') as mencion,
 ( select count(*) from metric m join contest_result cr on m.id = cr.metric_id
 join image i on i.id = cr.image_id where i.profile_id = p.id and  m.score IN (
     select max(m2.score) from metric m2 join contest_result cr2 on m2.id = cr2.metric_id) ) as primer_puesto
