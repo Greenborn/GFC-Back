@@ -7,7 +7,7 @@ BEGIN
     WHERE pc.contest_id = OLD.contest_id
     AND pc.category_id = OLD.category_id;
     IF (cant > 0) THEN
-     RAISE EXCEPTION 'La contest_category que quiere eliminar contiene profile_contest asociados';
+     RAISE EXCEPTION 'La categoría que quiere eliminar contiene perfiles de usuario en concursos asociados';
     END IF;
 RETURN OLD;
 END $$
@@ -27,7 +27,7 @@ BEGIN
     WHERE cr.contest_id = OLD.contest_id
     AND cr.section_id = OLD.section_id;
     IF (cant > 0) THEN
-     RAISE EXCEPTION 'La contest_section que quiere eliminar contiene contest_result asociados';
+     RAISE EXCEPTION 'La sección que quiere eliminar contiene perfiles de usuarios en concursos asociados';
     END IF;
 RETURN OLD;
 END $$
@@ -193,3 +193,82 @@ FOR EACH ROW EXECUTE PROCEDURE fn_limite_fotos_section();
 -- BEFORE INSERT OR UPDATE
 -- ON "user"
 -- FOR EACH ROW EXECUTE PROCEDURE fn_check_fotoclub();
+
+ CREATE OR REPLACE FUNCTION fn_delete_contest() RETURNS Trigger AS $$
+ DECLARE
+ BEGIN
+    IF (( select count(*) from profile_contest p join "user" u2 on p.profile_id = u2.profile_id
+            where u2.role_id = 3 and p.contest_id = OLD.id ) <= 0 )THEN
+     -- si cumple con las condiciones a especificar
+         delete from contest_section cs where cs.contest_id = OLD.id;
+         delete from contest_category cc where  cc.contest_id = OLD.id;
+         delete from profile_contest pc USING "user" u where pc.profile_id = u.profile_id
+            and u.role_id = 4 and pc.contest_id = OLD.id;
+     ELSE
+        RAISE EXCEPTION 'Este concurso no se puede borrar ya que contiene inscriptos';
+     END IF;
+ RETURN OLD;
+ END $$
+ LANGUAGE 'plpgsql';
+
+ CREATE TRIGGER tr_delete_contest
+ BEFORE DELETE
+ ON contest
+ FOR EACH ROW EXECUTE PROCEDURE fn_delete_contest();
+
+ CREATE OR REPLACE FUNCTION fn_create_contest() RETURNS Trigger AS $$
+ DECLARE
+     cantSec INTEGER;
+     cantCat INTEGER;
+ BEGIN
+      select count(*) into cantSec from contest_section cs where cs.contest_id = NEW.id;
+      select count(*) into cantCat from contest_category cc where cc.contest_id = NEW.id;
+
+     IF (( TG_OP = 'UPDATE' or TG_OP = 'INSERT' ) and ( cantSec <= 0 and cantCat <= 0 )) THEN
+        RAISE EXCEPTION 'El concurso debe contener al menos una categoría y una sección';
+     END IF;
+ RETURN NEW;
+ END $$
+ LANGUAGE 'plpgsql';
+
+ CREATE TRIGGER tr_create_contest
+ BEFORE INSERT or UPDATE
+ ON contest
+ FOR EACH ROW EXECUTE PROCEDURE fn_create_contest();
+
+  CREATE OR REPLACE FUNCTION fn_image_contest() RETURNS Trigger AS $$
+ DECLARE
+ BEGIN
+     IF ((select (i.url IS NULL or i.url LIKE '') from image i where i.id = NEW.image_id) = TRUE ) THEN
+        delete from image where id = NEW.image_id;
+        RAISE EXCEPTION 'La imagen debe tener un formato válido';
+     END IF;
+ RETURN NEW;
+ END $$
+ LANGUAGE 'plpgsql';
+
+ CREATE TRIGGER tr_create_contest
+ BEFORE INSERT or UPDATE
+ ON contest_result
+ FOR EACH ROW EXECUTE PROCEDURE fn_image_contest();
+
+ CREATE OR REPLACE FUNCTION fn_metric_abm() RETURNS Trigger AS $$
+ DECLARE
+ BEGIN
+       IF (( select count(*) from contest c where c.end_date > date(now()) ) >= 1) THEN
+             RAISE EXCEPTION 'No se pueden modificar los puntajes mientras haya concursos vigentes';
+            end if;
+     IF (TG_OP = 'INSERT' ) then
+         RETURN NEW;
+     elsif (TG_OP = 'UPDATE' or TG_OP = 'DELETE'  ) then
+          RETURN OLD;
+    end if;
+ END $$
+ LANGUAGE 'plpgsql';
+
+ CREATE TRIGGER tr_metric_abm
+ BEFORE INSERT or DELETE or UPDATE
+ ON metric_abm
+ FOR EACH ROW EXECUTE PROCEDURE fn_metric_abm();
+
+ ALTER TABLE metric_abm ADD CONSTRAINT score_unique UNIQUE (score);
