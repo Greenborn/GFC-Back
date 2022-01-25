@@ -77,6 +77,24 @@ class Image extends \yii\db\ActiveRecord
         return true;
     }
 
+    private function base64_to_file($base64_string, $output_file) {
+        // open the output file for writing
+        $ifp = fopen( $output_file, 'wb' ); 
+    
+        // split the string on commas
+        // $data[ 0 ] == "data:image/png;base64"
+        // $data[ 1 ] == <actual base64 string>
+        $data = explode( ',', $base64_string );
+    
+        // we could add validation here with ensuring count( $data ) > 1
+        fwrite( $ifp, base64_decode( $data[ 1 ] ) );
+    
+        // clean up the file resource
+        fclose( $ifp ); 
+    
+        return $output_file; 
+    }
+
     public function beforeSave($insert) {
 
         // do transformations here
@@ -86,38 +104,16 @@ class Image extends \yii\db\ActiveRecord
         // }
         $params = Yii::$app->getRequest()->getBodyParams();
         
-        // $image = $_FILES['image_file'];
-        $image = UploadedFile::getInstanceByName('image_file');
-        // var_dump($_FILES);
         $date     = new \DateTime();
-        $id_image = Image::find()->orderBy(['id' => SORT_DESC])->one();
-        if ($id_image == Null){
-            $id_image = 1;
-        } else {
-            $id_image = $id_image->id + 1;
-        }
-        
-        if (isset($image)) {
+                
+        if (isset($params['photo_base64'])) {
             // cargar img y sobrescribir la url
             
-            // $tipo   = $image['type'];
-            // $tamano = $image['size'];
-            // $temp   = $image['tmp_name'];
-            // var_dump('si');
-            // $tipo   = $image->type;
-            // $tamano = $image->size;
-            // $temp   = $image->tempName;
-            // validar img
-            // $img_name = $date->getTimestamp() . $image['name'];
-            $this->code = $this->code . $date->getTimestamp();
-            $img_name = $this->code;
-            //Si la imagen es correcta en tamaño y tipo
-            //Se intenta subir al servidor
-            // $full_path = getcwd().'/user_data/'.$img_name;
-            $full_path = 'images/' . $img_name .  '.' . $image->extension;
-            // $full_path = 'images/' . $img_name;
-            // $this->url = $full_path;
-
+            $arr_filename = explode('.', $params['photo_base64']['name']);
+            $extension = end($arr_filename);
+            $img_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->code))) . '-contest' . $date->getTimestamp();
+            $full_path = 'images/' . $img_name .  '.' . $extension;
+            
             if (!$insert) {
                 if (!empty($this->url) && file_exists($this->url)) {
                     unlink($this->url);
@@ -128,44 +124,24 @@ class Image extends \yii\db\ActiveRecord
                 }
             }
 
-            
-            // try {
-                // if (move_uploaded_file($temp, $full_path)) {
-                $image->saveAs($full_path);
-                $this->url = $full_path;
-
-                // } else {
-                    // $this->url = 'error en la carga';
-                // }
-
-                // if (!$insert) $insert = true;
-
-            //Generaciòn de miniaturas
-            $this->generateThumbnails('images/', $img_name, $image->extension, 'images/thumbnails/',$id_image);
-
-        } else {
-            $this->code = $this->code . $date->getTimestamp();
-            if (file_exists($this->url)) {
-                $matches = [];
-                preg_match('/(.[a-zA-Z])*$/', $this->url, $matches);
-                $ext = $matches[0];
-                $new_url = 'images/' . $this->code . $ext;
-                rename($this->url, $new_url);
-                $this->url = $new_url;
-
-                $this->generateThumbnails('images/', $this->code, $ext, 'images/thumbnails/',$id_image); 
-            }
-            // no se cargó la imagen
-            // if ($insert)
-            //     $this->url = 'no se cargó la img';
-            // else
-            //     $this->url ='no era inesrt';
-        }
-      
-        
+            $this->base64_to_file($params['photo_base64']['file'], $full_path);
+            $this->url = $full_path;
+        }        
       
         return parent::beforeSave($insert);
-      
+    }
+
+    public function afterSave($insert, $changedAttributes) {
+        if ($insert) {
+            //Generaciòn de miniaturas
+            $img_name     = $this->url;
+            $arr_filename = explode('.', $img_name);
+            $extension    = end($arr_filename);
+            $img_name = str_replace(['images/', '.'.$extension],'',$img_name);
+            $this->generateThumbnails('images/', $img_name, $extension, 'images/thumbnails/',$this->id);
+        }
+
+        return parent::afterSave($insert, $changedAttributes);
     }
 
     protected function generateThumbnails($d_base, $img_name, $img_ext, $d_thumbnails,$id_image){
