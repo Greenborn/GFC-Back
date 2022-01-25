@@ -251,3 +251,24 @@ FOR EACH ROW EXECUTE PROCEDURE fn_limite_fotos_section();
  BEFORE INSERT or UPDATE
  ON contest_result
  FOR EACH ROW EXECUTE PROCEDURE fn_image_contest();
+
+ CREATE OR REPLACE FUNCTION fn_metric_abm() RETURNS Trigger AS $$
+ DECLARE
+ BEGIN
+       IF (( select count(*) from contest c where c.end_date > date(now()) ) >= 1) THEN
+             RAISE EXCEPTION 'No se pueden modificar los puntajes mientras haya concursos vigentes';
+            end if;
+     IF (TG_OP = 'INSERT' ) then
+         RETURN NEW;
+     elsif (TG_OP = 'UPDATE' or TG_OP = 'DELETE'  ) then
+          RETURN OLD;
+    end if;
+ END $$
+ LANGUAGE 'plpgsql';
+
+ CREATE TRIGGER tr_metric_abm
+ BEFORE INSERT or DELETE or UPDATE
+ ON metric_abm
+ FOR EACH ROW EXECUTE PROCEDURE fn_metric_abm();
+
+ ALTER TABLE metric_abm ADD CONSTRAINT score_unique UNIQUE (score);

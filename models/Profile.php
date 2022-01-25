@@ -36,9 +36,9 @@ class Profile extends \yii\db\ActiveRecord
             // [['fotoclub_id'], 'required'],
             [['fotoclub_id'], 'integer'],
             [['executive'], 'boolean', 'trueValue' => true, 'falseValue' => false], 
-            ['executive_rol', 'required', 'when' => function($model) {
-                return $model->executive == true;
-            }],
+            // ['executive_rol', 'required', 'when' => function($model) {
+            //     return $model->executive == true;
+            // }],
             [['name', 'executive_rol'], 'string', 'max' => 59],
             [['last_name', 'img_url'], 'string', 'max' => 50],
             [['fotoclub_id'], 'exist', 'skipOnError' => true, 'targetClass' => Fotoclub::className(), 'targetAttribute' => ['fotoclub_id' => 'id']],
