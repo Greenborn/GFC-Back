@@ -13,11 +13,11 @@ class ContestResultController extends BaseController {
     public $modelClass = 'app\models\ContestResult';
 
     public function prepareDataProvider(){
-        $user = Yii::$app->user->identity;
-        $esAdmin = $user->role_id == 1;
-        $esDelegado = $user->role_id == 2;
+        $user          = Yii::$app->user->identity;
+        $esAdmin       = $user->role_id == 1;
+        $esDelegado    = $user->role_id == 2;
         $esConcursante = $user->role_id == 3;
-        $esJuez = $user->role_id == 4;
+        $esJuez        = $user->role_id == 4;
 
         $query = $this->modelClass::find();
 
@@ -28,22 +28,15 @@ class ContestResultController extends BaseController {
         $query = $this->addFilterConditions($query);
 
         if (!$esAdmin && !$esJuez) {
-          $cond = $esDelegado ? ['in', 'image.profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] :
-            ['image.profile_id' => $user->profile_id];
-          $query->andWhere([
-            'or',
-            [ 'in', 'contest_id',  Contest::find()->select('id')->where(['>', 'extract(epoch from age(end_date))', 0])],
-            $cond
-          ]);
+          //$cond = $esDelegado ? ['in', 'image.profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] :
+          //  ['image.profile_id' => $user->profile_id];
+          //$query->andWhere([
+          //  'or',
+          //  [ 'in', 'contest_id',  Contest::find()->select('id')->where(['>', 'extract(epoch from age(end_date))', 0])],
+          //  $cond
+          //]);
         }
-  
-        
-        // $query->andWhere($condition);
-        // $user = User::findIdentityByAccessToken($this->getAccessToken());
-        // if ($esDelegado) { // delegado
-        //   $query = $query->andWhere( ['in', 'image.profile_id', Profile::find()->select('id')->where(['fotoclub_id' => $user->profile->fotoclub_id])] );
-        // }
-  
+    
         return new ActiveDataProvider([
           'query' => $query->orderBy(['id' => SORT_ASC]),
         ]);
