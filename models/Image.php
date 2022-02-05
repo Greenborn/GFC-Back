@@ -6,6 +6,7 @@ use Yii;
 use yii\web\UploadedFile;
 use app\models\Thumbnail;
 use app\models\ThumbnailType;
+use app\models\ContestResult;
 // use yii\helpers\Url;
 
 /**
@@ -126,7 +127,14 @@ class Image extends \yii\db\ActiveRecord
 
             $this->base64_to_file($params['photo_base64']['file'], $full_path);
             $this->url = $full_path;
-        }        
+        }
+        
+        $date   = new \DateTime();
+        $date   = $date->format("Y");
+        $contest_result = ContestResult::find()->where(['image_id' => $this->id])->one();
+        $seccion = Section::find()->where(['id' => $contest_result->section_id])->one();
+
+        $this->code = $date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
       
         return parent::beforeSave($insert);
     }
