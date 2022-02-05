@@ -3,7 +3,8 @@
 namespace app\models;
 
 use Yii;
-
+use app\models\Image;
+use app\models\Section;
 /**
  * This is the model class for table "contest_result".
  *
@@ -110,6 +111,20 @@ class ContestResult extends \yii\db\ActiveRecord
         $fields[] = 'section';
 
         return $fields;
+    }
+
+    public function afterSave($insert, $changedAttributes) {
+        $params = Yii::$app->getRequest()->getBodyParams();
+        $date   = new \DateTime();
+        $date   = $date->format("Y");
+
+        //Actualizamos el codigo de la imagen cargada
+        $image   = Image::find()->where(['id' => $params['image_id']])->one();
+        $seccion = Section::find()->where(['id' => $params['section_id']])->one();
+
+        $image->code = $date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
+        $image->save(false);
+        return parent::afterSave($insert, $changedAttributes);
     }
 
 
