@@ -142,12 +142,13 @@ class Image extends \yii\db\ActiveRecord
             $this->generateThumbnails('images/', $img_name, $extension, 'images/thumbnails/',$this->id);
         }
 
-        $date   = new \DateTime();
-        $date   = $date->format("Y");
         $contest_result = ContestResult::find()->where(['image_id' => $this->id])->one();
-        $seccion = Section::find()->where(['id' => $contest_result->section_id])->one();
-
-        $this->code = $date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
+        if ($contest_result != NULL){ 
+            $date   = new \DateTime();
+            $date   = $date->format("Y");
+            $seccion = Section::find()->where(['id' => $contest_result->section_id])->one();
+            $this->code = $date.'_'.$contest_result->contest_id.'_'.$seccion->name.'_'.$this->id;
+        }
 
         return parent::afterSave($insert, $changedAttributes);
     }
@@ -175,16 +176,6 @@ class Image extends \yii\db\ActiveRecord
             }
         }
     }
-
-    // public function upload()
-    // {
-    //     if ($this->validate()) {
-    //         $this->image_file->saveAs('uploads/' . $this->image_file->baseName . '.' . $this->image_file->extension);
-    //         return true;
-    //     } else {
-    //         return false;
-    //     }
-    // }
 
     /**
      * Gets query for [[ContestResults]].
