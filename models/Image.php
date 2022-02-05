@@ -128,14 +128,7 @@ class Image extends \yii\db\ActiveRecord
             $this->base64_to_file($params['photo_base64']['file'], $full_path);
             $this->url = $full_path;
         }
-        
-        $date   = new \DateTime();
-        $date   = $date->format("Y");
-        $contest_result = ContestResult::find()->where(['image_id' => $this->id])->one();
-        $seccion = Section::find()->where(['id' => $contest_result->section_id])->one();
 
-        $this->code = $date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
-      
         return parent::beforeSave($insert);
     }
 
@@ -148,6 +141,13 @@ class Image extends \yii\db\ActiveRecord
             $img_name = str_replace(['images/', '.'.$extension],'',$img_name);
             $this->generateThumbnails('images/', $img_name, $extension, 'images/thumbnails/',$this->id);
         }
+
+        $date   = new \DateTime();
+        $date   = $date->format("Y");
+        $contest_result = ContestResult::find()->where(['image_id' => $this->id])->one();
+        $seccion = Section::find()->where(['id' => $contest_result->section_id])->one();
+
+        $this->code = $date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
 
         return parent::afterSave($insert, $changedAttributes);
     }
