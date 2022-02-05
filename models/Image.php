@@ -37,9 +37,7 @@ class Image extends \yii\db\ActiveRecord
         return [
             [['code', 'title', 'profile_id'], 'required'],
             [['profile_id'], 'integer'],
-            // [['code'], 'string', 'max' => 20],
             [['title', 'url', 'code'], 'string', 'max' => 45],
-            // [['image_file'], 'file', 'skipOnEmpty' => false, 'extensions' => 'png, jpg']
         ];
     }
 
@@ -81,10 +79,6 @@ class Image extends \yii\db\ActiveRecord
     private function base64_to_file($base64_string, $output_file) {
         // open the output file for writing
         $ifp = fopen( $output_file, 'wb' ); 
-    
-        // split the string on commas
-        // $data[ 0 ] == "data:image/png;base64"
-        // $data[ 1 ] == <actual base64 string>
         $data = explode( ',', $base64_string );
     
         // we could add validation here with ensuring count( $data ) > 1
@@ -96,60 +90,66 @@ class Image extends \yii\db\ActiveRecord
         return $output_file; 
     }
 
+    public $category = NULL;
+
     public function beforeSave($insert) {
-
-        // do transformations here
-
-        // if ($insert) { // create
-        // } else { // update
-        // }
         $params = Yii::$app->getRequest()->getBodyParams();
-        
-        $date     = new \DateTime();
+        if ($insert) { // create
+            if (isset($params['photo_base64'])) {
+                $date   = new \DateTime();
+                $arr_filename = explode('.', $params['photo_base64']['name']);
+                $extension = 'jpg';
+                //Este nombre es temporal, luego la proxima peticion que asigna la imagen al concurso, sera la que se encargara de catalogarla en 
+                //su correspondiente estructura de directorio
+                $this->url = 'images/'.$date->getTimestamp().  '.' . $extension;  
                 
-        if (isset($params['photo_base64'])) {
-            // cargar img y sobrescribir la url
-            
-            $arr_filename = explode('.', $params['photo_base64']['name']);
-            $extension = end($arr_filename);
-            $img_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->code))) . '-contest' . $date->getTimestamp();
-            $full_path = 'images/' . $img_name .  '.' . $extension;
-            
-            if (!$insert) {
-                if (!empty($this->url) && file_exists($this->url)) {
-                    unlink($this->url);
-                    $this->url = '';
-                    // echo 'se elimnó la img';
-                } else {
-                    // echo 'no se elimnó la img';
+                $this->base64_to_file($params['photo_base64']['file'], $this->url);
+            }
+        } else { // update
+            $contest_result = ContestResult::find()->where(['image_id' => $this->id])->one();
+            $antValue = self::find()->where(['id'=> $this->id])->one();
+            if ($contest_result != NULL){ 
+                $date   = new \DateTime();
+                $date   = $date->format("Y");
+                $seccion = Section::find()->where(['id' => $contest_result->section_id])->one();
+                $this->code = $date.'_'.$contest_result->contest_id.'_'.$seccion->name.'_'.$this->id;
+                
+                $directory = 'images';
+                //si ya hay categoria definida, nos aseguramos que exista su correspondiente directorio
+                if ($this->category != NULL){
+                    $directory .= '/'.$this->category;
+                    if (!file_exists($directory)){
+                        mkdir($directory);
+                    }
+                }
+
+                //nos aseguramos de que exista el directorio de la seccion, esto se usa para catalogar las imagenes
+                $directory .= '/'.$seccion->name;
+                if (!file_exists($directory)){
+                    mkdir($directory);
+                }
+                //nos aseguramos de mantener consistencia entre nombres de archivo y codigo
+                if (!empty($this->url) && file_exists($antValue->url)) {
+                    $full_path = $directory.'/'. $this->code .  '.jpg';
+                    rename($antValue->url, $full_path);
+                    $this->url = $full_path;
                 }
             }
-
-            $this->base64_to_file($params['photo_base64']['file'], $full_path);
-            $this->url = $full_path;
         }
-
         return parent::beforeSave($insert);
     }
 
     public function afterSave($insert, $changedAttributes) {
-        if ($insert) {
-            //Generaciòn de miniaturas
+        $params = Yii::$app->getRequest()->getBodyParams();
+
+        //Generaciòn de miniaturas
+        if (isset($params['photo_base64'])) {
             $img_name     = $this->url;
             $arr_filename = explode('.', $img_name);
             $extension    = end($arr_filename);
             $img_name = str_replace(['images/', '.'.$extension],'',$img_name);
             $this->generateThumbnails('images/', $img_name, $extension, 'images/thumbnails/',$this->id);
         }
-
-        $contest_result = ContestResult::find()->where(['image_id' => $this->id])->one();
-        if ($contest_result != NULL){ 
-            $date   = new \DateTime();
-            $date   = $date->format("Y");
-            $seccion = Section::find()->where(['id' => $contest_result->section_id])->one();
-            $this->code = $date.'_'.$contest_result->contest_id.'_'.$seccion->name.'_'.$this->id;
-        }
-
         return parent::afterSave($insert, $changedAttributes);
     }
 

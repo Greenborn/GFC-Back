@@ -5,6 +5,9 @@ namespace app\models;
 use Yii;
 use app\models\Image;
 use app\models\Section;
+use app\models\ProfileContest;
+use app\models\User;
+use app\models\Category;
 /**
  * This is the model class for table "contest_result".
  *
@@ -121,6 +124,16 @@ class ContestResult extends \yii\db\ActiveRecord
         //Actualizamos el codigo de la imagen cargada
         $image   = Image::find()->where(['id' => $params['image_id']])->one();
         $seccion = Section::find()->where(['id' => $params['section_id']])->one();
+
+        //buscamos la categorìa a la cual se inscribió el concursante
+        $headers = Yii::$app->request->headers;
+        $auth    = $headers->get('Authorization');
+        $token   = explode('Bearer ', $auth)[1];
+
+        $user = User::find()->where(['access_token' => $token])->one();
+        $profile_contest = ProfileContest::find()->where(['profile_id' => $user->profile_id])->one();
+        $category = Category::find()->where(['id' => $profile_contest->category_id])->one();
+        $image->category = $category->name;
 
         $image->code = $date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
         $image->save(false);
