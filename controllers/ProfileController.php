@@ -26,6 +26,9 @@ class ProfileController extends BaseController {
   
         return new ActiveDataProvider([
           'query' => $query->orderBy(['id' => SORT_ASC]),
+          'pagination' => [
+                'pageSize' => 500
+          ]
         ]);
     }
 

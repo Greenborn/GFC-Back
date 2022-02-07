@@ -37,7 +37,7 @@ class Image extends \yii\db\ActiveRecord
         return [
             [['code', 'title', 'profile_id'], 'required'],
             [['profile_id'], 'integer'],
-            [['title', 'url', 'code'], 'string', 'max' => 45],
+            [['title', 'url', 'code'], 'string'],
         ];
     }
 
@@ -94,17 +94,20 @@ class Image extends \yii\db\ActiveRecord
 
     public function beforeSave($insert) {
         $params = Yii::$app->getRequest()->getBodyParams();
+        
+        if (isset($params['photo_base64'])) {
+            $date   = new \DateTime();
+
+            $extension = 'jpg';
+            //Este nombre es temporal, luego la proxima peticion que asigna la imagen al concurso, sera la que se encargara de catalogarla en 
+            //su correspondiente estructura de directorio
+            $this->url = 'images/'.$date->getTimestamp().  '.' . $extension;  
+            
+            $this->base64_to_file($params['photo_base64']['file'], $this->url);
+        }
+
         if ($insert) { // create
-            if (isset($params['photo_base64'])) {
-                $date   = new \DateTime();
-                $arr_filename = explode('.', $params['photo_base64']['name']);
-                $extension = 'jpg';
-                //Este nombre es temporal, luego la proxima peticion que asigna la imagen al concurso, sera la que se encargara de catalogarla en 
-                //su correspondiente estructura de directorio
-                $this->url = 'images/'.$date->getTimestamp().  '.' . $extension;  
-                
-                $this->base64_to_file($params['photo_base64']['file'], $this->url);
-            }
+            
         } else { // update
             $contest_result = ContestResult::find()->where(['image_id' => $this->id])->one();
             $antValue = self::find()->where(['id'=> $this->id])->one();
@@ -112,10 +115,15 @@ class Image extends \yii\db\ActiveRecord
                 $date   = new \DateTime();
                 $date   = $date->format("Y");
                 $seccion = Section::find()->where(['id' => $contest_result->section_id])->one();
-                $this->code = $date.'_'.$contest_result->contest_id.'_'.$seccion->name.'_'.$this->id;
+
+                $this->code = rand(1000,9999).'_'.$date.'_'.$contest_result->contest_id.'_'.$seccion->name.'_'.$this->id;
                 
                 $directory = 'images';
                 //si ya hay categoria definida, nos aseguramos que exista su correspondiente directorio
+                $profile_contest = ProfileContest::find()->where(['profile_id' => $this->profile_id])->one();
+                $category = Category::find()->where(['id' => $profile_contest->category_id])->one();
+                $this->category = $category->name;
+                
                 if ($this->category != NULL){
                     $directory .= '/'.$this->category;
                     if (!file_exists($directory)){
@@ -145,28 +153,26 @@ class Image extends \yii\db\ActiveRecord
         //Generaciòn de miniaturas
         if (isset($params['photo_base64'])) {
             $img_name     = $this->url;
-            $arr_filename = explode('.', $img_name);
-            $extension    = end($arr_filename);
-            $img_name = str_replace(['images/', '.'.$extension],'',$img_name);
-            $this->generateThumbnails('images/', $img_name, $extension, 'images/thumbnails/',$this->id);
+            $this->generateThumbnails('', $img_name, 'images/thumbnails/',$this->id);
         }
         return parent::afterSave($insert, $changedAttributes);
     }
 
-    protected function generateThumbnails($d_base, $img_name, $img_ext, $d_thumbnails,$id_image){
+    protected function generateThumbnails($d_base, $img_name, $d_thumbnails,$id_image){
         $thumbTypes = ThumbnailType::find()->all();
         
         for ($c=0; $c < count($thumbTypes); $c++ ){
             $imgResult = $this->newResizedImage(
-                $img_name.'.'.$img_ext,
-                $d_base.$img_name.'.'.$img_ext,
+                $img_name,
+                $d_base.$img_name,
                 $thumbTypes[$c]->width,$thumbTypes[$c]->height
             );
 
             if (!isset($imgResult))
-                throw new \Exception('Error en generacion de miniatura.');
+                throw new \Exception('Error en generacion de miniatura.'.$img_name.'_');
             else {
-                $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_'.$thumbTypes[$c]->height.$img_name.'.jpg';
+                $date   = new \DateTime();
+                $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_'.$thumbTypes[$c]->height.$date->getTimestamp();
                 imagejpeg($imgResult, $thumbnailPath);
                 $thumb_reg                 = new Thumbnail();
                 $thumb_reg->image_id       = $id_image;

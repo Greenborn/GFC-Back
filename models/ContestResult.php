@@ -104,11 +104,6 @@ class ContestResult extends \yii\db\ActiveRecord
     public function fields() {
         $fields = parent::fields();
 
-        
-        // expand por default
-        // unset(  $fields['image_id'],
-        //         $fields['metric_id']
-        //      );
         $fields[] = 'image'; 
         $fields[] = 'metric'; 
         $fields[] = 'section';
@@ -126,16 +121,11 @@ class ContestResult extends \yii\db\ActiveRecord
         $seccion = Section::find()->where(['id' => $params['section_id']])->one();
 
         //buscamos la categorìa a la cual se inscribió el concursante
-        $headers = Yii::$app->request->headers;
-        $auth    = $headers->get('Authorization');
-        $token   = explode('Bearer ', $auth)[1];
-
-        $user = User::find()->where(['access_token' => $token])->one();
-        $profile_contest = ProfileContest::find()->where(['profile_id' => $user->profile_id])->one();
+        $profile_contest = ProfileContest::find()->where(['profile_id' => $image->profile_id])->one();
         $category = Category::find()->where(['id' => $profile_contest->category_id])->one();
         $image->category = $category->name;
 
-        $image->code = $date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
+        $image->code = rand(1000,9999).'_'.$date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
         $image->save(false);
         return parent::afterSave($insert, $changedAttributes);
     }
@@ -143,6 +133,5 @@ class ContestResult extends \yii\db\ActiveRecord
 
     public function extraFields() {
         return [ 'contest' ];
-        // return [ 'image', 'metric', 'contest' ];
     }
 }
