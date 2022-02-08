@@ -35,13 +35,10 @@ class UserController extends BaseController {
 
       return new ActiveDataProvider([
         'query' => $query->orderBy(['id' => SORT_ASC]),
+        'pagination' => [
+            'pageSize' => 500
+        ]
       ]);
   }
-      
-    // public function actionIndex() {
-    //    return new ActiveDataProvider([
-    //      'query' => User::find()->where(['role_id'=>3]),
-    //    ]);
-    // }
 
 }
