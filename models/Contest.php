@@ -211,6 +211,11 @@ class Contest extends \yii\db\ActiveRecord
         return date_diff(date_create($this->end_date), date_create())->invert == 1 ? true : false;
     }
 
+    public function getContestRecords()
+    {
+        return $this->hasMany(ContestRecord::className(), ['contest_id' => 'id']);
+    }
+
 
     public function fields() {
         $fields = parent::fields();
@@ -229,7 +234,8 @@ class Contest extends \yii\db\ActiveRecord
             'contestSections',      'sections',
             'contestCategories',    'categories',
             'contestResults',       'countContestResults',
-            'profileContests',      'countProfileContests'
+            'profileContests',      'countProfileContests',
+            'contestRecords'
         ];
     }
 }
