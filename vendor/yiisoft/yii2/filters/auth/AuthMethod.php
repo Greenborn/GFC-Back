@@ -90,7 +90,7 @@ abstract class AuthMethod extends ActionFilter implements AuthInterface
      */
     public function handleFailure($response)
     {
-	header('Access-Control-Allow-Origin: *'); //no queda otra por el moemnto
+	header('Access-Control-Allow-Origin: *'); //no queda otra por el momento
         header('Access-Control-Allow-Headers X-Requested-With,Content-Type,x_requested_with');
         throw new UnauthorizedHttpException('Your request was made with invalid credentials.');
     }
