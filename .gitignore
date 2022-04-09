@@ -1,2 +1,7 @@
 vendor
 db/dump
+web/tmp
+web/tmp/*
+web/images
+config/email.php
+config/db.php

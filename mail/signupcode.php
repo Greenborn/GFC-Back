@@ -7,9 +7,11 @@ use yii\helpers\Url;
 
 ?>
 <div class="password-reset">
-    <p>Hola <?= $username ?>,</p>
+    Hola <?= $username ?>,<br><br>
 
-    <p>Por favor ingrese el siguiente código de verificación para confirmar su registro:</p>
+    Por favor ingrese el siguiente código de verificación para confirmar su registro:<br>
 
     <h2><?php echo $code; ?><h2>
+
+    <div style="font-size:10px;">Este mensaje es enviado automáticamente, por favor no lo responda </div>
 </div>

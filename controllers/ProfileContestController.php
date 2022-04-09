@@ -67,8 +67,8 @@ class ProfileContestController extends BaseController {
           $query->andWhere(['in','profile_id', User::find()->select('profile_id')->where(['role_id' => $roleGet])]);
         return new ActiveDataProvider([
           'query' => $query->orderBy(['id' => SORT_ASC]),
-          'pagination' => [
-            'pageSize' => 500
+	  'pagination' => [
+             'pageSize' => 500
           ]
         ]);
     }
