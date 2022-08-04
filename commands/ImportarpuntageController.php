@@ -82,7 +82,7 @@ class ImportarpuntageController extends Controller
      */
     public function actionIndex($message = 'hello world')
     {
-        $ruta = getcwd().'/../web/tmp/concurso/';
+        $ruta = '/var/www/gfc.prod-api.greenborn.com.ar/web/tmp/concurso/';
         $arrFiles = scandir($ruta);
 
         //generacion de arbol de fotografias
