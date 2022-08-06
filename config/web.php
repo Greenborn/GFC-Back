@@ -141,6 +141,7 @@ $config = [
                         'pluralize' => false,
                 ],
 
+                'ranking' =>  'ranking/getranks',
                 ['class' => 'yii\rest\UrlRule', 'controller' => 'public-info-centro', 'pluralize' => false ],
                 ['class' => 'yii\rest\UrlRule', 'controller' => 'public-contest', 'pluralize' => false ],
                 ['class' => 'yii\rest\UrlRule', 'controller' => 'contest-record', 'pluralize' => false ],
