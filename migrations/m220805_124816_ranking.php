@@ -12,14 +12,6 @@ class m220805_124816_ranking extends Migration
      */
     public function safeUp()
     {
-      $this->createTable('profiles_ranking', [
-        'id'             => $this->primaryKey(),
-        'profile_id'     => $this->integer()->notNull(),
-        'name'           => $this->text(),
-        'score'          => $this->integer()->notNull(),
-        'prizes'         => $this->text(1024),
-      ]);
-
       $this->createTable('fotoclub_ranking', [
         'id'             => $this->primaryKey(),
         'fotoclub_id'    => $this->integer()->notNull(),

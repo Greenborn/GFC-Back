@@ -6,7 +6,7 @@ use Yii;
 use yii\web\Controller;
 use yii\filters\Cors;
 
-use app\models\ProfilesRanking;
+use app\models\ProfilesRankingCategorySection;
 use app\models\FotoclubRanking;
 
 class RankingController extends Controller {
@@ -14,7 +14,7 @@ class RankingController extends Controller {
       \Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
       return [ 
         'items' => [
-          'profiles'  => ProfilesRanking::find()->asArray()->all(),
+          'profiles'  => ProfilesRankingCategorySection::find()->asArray()->all(),
           'fotoclubs' => FotoclubRanking::find()->asArray()->all()
         ]     
       ];
