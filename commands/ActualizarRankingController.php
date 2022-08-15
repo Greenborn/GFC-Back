@@ -117,13 +117,13 @@ function actualizar_ranking(){
       $premios_temporada = json_decode($rank_fotoclub->premios_temporada, true);
 
       if (!isset($premios_totales[ $resultado->metric->prize ])){
-        $premios_totales[ $resultado->metric->prize ] = 0;
+        $premios_totales[ $resultado->metric->prize ] = 1;
       } else {
         $premios_totales[ $resultado->metric->prize ] += 1;
       }
       if (strtotime($resultado->contest->end_date) >= $comienzo_temporada){
         if (!isset($premios_temporada[ $resultado->metric->prize ])){
-          $premios_temporada[ $resultado->metric->prize ] = 0;
+          $premios_temporada[ $resultado->metric->prize ] = 1;
         } else {
           $premios_temporada[ $resultado->metric->prize ] += 1;
         }
@@ -162,13 +162,13 @@ function actualizar_ranking(){
         $premios_temporada = json_decode($concursante_rank->premios_temporada, true);
   
         if (!isset($premios_totales[ $resultado->metric->prize ])){
-          $premios_totales[ $resultado->metric->prize ] = 0;
+          $premios_totales[ $resultado->metric->prize ] = 1;
         } else {
           $premios_totales[ $resultado->metric->prize ] += 1;
         }
         if (strtotime($resultado->contest->end_date) >= $comienzo_temporada){
           if (!isset($premios_temporada[ $resultado->metric->prize ])){
-            $premios_temporada[ $resultado->metric->prize ] = 0;
+            $premios_temporada[ $resultado->metric->prize ] = 1;
           } else {
             $premios_temporada[ $resultado->metric->prize ] += 1;
           }

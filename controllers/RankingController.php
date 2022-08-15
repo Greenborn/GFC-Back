@@ -8,6 +8,8 @@ use yii\filters\Cors;
 
 use app\models\ProfilesRankingCategorySection;
 use app\models\FotoclubRanking;
+use app\models\Section;
+use app\models\Category;
 
 class RankingController extends Controller {
     public function actionGetranks() {
@@ -15,7 +17,9 @@ class RankingController extends Controller {
       return [ 
         'items' => [
           'profiles'  => ProfilesRankingCategorySection::find()->asArray()->all(),
-          'fotoclubs' => FotoclubRanking::find()->asArray()->all()
+          'fotoclubs' => FotoclubRanking::find()->asArray()->all(),
+          'Section'   => Section::find()->asArray()->all(),
+          'Category'  => Category::find()->asArray()->all()
         ]     
       ];
     }
