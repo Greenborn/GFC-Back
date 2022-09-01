@@ -31,7 +31,7 @@ function actualizar_ranking(){
   $comienzo_temporada = comienzo_temporada();
 
   $perfiles  = Profile::find()->all();
-  $fotoclubs = Fotoclub::find()->all();
+  $fotoclubs = Fotoclub::find()->where(['mostrar_en_ranking' => 1])->all();
   $categorias = Category::find()->all();
   $metricas = MetricAbm::find()->all();
   $secciones = Section::find()->all();

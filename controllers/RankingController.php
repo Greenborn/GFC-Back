@@ -19,7 +19,7 @@ class RankingController extends Controller {
           'profiles'  => ProfilesRankingCategorySection::find()->asArray()->all(),
           'fotoclubs' => FotoclubRanking::find()->asArray()->all(),
           'Section'   => Section::find()->asArray()->all(),
-          'Category'  => Category::find()->asArray()->all()
+          'Category'  => Category::find()->where(['mostrar_en_ranking' => 1])->asArray()->all()
         ]     
       ];
     }
