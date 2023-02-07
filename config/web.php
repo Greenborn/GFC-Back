@@ -146,6 +146,7 @@ $config = [
                 ['class' => 'yii\rest\UrlRule', 'controller' => 'public-contest', 'pluralize' => false ],
                 ['class' => 'yii\rest\UrlRule', 'controller' => 'contest-record', 'pluralize' => false ],
                 ['class' => 'yii\rest\UrlRule', 'controller' => 'compressed-photos', 'pluralize' => false ],
+                ['class' => 'yii\rest\UrlRule', 'controller' => 'results-upload', 'pluralize' => false ],
                 ['class' => 'yii\rest\UrlRule', 'controller' => 'public-profile', 'pluralize' => false ],
             ],
         ],

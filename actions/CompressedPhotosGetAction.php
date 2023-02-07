@@ -37,7 +37,7 @@ class CompressedPhotosGetAction extends ViewAction {
         fclose($fp);
     }
 
-    public function execCmd($cmd){
+    private function execCmd($cmd){
       $output_cmd=null;
       exec( $cmd, $output_cmd );
       $this->toLog([ 'cmd' => $cmd, 'out' => $output_cmd ], 'CompressedPhotosGetAction');
