@@ -11,7 +11,7 @@ class ResultsUploadController extends BaseController {
 
     public function actions(){
         $actions = parent::actions();
-        $actions['view']['class'] = 'app\actions\CompressedPhotosGetAction';
+        $actions['view']['class'] = 'app\actions\ResultsUploadGetTemplateAction';
         return $actions;
     } 
 }
