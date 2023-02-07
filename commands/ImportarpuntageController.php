@@ -89,18 +89,28 @@ class ImportarpuntageController extends Controller
         $fotografias = [];
         for( $c=0; $c < count($arrFiles); $c++ ){
             if ($arrFiles[$c] !== '.' && $arrFiles[$c] !== '..'){
-                $directorio  = explode(' ',$arrFiles[$c]);
-                insertar_categoria($fotografias, $directorio[2]);
-                insertar_seccion($fotografias, $directorio[2], $directorio[1]);
-                
-                //se recorren los subdirectorios para obtener los premios
-                $subdir = $ruta.$arrFiles[$c];
-                $subdirCont = scandir($subdir);
-                for ($d=0; $d < count($subdirCont); $d++){
-                    if ($subdirCont[$d] !== '.' && $arrFiles[$d] !== '..'){
-                        insertar_premio($fotografias, $directorio[2], $directorio[1], $subdir, $subdirCont[$d]);
+
+                $categoria_path = $arrFiles[$c];
+                insertar_categoria($fotografias, $categoria_path);
+
+                $section_path = $ruta.$categoria_path;
+                $section_subdirs = scandir($section_path);
+
+                for ($i = 0;$i < count($section_subdirs); $i++){
+                    if ($section_subdirs[$i] && $section_subdirs[$i] !== '.' && $section_subdirs[$i] !== '..'){
+                        insertar_seccion($fotografias, $categoria_path, $section_subdirs[$i]);
+
+                        //se recorren los subdirectorios para obtener los premios
+                        $prizes_base_path = $section_path.'/'.$section_subdirs[$i];
+                        $prizes_subdir = scandir($prizes_base_path);
+                        for ($j = 0; $j < count($prizes_subdir); $j++){
+                            if ($prizes_subdir[$j] !== '.' && $prizes_subdir[$j] !== '..'){
+                                insertar_premio($fotografias, $categoria_path, $section_subdirs[$i], $prizes_base_path, $prizes_subdir[$j]);
+                            }
+                        }
                     }
                 }
+
             }
         }
 
