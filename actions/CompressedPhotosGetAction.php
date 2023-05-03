@@ -6,6 +6,8 @@ use yii\rest\ViewAction;
 
 use app\models\ContestResult;
 use app\models\ProfileContest;
+use app\models\MetricAbm;
+use app\utils\LogManager;
 
 const BASE_PATH    = '/var/www/gfc.prod-api.greenborn.com.ar/';
 const RUNTIME_DIR  = 'runtime/';
@@ -29,50 +31,48 @@ class CompressedPhotosGetAction extends ViewAction {
         ];                     
     }
 
-    public function toLog($cont, $file){
-        $fp = fopen( LOGS_PATH.$file, 'a');
-        if (!$fp) echo "Error leyendo archivo log";
-        $fecha = new \DateTime();
-        fwrite($fp, $fecha->format('Y-m-d H:i:s').json_encode($cont, JSON_UNESCAPED_SLASHES)."\n");
-        fclose($fp);
-    }
-
     private function execCmd($cmd){
       $output_cmd=null;
       exec( $cmd, $output_cmd );
-      $this->toLog([ 'cmd' => $cmd, 'out' => $output_cmd ], 'CompressedPhotosGetAction');
+      LogManager::toLog([ 'cmd' => $cmd, 'out' => $output_cmd ], 'CompressedPhotosGetAction');
     }
 
     public function photo_export( $concurso ) {
     
         $resultadoConcurso = ContestResult::find()->where([ 'contest_id' => $concurso ])->all();
-        $this->toLog('Iniciando Exportación', 'CompressedPhotosGetAction');
+        LogManager::toLog('Iniciando Exportación', 'CompressedPhotosGetAction');
                 
         chdir( TEMP_PATH );
         if (file_exists(EXPOR_DIR)){
           $this->execCmd( 'rm -rf '.EXPOR_DIR );
         }
         $res_dir = mkdir( EXPOR_DIR, 0777, true );
-        $this->toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.EXPOR_DIR, 'CompressedPhotosGetAction');
+        LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.EXPOR_DIR, 'CompressedPhotosGetAction');
     
+        $metrics = MetricAbm::find()->all();
         for ($c=0; $c < count($resultadoConcurso); $c++){
               
           $categoria = ProfileContest::find()->where(['contest_id' => $concurso, 'profile_id' => $resultadoConcurso[$c]->image->profile->id ])->one()->category->name;
           if (!file_exists(TEMP_PATH.EXPOR_DIR.$categoria)){
             $res_dir = mkdir( TEMP_PATH.EXPOR_DIR.$categoria, 0777, true );
-            $this->toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria, 'CompressedPhotosGetAction');
+            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria, 'CompressedPhotosGetAction');
           }
     
           $seccion = $resultadoConcurso[$c]->section->name;
           if (!file_exists(TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion)){
             $res_dir = mkdir(TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion, 0777, true);
-            $this->toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion, 'CompressedPhotosGetAction');
+            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion, 'CompressedPhotosGetAction');
+          }
+
+          for ($i=0; $i < count($metrics); $i++){
+            $res_dir = mkdir(TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion.'/'.$metrics[$i]->prize, 0777, true);
+            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion.'/'.$metrics[$i]->prize, 'CompressedPhotosGetAction');
           }
     
           $origen  = WEB_PATH.$resultadoConcurso[$c]->image->url;
           $destino = TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion.'/'.$resultadoConcurso[$c]->image->code.".jpg";
           $res_copy = copy($origen, $destino);
-          $this->toLog('Copiando '.($res_copy ? 'true': 'false').' : '.$origen.' > '.$destino, 'CompressedPhotosGetAction');
+          LogManager::toLog('Copiando '.($res_copy ? 'true': 'false').' : '.$origen.' > '.$destino, 'CompressedPhotosGetAction');
         }
     
         $arch_zip = 'concurso_'.$concurso.'.zip';
@@ -83,7 +83,7 @@ class CompressedPhotosGetAction extends ViewAction {
 
         $this->execCmd('mv '.$arch_zip.' '.WEB_PATH.$arch_zip);
         
-        $this->toLog('Exportación finalizada', 'CompressedPhotosGetAction');
+        LogManager::toLog('Exportación finalizada', 'CompressedPhotosGetAction');
         return 'concurso_'.$concurso.'.zip';
       }
 }
