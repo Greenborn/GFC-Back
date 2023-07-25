@@ -257,6 +257,8 @@ function agregar_puntuaciones_fotoclub( $puntuaciones_fotoclub, $puntuaciones_pe
             echo "[".$perfil->fotoclub_id.";".$key_premios[$k].";".$aux[ $perfil->fotoclub_id ]['resumen_premios'][ $key_premios[$k] ]."]\n";
           }
           echo $aux[ $perfil->fotoclub_id ]['cant_presentadas'].' '.$aux[ $perfil->fotoclub_id ]['cant_premiadas']."\n\n";
+        } else {
+          echo "\n\n\n\n Error fotoclub no encontrado \n\n\n\n";
         }
           
       }
