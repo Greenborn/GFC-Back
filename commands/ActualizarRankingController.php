@@ -78,8 +78,10 @@ function inicicializa_rank_fotoclub( $fotoclubs ){
   $aux = [];
   for ($c=0; $c < count($fotoclubs); $c++) 
     $aux[$fotoclubs[$c]->id] = [
-      'sumatoria_puntos' => 0, 
-      'resumen_premios'  => []
+      'sumatoria_puntos'   => 0, 
+      'resumen_premios'    => [], 
+      'cant_presentadas'   => 0,
+      'cant_premiadas'     => 0,
     ];
   return $aux;
 }
@@ -131,6 +133,8 @@ function add_inscripcion_a_puntuacion_perfil( $puntuaciones_perfiles, $concursos
           $aux[ $inscripcion->category_id ][ $secciones_perfil[$k] ][ $inscripcion->profile_id ] = [
             'todas_puntuaciones' => [],
             'resumen_premios'    => [],
+            'cant_presentadas'   => 0,
+            'cant_premiadas'     => 0,
             'sumatoria_puntos'   => 0
           ];
           echo '['.$inscripcion->category_id.';'.$secciones_perfil[$k].';'.$inscripcion->profile_id.'] ';
@@ -174,13 +178,19 @@ function suma_puntuaciones_perfiles( $puntuaciones_perfiles ){
         $ranking_participante = $aux[ $categorias_arbol[$c] ][ $secciones_arbol[$i] ][ $perfiles_seccion[$j] ];
                 
         //Se hace la sumatoria de los puntos
-        $sumatoria = 0;
-        $resumen_premios = [];
+        $sumatoria        = 0;
+        $cant_premiadas   = 0;
+        $cant_presentadas = 0;
+        $resumen_premios  = [];
 
         for ($k=0; $k < count($ranking_participante['todas_puntuaciones']); $k++){
           $calificaciones = $ranking_participante['todas_puntuaciones'][$k];
                     
           $sumatoria += $calificaciones['datos_metrica']->score;
+          if ($calificaciones['datos_metrica']->score > 0)
+            $cant_premiadas += 1;
+          
+          $cant_presentadas += 1;
           
           if (isset($resumen_premios[$calificaciones['datos_metrica']->prize])) {
             $resumen_premios[$calificaciones['datos_metrica']->prize] += 1;
@@ -192,7 +202,9 @@ function suma_puntuaciones_perfiles( $puntuaciones_perfiles ){
         
         $aux[ $categorias_arbol[$c] ][ $secciones_arbol[$i] ][ $perfiles_seccion[$j] ] = [
           'sumatoria_puntos' => $sumatoria, 
-          'resumen_premios'  => $resumen_premios
+          'resumen_premios'  => $resumen_premios,
+          'cant_presentadas' => $cant_presentadas,
+          'cant_premiadas'   => $cant_premiadas,
         ];
         echo $aux[ $categorias_arbol[$c] ][ $secciones_arbol[$i] ][ $perfiles_seccion[$j] ]['sumatoria_puntos']." , ";
         echo 'Sumatoria: '.$perfiles_seccion[$j].' > '.$ranking_participante['sumatoria_puntos']."\n";
@@ -230,15 +242,21 @@ function agregar_puntuaciones_fotoclub( $puntuaciones_fotoclub, $puntuaciones_pe
         
         if (isset($aux[ $perfil->fotoclub_id ])){
           $aux[ $perfil->fotoclub_id ]['sumatoria_puntos'] += $calificaciones_participante['sumatoria_puntos'];
+          $aux[ $perfil->fotoclub_id ]['cant_presentadas'] += $calificaciones_participante['cant_presentadas'];
+          $aux[ $perfil->fotoclub_id ]['cant_premiadas']   += $calificaciones_participante['cant_premiadas'];
           $key_premios = array_keys($calificaciones_participante['resumen_premios']);
+
           for ($k=0; $k < count($key_premios); $k++) {
-            if (!isset($aux[ $perfil->fotoclub_id ]['resumen_premios'][ $key_premios[$k] ]))
+            if (!isset($aux[ $perfil->fotoclub_id ]['resumen_premios'][ $key_premios[$k] ])){
               $aux[ $perfil->fotoclub_id ]['resumen_premios'][ $key_premios[$k] ] = $calificaciones_participante['resumen_premios'][ $key_premios[$k] ];
-            else 
+              
+            } else {
               $aux[ $perfil->fotoclub_id ]['resumen_premios'][ $key_premios[$k] ] += $calificaciones_participante['resumen_premios'][ $key_premios[$k] ];
+            }
             
             echo "[".$perfil->fotoclub_id.";".$key_premios[$k].";".$aux[ $perfil->fotoclub_id ]['resumen_premios'][ $key_premios[$k] ]."]\n";
           }
+          echo $aux[ $perfil->fotoclub_id ]['cant_presentadas'].' '.$aux[ $perfil->fotoclub_id ]['cant_premiadas']."\n\n";
         }
           
       }
@@ -356,9 +374,18 @@ function actualizar_ranking(){
     $new_record = new FotoclubRanking();
     $new_record->fotoclub_id = $keys_[$i];
     $new_record->name = $fotoclub->name;
-    $new_record->porc_efectividad_anual = json_encode([
-     'premiadas' => 0, 'totales' => 0, 'porcentaje' => 0
-    ]);
+    if ($puntuaciones_fotoclub[$keys_[$i]]['cant_premiadas'] != 0 && $puntuaciones_fotoclub[$keys_[$i]]['cant_presentadas'] != 0)
+      $new_record->porc_efectividad_anual = json_encode([
+        'premiadas'  => $puntuaciones_fotoclub[$keys_[$i]]['cant_premiadas'], 
+        'totales'    => $puntuaciones_fotoclub[$keys_[$i]]['cant_presentadas'], 
+        'porcentaje' => $puntuaciones_fotoclub[$keys_[$i]]['cant_premiadas'] / ( $puntuaciones_fotoclub[$keys_[$i]]['cant_presentadas'] / 100)
+      ]);
+    else
+      $new_record->porc_efectividad_anual = json_encode([
+        'premiadas'  => 0, 
+        'totales'    => 0, 
+        'porcentaje' => 0
+      ]);
     $new_record->score = $puntuaciones_fotoclub[$keys_[$i]]['sumatoria_puntos'];
     $new_record->puntaje_temporada = $puntuaciones_fotoclub[$keys_[$i]]['sumatoria_puntos'];
     $new_record->prizes = json_encode( $puntuaciones_fotoclub[$keys_[$i]]['resumen_premios']);
