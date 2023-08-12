@@ -8,6 +8,7 @@ use yii\filters\Cors;
 
 use app\components\HttpTokenAuth;
 use app\traits\Filterable;
+use app\utils\LogManager;
 
 class BaseController extends ActiveController {
 
@@ -51,6 +52,16 @@ class BaseController extends ActiveController {
              ]
         ];
         return $behaviors;
+    }
+
+    public function beforeAction($event)
+    {
+        LogManager::toLog(json_encode([
+          'POST_DATA'    => $_POST,
+          'GET_DATA'     => $_GET,
+          'REQUEST_DATA' => $_REQUEST
+        ]), 'Action');
+        return parent::beforeAction($event);
     }
 
     protected function getAccessToken(){
