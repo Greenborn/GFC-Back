@@ -64,6 +64,7 @@ class SignUpAction extends CreateAction {
     $user->username            = $params["userData"]["username"];
     $user->role_id             = $params["userData"]["role_id"];
     $user->email               = $params["userData"]["email"];
+    $user->dni                 = $params["profileData"]["dni"];
     $user->password_hash       = Yii::$app->getSecurity()->generatePasswordHash($params["userData"]["password"]);
     $user->profile_id          = $perfil->id;
     $user->status              = 0;

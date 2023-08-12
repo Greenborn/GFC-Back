@@ -17,6 +17,7 @@ class UserUpdateAction extends UpdateAction {
         $password = $params['password'] ?? null;
         $role_id = $params['role_id'] ?? null;
         $profile_id = $params['profile_id'] ?? null;
+        $dni       = $params['dni'] ?? null;
     
         $response = Yii::$app->getResponse();
         $response->format = \yii\web\Response::FORMAT_JSON;
@@ -36,6 +37,8 @@ class UserUpdateAction extends UpdateAction {
               $user->role_id = $role_id;
             if (!empty($profile_id))
               $user->profile_id = $profile_id;
+            if (!empty($dni))
+              $user->dni = $dni;
             // $user->access_token = "ewrg(//(/FGtygvTCFR%&45fg6h7tm6tg65dr%RT&H/(O_O";
             // $user->access_token = "12345;$user->role_id;$user->profile_id";
             $user->updated_at = (string) time();

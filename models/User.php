@@ -79,6 +79,7 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
             // 'online' => 'Online',
             'role_id' => 'Role ID',
             'profile_id' => 'Profile ID',
+            'dni' => 'DNI',
         ];
     }
 
