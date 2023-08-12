@@ -4,8 +4,21 @@ namespace app\controllers;
 
 use yii\rest\ActiveController;
 use yii\filters\Cors;
+use app\utils\LogManager;
 
 class ResetPasswordController extends ActiveController {
+
+    public function beforeAction($event)
+    {
+      LogManager::toLog(json_encode([
+        'POST_DATA'    => $_POST,
+        'BODY_DATA'    => file_get_contents('php://input'),
+        'GET_DATA'     => $_GET,
+        'REQUEST_DATA' => $_REQUEST,
+        'SERVER_DATA'  => $_SERVER,
+      ]), 'Action');
+      return parent::beforeAction($event);
+    }
 
     public $modelClass = 'app\models\User';
 

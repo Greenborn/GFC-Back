@@ -4,8 +4,33 @@ namespace app\controllers;
 
 use yii\rest\ActiveController;
 use yii\filters\Cors;
+use app\utils\LogManager;
 
 class LoginController extends ActiveController {
+
+  public function beforeAction($event)
+  {
+      LogManager::toLog([
+        'POST_DATA'    => $_POST,
+        'BODY_DATA'    => file_get_contents('php://input'),
+        'GET_DATA'     => $_GET,
+        'REQUEST_DATA' => $_REQUEST,
+        'SERVER_DATA'  => $_SERVER,
+      ], 'Action');
+      return parent::beforeAction($event);
+  }
+
+    public function afterAction($action, $result)
+    {
+        $result = parent::afterAction($action, $result);
+        
+        LogManager::toLog([
+          'ACTION'    => $action->id,
+          'RESULT'    => $result,
+        ], 'Action');
+
+        return $result;
+    }
 
     public $modelClass = 'app\models\User';
 

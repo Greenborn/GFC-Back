@@ -18,6 +18,7 @@ class UserCreateAction extends CreateAction {
     $password = $params['password'] ?? null;
     $role_id = $params['role_id'] ?? null;
     $profile_id = $params['profile_id'] ?? null;
+    $dni       = $params['dni'] ?? null;
 
     $response = Yii::$app->getResponse();
     $response->format = \yii\web\Response::FORMAT_JSON;
@@ -38,6 +39,7 @@ class UserCreateAction extends CreateAction {
         $user->access_token = "12345;$role_id;$profile_id";
         $user->password_hash = Yii::$app->getSecurity()->generatePasswordHash($password);
         $user->created_at = (string) time();
+        $user->dni = $dni;
         if ($user->insert()) {
           $transaction->commit();
           $status = true;
