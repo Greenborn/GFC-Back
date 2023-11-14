@@ -52,25 +52,27 @@ class CompressedPhotosGetAction extends ViewAction {
         $metrics = MetricAbm::find()->all();
         for ($c=0; $c < count($resultadoConcurso); $c++){
               
-          $categoria = ProfileContest::find()->where(['contest_id' => $concurso, 'profile_id' => $resultadoConcurso[$c]->image->profile->id ])->one()->category->name;
-          if (!file_exists(TEMP_PATH.EXPOR_DIR.$categoria)){
-            $res_dir = mkdir( TEMP_PATH.EXPOR_DIR.$categoria, 0777, true );
-            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria, 'CompressedPhotosGetAction');
+          $categoria_path = preg_replace("/[^A-Za-z0-9 ]/", '', ProfileContest::find()->where(['contest_id' => $concurso, 'profile_id' => $resultadoConcurso[$c]->image->profile->id ])->one()->category->name );
+          if (!file_exists(TEMP_PATH.EXPOR_DIR.$categoria_path)){
+            $res_dir = mkdir( TEMP_PATH.EXPOR_DIR.$categoria_path, 0777, true );
+            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria_path, 'CompressedPhotosGetAction');
           }
     
           $seccion = $resultadoConcurso[$c]->section->name;
-          if (!file_exists(TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion)){
-            $res_dir = mkdir(TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion, 0777, true);
-            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion, 'CompressedPhotosGetAction');
+          if (!file_exists(TEMP_PATH.EXPOR_DIR.$categoria_path.'/'.$seccion)){
+            $res_dir = mkdir(TEMP_PATH.EXPOR_DIR.$categoria_path.'/'.$seccion, 0777, true);
+            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria_path.'/'.$seccion, 'CompressedPhotosGetAction');
           }
 
           for ($i=0; $i < count($metrics); $i++){
-            $res_dir = mkdir(TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion.'/'.$metrics[$i]->prize, 0777, true);
-            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion.'/'.$metrics[$i]->prize, 'CompressedPhotosGetAction');
+            $path = TEMP_PATH.EXPOR_DIR.$categoria_path.'/'.$seccion.'/'.$metrics[$i]->prize;
+            if (!file_exists( $path ))
+            $res_dir = mkdir( $path, 0777, true);
+            LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.$path, 'CompressedPhotosGetAction');
           }
     
           $origen  = WEB_PATH.$resultadoConcurso[$c]->image->url;
-          $destino = TEMP_PATH.EXPOR_DIR.$categoria.'/'.$seccion.'/'.$resultadoConcurso[$c]->image->code.".jpg";
+          $destino = TEMP_PATH.EXPOR_DIR.$categoria_path.'/'.$seccion.'/'.$resultadoConcurso[$c]->image->code.".jpg";
           $res_copy = copy($origen, $destino);
           LogManager::toLog('Copiando '.($res_copy ? 'true': 'false').' : '.$origen.' > '.$destino, 'CompressedPhotosGetAction');
         }
