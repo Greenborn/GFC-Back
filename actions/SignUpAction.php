@@ -86,12 +86,38 @@ class SignUpAction extends CreateAction {
     $out['profile']             = [ 'id' => $perfil->id ];
 
     //Se envia el email
-    \Yii::$app->mailer->compose('signupcode',['code' => $user->sign_up_verif_code, 'username' => $user->username ])
-        ->setFrom([\Yii::$app->params['adminEmail']])
-        ->setTo($user->email)
-        ->setSubject('[Grupo Fotográfico Centro] Código de verificación' )
-        ->send();
+    $url = 'http://localhost:34555';
+    $headers = [
+      'Content-Type: application/json'
+    ];
+    $data = [
+      'html' => '<div class="password-reset">
+              Hola '.$user->username.',<br><br>
+          
+              Por favor ingrese el siguiente código de verificación para confirmar su registro:<br>
+          
+              <h2>'.$user->sign_up_verif_code.'<h2>
+          
+              <div style="font-size:10px;">Este mensaje es enviado automáticamente, por favor no lo responda </div>
+          </div>',
+      'text' => 'Hola '.$user->username.' Por favor ingrese el siguiente código de verificación para confirmar su registro: '.$user->sign_up_verif_code,
+      'to' => $user->email,
+      'subject' => '[Grupo Fotográfico Centro] Código de verificación'
+    ];
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    $resp_curl = curl_exec($ch);
+    $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
+    if($status_code == 500) {
+      throw new Exception('Error en la solicitud cURL: ' . curl_error($ch));
+    }
+    curl_close($ch);
     return $out;
   }
 
