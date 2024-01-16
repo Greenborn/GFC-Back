@@ -27,6 +27,6 @@ class SignUpController extends BaseController
     }
 
     public $enableCsrfValidation = false; 
-    protected bool $autenticator = false;
+    protected $autenticator = false;
 
 }
