@@ -37,9 +37,9 @@ class DescargarPremiosAnioController extends Controller {
 
         for ($c=0; $c < count($resultadoConcurso); $c++){
           $premio = $resultadoConcurso[$c]->metric->prize;
-          echo "procesando imagen ".$resultadoConcurso[$c]->image->title. "  ". $premio ."\n";
           
           if ($premio == 'MEDALLA DE HONOR' || $premio == '1er PREMIO'){
+            echo "procesando imagen ".$resultadoConcurso[$c]->image->title. "  ". $premio ."\n";
             $premio = str_replace(' ', '_', $premio );
             $categoria = preg_replace("/[^A-Za-z0-9 ]/", '', ProfileContest::find()->where(['contest_id' => $concurso->id, 'profile_id' => $resultadoConcurso[$c]->image->profile->id ])->one()->category->name);
             $path = 'commands/tmp/exportacion/'.$nombre_concurso.'/'.$categoria;
@@ -60,8 +60,10 @@ class DescargarPremiosAnioController extends Controller {
               mkdir($path);
             }
       
-            $destino = " commands/tmp/exportacion/".$nombre_concurso.'/'.$categoria.'/'.$seccion.'/'.$premio.'/'.$resultadoConcurso[$c]->image->code.".jpg";
-      
+            $name_autor = str_replace(' ', '_', preg_replace("/[^A-Za-z0-9 ]/", '_',$resultadoConcurso[$c]->image->profile->name.$resultadoConcurso[$c]->image->profile->last_name) );
+
+            $destino = " commands/tmp/exportacion/".$nombre_concurso.'/'.$categoria.'/'.$seccion.'/'.$premio.'/';
+            $destino .= $resultadoConcurso[$c]->image->code.$name_autor.".jpg";
             exec( "cp web/".$resultadoConcurso[$c]->image->url.$destino);
           }
           
