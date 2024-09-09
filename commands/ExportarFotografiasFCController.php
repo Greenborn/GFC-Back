@@ -55,11 +55,12 @@ class ExportarFotografiasFCController extends Controller {
       }
 
       for ($c=0; $c < count($resultadoConcurso); $c++){
-        $premio = $resultadoConcurso[$c]->metric->prize;
-        $img_fotoclub_id = $resultadoConcurso[$c]->image->profile->fotoclub_id;
+        $resultado = $resultadoConcurso[$c];
+        $premio = $resultado->metric->prize;
+        $img_fotoclub_id = $resultado->image->profile->fotoclub_id;
 
         if ($img_fotoclub_id == $id_fotoclub){
-          echo "procesando imagen ".$resultadoConcurso[$c]->image->title. "  ". $premio ."\n";
+          echo "procesando imagen ".$resultado->image->title. "  ". $premio ."\n";
           $premio = str_replace(' ', '_', $premio );
           $categoria = preg_replace("/[^A-Za-z0-9 ]/", '', ProfileContest::find()->where(['contest_id' => $concurso->id, 'profile_id' => $resultadoConcurso[$c]->image->profile->id ])->one()->category->name);
           $path = $subdirectorio.$nombre_concurso.'/'.$categoria;
@@ -68,7 +69,7 @@ class ExportarFotografiasFCController extends Controller {
             mkdir($path);
           }
 
-          $seccion = $resultadoConcurso[$c]->section->name;
+          $seccion = $resultado->section->name;
           if (!file_exists($subdirectorio.$nombre_concurso.'/'.$categoria.'/'.$seccion)){
             echo "creando directorio ".$seccion."\n";
             mkdir($subdirectorio.$nombre_concurso.'/'.$categoria.'/'.$seccion);
@@ -80,11 +81,14 @@ class ExportarFotografiasFCController extends Controller {
             mkdir($path);
           }
       
-          $name_autor = str_replace(' ', '_', preg_replace("/[^A-Za-z0-9 ]/", '_',$resultadoConcurso[$c]->image->profile->name.$resultadoConcurso[$c]->image->profile->last_name) );
-
+          $name_autor = str_replace(' ', '_', preg_replace("/[^A-Za-z0-9 ]/", '_',$resultado->image->profile->name.$resultado->image->profile->last_name) );
+          $name_title = str_replace(' ', '_',preg_replace("/[^A-Za-z0-9 ]/", '', $resultado->image->title ));
           $destino = " ".$subdirectorio.$nombre_concurso.'/'.$categoria.'/'.$seccion.'/'.$premio.'/';
-          $destino .= $resultadoConcurso[$c]->image->code.'__'.$name_autor.".jpg";
-          exec( "cp web/".$resultadoConcurso[$c]->image->url.$destino);
+          $destino .= $resultado->image->code.'__'.$name_autor."__".$name_title.".jpg";
+
+          $cmd_cp = "cp web/".$resultado->image->url.$destino;
+          echo 'ejecutando: '.$cmd_cp;
+          exec( $cmd_cp );
         }
         
       }
