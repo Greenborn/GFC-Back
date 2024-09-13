@@ -84,7 +84,7 @@ class Contest extends \yii\db\ActiveRecord
             // $temp   = $image->tempName;
             // validar img
             $date     = new \DateTime();
-            $img_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->name))) . '-img-' . $date->getTimestamp();
+            $img_name = 'contest_title_' . $date->getTimestamp();
             $full_path = 'images/' . $img_name .  '.' . $image->extension;
 
             if (!$insert) {
