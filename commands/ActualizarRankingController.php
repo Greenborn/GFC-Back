@@ -276,7 +276,7 @@ function actualizar_ranking(){
 
   echo "\n\n Actualizando ranking \n";
   $comienzo_temporada = comienzo_temporada();
-
+var_dump($comienzo_temporada);
   $perfiles   = Profile::find()->all();
   $fotoclubs  = Fotoclub::find()->where(['mostrar_en_ranking' => 1])->all();
   $categorias = Category::find()->all();
