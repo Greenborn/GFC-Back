@@ -110,7 +110,7 @@ class Contest extends \yii\db\ActiveRecord
             // $temp   = $rules->tempName;
             // validar pdf
             $date     = new \DateTime();
-            $rules_name = normalizer_normalize(strtolower( preg_replace('/\s+/', '_', $this->name))) . '-rules-' . $date->getTimestamp();
+            $rules_name = 'rules-' . $date->getTimestamp();
             $full_path = 'images/' . $rules_name .  '.' . $rules->extension;
 
             if (!$insert) {
