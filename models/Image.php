@@ -191,7 +191,7 @@ class Image extends \yii\db\ActiveRecord
                 //throw new \Exception('Error en generacion de miniatura.'.$img_name.'_');
             } else {
                 $date   = new \DateTime();
-                $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_'.$thumbTypes[$c]->height.$date->getTimestamp();
+                $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_.'.$thumbTypes[$c]->height.'_'.$this->id.'_'.$date->getTimestamp();
                 try {
                     imagejpeg($imgResult, $thumbnailPath);
                 } catch (\Throwable $th) {
