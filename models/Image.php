@@ -92,6 +92,12 @@ class Image extends \yii\db\ActiveRecord
 
     public $category = NULL;
 
+    public function regenerateThumbnail(){
+        echo "Regenerar thumbnail \n";
+        $img_name = "https://gfc.prod-api.greenborn.com.ar/".$this->url;
+        $this->generateThumbnails('', $img_name, 'images/thumbnails/',$this->id);
+    }
+
     public function beforeSave($insert) {
         $params = Yii::$app->getRequest()->getBodyParams();
         

@@ -9,9 +9,13 @@ use app\models\Image;
 
 class GenerarMiniaturasController extends Controller {
     public function actionIndex( ) {
-      echo "Regenerando Miniatturas \n";
+      echo "Regenerando Miniaturas \n";
 
-      $fotografias = Image::find();
-      var_dump($fotografias);
+      $fotografias = Image::find()->all();
+      
+      for ($i=0; $i < 1; $i++ ){
+        $foto = $fotografias[$i];
+        $foto->regenerateThumbnail();
+      }
     }
 }
