@@ -13,7 +13,7 @@ class GenerarMiniaturasController extends Controller {
 
       $fotografias = Image::find()->all();
       
-      for ($i=0; $i < 1; $i++ ){
+      for ($i=0; $i < count($fotografias); $i++ ){
         $foto = $fotografias[$i];
         $foto->regenerateThumbnail();
       }

@@ -93,6 +93,17 @@ class Image extends \yii\db\ActiveRecord
     public $category = NULL;
 
     public function regenerateThumbnail(){
+        //se buscan las miniaturas y se eliminan
+        $thumbs = $this->getThumbnail()->all();
+        for ($c=0; $c < count($thumbs); $c++ ){
+            var_dump($thumbs[$c]);
+            if (!empty($thumbs[$c]->url) && file_exists($thumbs[$c]->url)) {
+                unlink($thumbs[$c]->url);
+            }
+
+            $thumbs[$c]->delete();
+        }
+        
         echo "Regenerar thumbnail \n";
         $img_name = "https://gfc.prod-api.greenborn.com.ar/".$this->url;
         $this->generateThumbnails('', $img_name, 'images/thumbnails/',$this->id);
@@ -179,7 +190,12 @@ class Image extends \yii\db\ActiveRecord
             else {
                 $date   = new \DateTime();
                 $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_'.$thumbTypes[$c]->height.$date->getTimestamp();
-                imagejpeg($imgResult, $thumbnailPath);
+                try {
+                    imagejpeg($imgResult, $thumbnailPath);
+                } catch (\Throwable $th) {
+                    imagejpeg($imgResult, "/var/www/gfc.prod-api.greenborn.com.ar/web/".$thumbnailPath);
+                }
+                
                 $thumb_reg                 = new Thumbnail();
                 $thumb_reg->image_id       = $id_image;
                 $thumb_reg->url            = $thumbnailPath;
