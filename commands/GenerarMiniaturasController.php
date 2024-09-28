@@ -15,7 +15,7 @@ class GenerarMiniaturasController extends Controller {
       
       for ($i=0; $i < count($fotografias); $i++ ){
         $foto = $fotografias[$i];
-        $foto->regenerateThumbnail();
+        $foto->regenerateThumbnail($foto->id);
       }
     }
 }

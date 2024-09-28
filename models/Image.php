@@ -65,7 +65,7 @@ class Image extends \yii\db\ActiveRecord
         //se buscan las miniaturas y se eliminan
         $thumbs = $this->getThumbnail()->all();
         for ($c=0; $c < count($thumbs); $c++ ){
-            var_dump($thumbs[$c]);
+            //var_dump($thumbs[$c]);
             if (!empty($thumbs[$c]->url) && file_exists($thumbs[$c]->url)) {
                 unlink($thumbs[$c]->url);
             }
@@ -92,7 +92,7 @@ class Image extends \yii\db\ActiveRecord
 
     public $category = NULL;
 
-    public function regenerateThumbnail(){
+    public function regenerateThumbnail( $id ){
         //se buscan las miniaturas y se eliminan
         $thumbs = $this->getThumbnail()->all();
         for ($c=0; $c < count($thumbs); $c++ ){
@@ -103,10 +103,10 @@ class Image extends \yii\db\ActiveRecord
 
             $thumbs[$c]->delete();
         }
-        
-        echo "Regenerar thumbnail \n";
+
+        echo "Regenerar thumbnail ".$this->id." \n";
         $img_name = "https://gfc.prod-api.greenborn.com.ar/".$this->url;
-        $this->generateThumbnails('', $img_name, 'images/thumbnails/',$this->id);
+        $this->generateThumbnails('', $img_name, 'images/thumbnails/');
     }
 
     public function beforeSave($insert) {
@@ -170,12 +170,12 @@ class Image extends \yii\db\ActiveRecord
         //Generaciòn de miniaturas
         if (isset($params['photo_base64'])) {
             $img_name     = $this->url;
-            $this->generateThumbnails('', $img_name, 'images/thumbnails/',$this->id);
+            $this->generateThumbnails('', $img_name, 'images/thumbnails/');
         }
         return parent::afterSave($insert, $changedAttributes);
     }
 
-    protected function generateThumbnails($d_base, $img_name, $d_thumbnails,$id_image){
+    protected function generateThumbnails($d_base, $img_name, $d_thumbnails){
         $thumbTypes = ThumbnailType::find()->all();
         
         for ($c=0; $c < count($thumbTypes); $c++ ){
@@ -185,19 +185,26 @@ class Image extends \yii\db\ActiveRecord
                 $thumbTypes[$c]->width,$thumbTypes[$c]->height
             );
 
-            if (!isset($imgResult))
-                throw new \Exception('Error en generacion de miniatura.'.$img_name.'_');
-            else {
+            if (!isset($imgResult)){
+                echo 'Error en generacion de miniatura.'.$img_name.'_';
+                return false;
+                //throw new \Exception('Error en generacion de miniatura.'.$img_name.'_');
+            } else {
                 $date   = new \DateTime();
                 $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_'.$thumbTypes[$c]->height.$date->getTimestamp();
                 try {
                     imagejpeg($imgResult, $thumbnailPath);
                 } catch (\Throwable $th) {
-                    imagejpeg($imgResult, "/var/www/gfc.prod-api.greenborn.com.ar/web/".$thumbnailPath);
+                    try {
+                        imagejpeg($imgResult, "/var/www/gfc.prod-api.greenborn.com.ar/web/".$thumbnailPath);
+                    } catch (\Throwable $th) {
+                        echo "Error no se encuentra imagen ".$thumbnailPath." \n";
+                        return false;
+                    }
                 }
                 
                 $thumb_reg                 = new Thumbnail();
-                $thumb_reg->image_id       = $id_image;
+                $thumb_reg->image_id       = $this->id;
                 $thumb_reg->url            = $thumbnailPath;
                 $thumb_reg->thumbnail_type = $thumbTypes[$c]->id;
                 $thumb_reg->save(false);
@@ -239,14 +246,20 @@ class Image extends \yii\db\ActiveRecord
         $ext = $ext[count($ext)-1];
 
         $imagen = Null;
-        if($ext == "jpg" || $ext == 'JPG' || $ext == "jpe" || $ext == "jpeg")
-            $imagen = imagecreatefromjpeg($imgPath);
-        elseif($ext == "png")
-            $imagen = imagecreatefrompng($imgPath);
-        elseif($ext == "gif")
-            $imagen = imagecreatefromgif($imgPath);
-        elseif ($ext == "webp")
-            $imagen = imagecreatefromwebp($imgPath);
+        try {
+            if($ext == "jpg" || $ext == 'JPG' || $ext == "jpe" || $ext == "jpeg")
+                $imagen = imagecreatefromjpeg($imgPath);
+            elseif($ext == "png")
+                $imagen = imagecreatefrompng($imgPath);
+            elseif($ext == "gif")
+                $imagen = imagecreatefromgif($imgPath);
+            elseif ($ext == "webp")
+                $imagen = imagecreatefromwebp($imgPath);
+            
+        } catch (\Throwable $th) {
+            echo $imgPath." no encontrada ";
+            $imagen = Null;
+        }
         
         if ($imagen == Null){
           return Null;
