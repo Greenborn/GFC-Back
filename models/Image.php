@@ -198,7 +198,7 @@ class Image extends \yii\db\ActiveRecord
                     try {
                         imagejpeg($imgResult, "/var/www/gfc.prod-api.greenborn.com.ar/web/".$thumbnailPath);
                     } catch (\Throwable $th) {
-                        echo "Error no se encuentra imagen ".$thumbnailPath." \n";
+                        echo "Error no se encuentra imagen ".$thumbnailPath.$th." \n";
                         return false;
                     }
                 }
