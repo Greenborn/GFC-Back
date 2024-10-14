@@ -94,6 +94,12 @@ class CompressedPhotosGetAction extends ViewAction {
 // EXTERNO_UNICEN
             } else if ($tipo_org == 'EXTERNO_UNICEN'){
               $organization = $resultado_->image->profile->fotoclub->name;
+
+              if (!file_exists(TEMP_PATH.EXPOR_DIR.$organization.'/seleccionada')){
+                $res_dir = mkdir(TEMP_PATH.EXPOR_DIR.$organization.'/seleccionada', 0777, true);
+                LogManager::toLog('Creando dir: '.($res_dir ? 'true': 'false').' '.TEMP_PATH.EXPOR_DIR.$organization.'/seleccionada', 'CompressedPhotosGetAction');
+              }
+
               $directorio = TEMP_PATH.EXPOR_DIR.$organization.'/'.$seccion;
               if (!file_exists($directorio)){
                 $res_dir = mkdir($directorio, 0777, true);
