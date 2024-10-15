@@ -60,6 +60,21 @@ function insertar_premio(&$fotografias, $categoria, $seccion, $ruta, $premio){
     }
 }
 
+function asignar_puntaje($image, $WON_PRIZE, $WON_SCORE){
+    if ($image != NULL){
+        $contest_result = ContestResult::find()->where(['image_id' => $image->id])->one();
+        $metric = Metric::find()->where(['id' => $contest_result->metric_id])->one();
+        if ($metric == null){
+            echo 'error metric null , code '.$image->$code.' metrica n '.$contest_result->metric_id.' premio '.$WON_PRIZE.' puntage '.$WON_SCORE."\n";
+        }
+        $metric->prize = $WON_PRIZE;
+        $metric->score = $WON_SCORE;
+        if($metric->save(false)){
+            echo 'procesada, imagen: '.$image->code.' premio '.$WON_PRIZE. ' puntage '.$WON_SCORE.' | '."\n";
+        }
+    }
+}
+
 /**
  * This command echoes the first argument that you have entered.
  *
@@ -68,6 +83,15 @@ function insertar_premio(&$fotografias, $categoria, $seccion, $ruta, $premio){
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
  */
+
+const UNICEN_WON_PRIZE = 'MENCION ESPECIAL';
+const UNICEN_WON_SCORE = 13;
+
+const UNICEN_FACULTAD_WON_PRIZE = 'MENCION';
+const UNICEN_FACULTAD_WON_SCORE = 8;
+
+const UNICEN_FACULTAD_PARTICIPA_PRIZE = 'PARTICIPACION';
+const UNICEN_FACULTAD_PARTICIPA_SCORE = 0.5;
 class ImportarpuntageController extends Controller
 {
     /**
@@ -135,5 +159,73 @@ class ImportarpuntageController extends Controller
         }
 
         return ExitCode::OK;
+    }
+
+    public function actionUnicen(){
+        $ruta = '/var/www/gfc.prod-api.greenborn.com.ar/web/tmp/concurso/';
+        $arrFiles = scandir($ruta);
+
+        //generacion de arbol de fotografias
+        $resultados = [];
+
+        for( $c=0; $c < count($arrFiles); $c++ ){
+            if ($arrFiles[$c] !== '.' && $arrFiles[$c] !== '..' && $arrFiles[$c] !== 'seleccionada'){
+                $institucion_name  = $arrFiles[$c];
+                $institucion_path  = $ruta.$institucion_name;
+                $institucion_sub_d = scandir($institucion_path);
+                $resultados[$institucion_name] = [];
+
+                for ($i = 0;$i < count($institucion_sub_d); $i++){
+                    $seccion_name = $institucion_sub_d[$i];
+
+                    if ($seccion_name !== '.' && $seccion_name !== '..' && $seccion_name !== 'seleccionada'){
+                        $resultados[$institucion_name][$seccion_name] = [];
+                        $obras_presentadas = scandir($institucion_path.'/'.$seccion_name);
+
+                        for ($j = 0; $j < count($obras_presentadas); $j++){
+                            $obra = $obras_presentadas[$j];
+                            if ($obra !== '.' && $obra !== '..' && $obra !== 'seleccionada'){
+                                $code  = explode('.jpg',$obra)[0];
+                                $image = Image::find()->where(['code' => $code])->one();
+                                $resultados[$institucion_name][$seccion_name]["participacion"][] = $image;
+
+                                asignar_puntaje($image, UNICEN_FACULTAD_PARTICIPA_PRIZE, UNICEN_FACULTAD_PARTICIPA_SCORE);
+                            } else if ($obra == 'seleccionada'){
+                                $ganadora_institucion_seccion = scandir($institucion_path.'/'.$seccion_name.'/seleccionada');
+                                $ganadora_institucion_seccion = array_values(array_filter($ganadora_institucion_seccion, function($item) {
+                                                                    return $item !== "." && $item !== "..";
+                                                                }));
+
+                                for ($k = 0; $k < count($ganadora_institucion_seccion); $k++){
+                                    $code  = explode('.jpg',$ganadora_institucion_seccion[$k])[0];
+                                    $image = Image::find()->where(['code' => $code])->one();
+                                    $resultados[$institucion_name][$seccion_name]["ganadora"][] = $image;
+
+                                    asignar_puntaje($image, UNICEN_FACULTAD_WON_PRIZE, UNICEN_FACULTAD_WON_SCORE);
+                                }
+                            }
+                        }
+                    }
+
+                }
+                
+// GANADORAS GRAL
+            } else if ($arrFiles[$c] == 'seleccionada') {
+                $ganadoras_gral = scandir($ruta.'seleccionada');
+                $ganadoras_gral = array_values(array_filter($ganadoras_gral, function($item) {
+                    return $item !== "." && $item !== "..";
+                }));
+
+                for ($i = 0; $i < count($ganadoras_gral); $i++){
+                    $code  = explode('.jpg',$ganadoras_gral[$i])[0];
+                    $image = Image::find()->where(['code' => $code])->one();
+
+                    $resultados["ganadoras_gral"][] = $image;
+                    asignar_puntaje($image, UNICEN_WON_PRIZE, UNICEN_WON_SCORE);
+                }
+            }
+        }
+
+        //var_dump($resultados);
     }
 }
