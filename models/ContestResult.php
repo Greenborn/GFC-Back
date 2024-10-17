@@ -8,6 +8,8 @@ use app\models\Section;
 use app\models\ProfileContest;
 use app\models\User;
 use app\models\Category;
+
+use app\commands\ResultadosController;
 /**
  * This is the model class for table "contest_result".
  *
@@ -127,9 +129,15 @@ class ContestResult extends \yii\db\ActiveRecord
 
         $image->code = rand(1000,9999).'_'.$date.'_'.$params['contest_id'].'_'.$seccion->name.'_'.$image->id;
         $image->save(false);
+
+        ResultadosController::refreshCacheContest($params['contest_id']);
         return parent::afterSave($insert, $changedAttributes);
     }
 
+    public function afterDelete() {
+        ResultadosController::refreshCacheContest($this->contest_id);
+        return parent::afterDelete();
+    }
 
     public function extraFields() {
         return [ 'contest' ];

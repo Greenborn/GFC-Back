@@ -49,7 +49,7 @@ class CompressedPhotosGetAction extends ViewAction {
     
         $contest  = Contest::findOne([ 'id' => $concurso ]);
         $tipo_org = $contest->organization_type;
-        $resultadoConcurso = ContestResult::find()->where([ 'contest_id' => $concurso ])->all();
+        $resultadoConcurso = ContestResult::find()->where([ 'contest_id' => $concurso ])->joinWith('image')->orderBy(['code' => SORT_ASC])->all();
         
         LogManager::toLog('Iniciando Exportación', 'CompressedPhotosGetAction');
                 
