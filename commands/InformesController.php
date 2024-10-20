@@ -6,6 +6,7 @@ use yii\console\Controller;
 use yii\console\ExitCode;
 
 use app\models\ContestResult;
+use app\models\ProfileContest;
 use app\models\Contest;
 const BASE_URL    = 'https://gfc.prod-api.greenborn.com.ar/';
 const RUTA_ARCHIVO = './informe_concurso_';
@@ -223,5 +224,28 @@ class InformesController extends Controller
 
         echo "\n";
 
+    }
+
+    public function actionParticipantesConcurso($id_concurso){
+        $resultados = ContestResult::find()
+            ->where(['contest_id' => $id_concurso])->all();
+        $contest = Contest::findOne($id_concurso);
+
+        $csv = "Apellido y Nombre; Nombre de Usuario; E-Mail; Categoria; Sección\n"; 
+
+        $concursantes = []; 
+        foreach ($resultados as $key => $resultado_) {
+            $profile   = $resultado_->image->profile;
+            $user      = $profile->user;
+            if (!isset($concursantes[$user->id])) {
+                $nombre_completo = $profile->last_name." ".$profile->name;
+                $categoria = ProfileContest::find()->where(['contest_id' => $id_concurso, 'profile_id' => $resultado_->image->profile->id ])->one()->category->name;
+                $csv       .= $nombre_completo.";".$user->username."; ".$user->email."; ".$categoria."; ".$resultado_->section->name."\n";
+                $concursantes[$user->id] = true;
+            }
+        }
+
+        file_put_contents("./concursantes_concurso_".$id_concurso.".csv", $csv);
+        var_dump($csv);
     }
 }

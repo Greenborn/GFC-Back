@@ -26,6 +26,14 @@ class ResultadosController extends Controller
 
         $resultados = $resultados->asArray()->all();
 
+        if ($contest->judged){
+            $string_csv = "Código, Autor \n";
+            foreach ($resultados as $key => $result) {
+                $string_csv .= $result["image"]["code"].", ".$result["image"]["profile"]["name"].' '.$result["image"]["profile"]["last_name"]."\n";
+            }
+            file_put_contents(CACHE_PATH."results_contest_".$id.".csv", $string_csv);
+        }
+
         $jsonResultados = json_encode($resultados);
         file_put_contents(CACHE_PATH."results_contest_".$id.".json", $jsonResultados);
         return $jsonResultados;
