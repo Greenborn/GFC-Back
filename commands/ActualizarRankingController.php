@@ -290,7 +290,10 @@ var_dump($comienzo_temporada);
 
   echo "\n\n Obteniendo concursos a ser incluidos en el Ranking \n";
   //Se obtienen los concursos pasados dentro del último año
-  $concursos_pasados = Contest::find()->where([ '>', 'end_date', date('d-m-Y', $comienzo_temporada) ])->all();
+  $concursos_pasados = Contest::find()
+    ->where([ '>', 'end_date', date('d-m-Y', $comienzo_temporada) ])
+    ->andWhere([ '=', 'organization_type', 'INTERNO' ])
+    ->all();
 
   //se obtienen las inscripciones de dichos concursos
   $array_inscripciones = inicializa_inscripciones( $concursos_pasados );

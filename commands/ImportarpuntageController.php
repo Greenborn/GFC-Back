@@ -10,6 +10,9 @@ use app\models\Category;
 use app\models\Metric;
 use app\models\MetricAbm;
 use app\models\ContestResult;
+use app\models\Contest;
+
+use app\commands\ResultadosController;
 //
 function insertar_categoria(&$fotografias, $nombre){
     $encontrado = false;
@@ -134,6 +137,7 @@ class ImportarpuntageController extends Controller
         }
 
         //obtencion de 
+        $contest_id = "";
         foreach ($fotografias as $categoria => $data_cat) {
             foreach ($fotografias[$categoria] as $seccion => $data_secc) {
                 foreach ($fotografias[$categoria][$seccion] as $premio => $data_premio) {
@@ -147,6 +151,7 @@ class ImportarpuntageController extends Controller
                             if ($metric == null){
                                 echo 'error metric null , code '.$code.' metrica n '.$contest_result->metric_id.' premio '.$premio.' puntage '.$puntage->score;
                             }
+                            $contest_id = $contest_result->contest_id;
                             $metric->prize = $premio;
                             $metric->score = $puntage->score;
                             if($metric->save(false)){
@@ -158,6 +163,12 @@ class ImportarpuntageController extends Controller
             }    
         }
 
+        //Se modifica estado de juzgamiento de concurso
+        $contest = Contest::find()->where(['id' => $contest_id])->one();
+        $contest->judged = true;
+        $contest->save(false);
+
+        ResultadosController::refreshCacheContest($contest_id);
         return ExitCode::OK;
     }
 

@@ -71,8 +71,6 @@ class Contest extends \yii\db\ActiveRecord
     }
 
     public function beforeSave($insert) {
-
-        $params = Yii::$app->getRequest()->getBodyParams();
         
         $image = UploadedFile::getInstanceByName('image_file');
         $rules = UploadedFile::getInstanceByName('rules_file');
