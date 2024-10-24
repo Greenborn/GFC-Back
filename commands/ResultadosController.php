@@ -8,7 +8,7 @@ use yii\console\ExitCode;
 use app\models\Contest;
 use app\models\ContestResult;
 
-const CACHE_PATH = "/var/www/gfc.prod-api.greenborn.com.ar/web/cache/";
+const CACHE_PATH = "/var/www/gfc.prod-api.greenborn.com.ar/cache/";
 
 class ResultadosController extends Controller
 {
