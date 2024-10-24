@@ -95,6 +95,11 @@ const UNICEN_FACULTAD_WON_SCORE = 8;
 
 const UNICEN_FACULTAD_PARTICIPA_PRIZE = 'PARTICIPACION';
 const UNICEN_FACULTAD_PARTICIPA_SCORE = 0.5;
+
+function reemplazo_code($code){
+    return str_replace(['Copia de '], '', $code);
+}
+
 class ImportarpuntageController extends Controller
 {
     /**
@@ -138,25 +143,33 @@ class ImportarpuntageController extends Controller
 
         //obtencion de 
         $contest_id = "";
+        $cant_img = 0;
+        $cant_contest_result = 0;
+        $cant_no_encontrada = 0;
         foreach ($fotografias as $categoria => $data_cat) {
             foreach ($fotografias[$categoria] as $seccion => $data_secc) {
                 foreach ($fotografias[$categoria][$seccion] as $premio => $data_premio) {
                     foreach ($fotografias[$categoria][$seccion][$premio] as $foto_i => $data_foto) {
                         $puntage = MetricAbm::find()->where(['prize' => $premio])->one();
-                        $code    = explode('.jpg',$data_foto)[0];
+                        $code    = reemplazo_code(explode('.jpg',$data_foto)[0]);
                         $image   = Image::find()->where(['code' => $code])->one();
                         if ($image != NULL){
+                            $cant_contest_result++;
                             $contest_result = ContestResult::find()->where(['image_id' => $image->id])->one();
                             $metric = Metric::find()->where(['id' => $contest_result->metric_id])->one();
                             if ($metric == null){
-                                echo 'error metric null , code '.$code.' metrica n '.$contest_result->metric_id.' premio '.$premio.' puntage '.$puntage->score;
+                                echo 'error metric null , code '.$code.' metrica n '.$contest_result->metric_id.' premio '.$premio.' puntage '.$puntage->score."\n";
                             }
                             $contest_id = $contest_result->contest_id;
                             $metric->prize = $premio;
                             $metric->score = $puntage->score;
                             if($metric->save(false)){
-                                echo 'procesada, imagen: '.$code.' premio '.$premio. ' puntage '.$puntage->score.' | ';
+                                $cant_img ++;
+                                echo 'procesada, imagen: '.$code.' premio '.$premio. ' puntage '.$puntage->score.' |'."\n";
                             }
+                        } else {
+                            $cant_no_encontrada++;
+                            echo 'error image null , code '.$code.' '.$premio.' '.$seccion." ".$categoria."\n";
                         }
                     }
                 }    
@@ -167,7 +180,9 @@ class ImportarpuntageController extends Controller
         $contest = Contest::find()->where(['id' => $contest_id])->one();
         $contest->judged = true;
         $contest->save(false);
-
+        echo "ContestsResults ".$cant_contest_result."\n";
+        echo "CANTIDAD imagenes no encontradas: ".$cant_no_encontrada."\n";
+        echo "CANTIDAD DE IMAGENES PROCESADAS: ".$cant_img."\n";
         ResultadosController::refreshCacheContest($contest_id);
         return ExitCode::OK;
     }
