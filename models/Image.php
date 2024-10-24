@@ -19,6 +19,17 @@ use app\models\ContestResult;
  *
  * @property ContestResult[] $contestResults
  */
+
+define('IMAGE_DIR', "images/".date('Y'));
+const BASE_PATH    = '/var/www/gfc.prod-api.greenborn.com.ar/web/';
+function createDirIfnotExists($dir){
+    if (!file_exists($dir)){
+      $res_dir = mkdir($dir, 0777, true);
+    }
+}
+
+createDirIfnotExists(BASE_PATH.IMAGE_DIR);
+createDirIfnotExists(BASE_PATH.IMAGE_DIR.'/thumbnails');
 class Image extends \yii\db\ActiveRecord
 {
     /**
@@ -106,19 +117,19 @@ class Image extends \yii\db\ActiveRecord
 
         echo "Regenerar thumbnail ".$this->id." \n";
         $img_name = "https://gfc.prod-api.greenborn.com.ar/".$this->url;
-        $this->generateThumbnails('', $img_name, 'images/thumbnails/');
+        $this->generateThumbnails('', $img_name, IMAGE_DIR.'/thumbnails/');
     }
 
     public function beforeSave($insert) {
         $params = Yii::$app->getRequest()->getBodyParams();
-        
+
         if (isset($params['photo_base64'])) {
             $date   = new \DateTime();
 
             $extension = 'jpg';
             //Este nombre es temporal, luego la proxima peticion que asigna la imagen al concurso, sera la que se encargara de catalogarla en 
             //su correspondiente estructura de directorio
-            $this->url = 'images/'.$date->getTimestamp().  '.' . $extension;  
+            $this->url = IMAGE_DIR.'/'.$date->getTimestamp().  '.' . $extension;  
             
             $this->base64_to_file($params['photo_base64']['file'], $this->url);
         }
@@ -135,7 +146,7 @@ class Image extends \yii\db\ActiveRecord
 
                 $this->code = rand(1000,9999).'_'.$date.'_'.$contest_result->contest_id.'_'.$seccion->name.'_'.$this->id;
                 
-                $directory = 'images';
+                $directory = IMAGE_DIR;
                 //si ya hay categoria definida, nos aseguramos que exista su correspondiente directorio
                 $profile_contest = ProfileContest::find()->where(['profile_id' => $this->profile_id])->one();
                 $category = Category::find()->where(['id' => $profile_contest->category_id])->one();
@@ -170,7 +181,7 @@ class Image extends \yii\db\ActiveRecord
         //Generaciòn de miniaturas
         if (isset($params['photo_base64'])) {
             $img_name     = $this->url;
-            $this->generateThumbnails('', $img_name, 'images/thumbnails/');
+            $this->generateThumbnails('', $img_name, IMAGE_DIR.'/thumbnails/');
         }
         return parent::afterSave($insert, $changedAttributes);
     }
