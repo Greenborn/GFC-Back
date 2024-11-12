@@ -13,6 +13,15 @@ use app\models\ContestResult;
 use app\models\Contest;
 
 use app\commands\ResultadosController;
+
+$informe = [
+    "no_encontradas" => [
+        "metric" => [],
+        "image"  => [],
+    ],
+    "procesadas" => []
+];
+const RUTA_INFORME = './informe_importacion_concurso_';
 //
 function insertar_categoria(&$fotografias, $nombre){
     $encontrado = false;
@@ -69,6 +78,7 @@ function asignar_puntaje($image, $WON_PRIZE, $WON_SCORE){
         $metric = Metric::find()->where(['id' => $contest_result->metric_id])->one();
         if ($metric == null){
             echo 'error metric null , code '.$image->$code.' metrica n '.$contest_result->metric_id.' premio '.$WON_PRIZE.' puntage '.$WON_SCORE."\n";
+            $informe["no_encontradas"]["metric"][] = $contest_result->metric_id;
         }
         $metric->prize = $WON_PRIZE;
         $metric->score = $WON_SCORE;
@@ -102,12 +112,7 @@ function reemplazo_code($code){
 
 class ImportarpuntageController extends Controller
 {
-    /**
-     * This command echoes what you have entered as the message.
-     * @param string $message the message to be echoed.
-     * @return int Exit code
-     */
-    public function actionIndex($message = 'hello world')
+    public function actionIndex()
     {
         $ruta = '/var/www/gfc.prod-api.greenborn.com.ar/web/tmp/concurso/';
         $arrFiles = scandir($ruta);
@@ -165,10 +170,12 @@ class ImportarpuntageController extends Controller
                             $metric->score = $puntage->score;
                             if($metric->save(false)){
                                 $cant_img ++;
+                                $informe["procesadas"][] = [$code, $premio, $seccion, $categoria, $puntage->score];
                                 echo 'procesada, imagen: '.$code.' premio '.$premio. ' puntage '.$puntage->score.' |'."\n";
                             }
                         } else {
                             $cant_no_encontrada++;
+                            $informe['no_encontradas']["image"][] = [$code, $premio, $seccion, $categoria];
                             echo 'error image null , code '.$code.' '.$premio.' '.$seccion." ".$categoria."\n";
                         }
                     }
@@ -180,9 +187,21 @@ class ImportarpuntageController extends Controller
         $contest = Contest::find()->where(['id' => $contest_id])->one();
         $contest->judged = true;
         $contest->save(false);
+
         echo "ContestsResults ".$cant_contest_result."\n";
         echo "CANTIDAD imagenes no encontradas: ".$cant_no_encontrada."\n";
         echo "CANTIDAD DE IMAGENES PROCESADAS: ".$cant_img."\n";
+
+        //Se guarda informe en formato JSON
+        $file_name = RUTA_INFORME.$contest_id.".json";
+        file_put_contents($file_name, json_encode($informe));
+
+        if (file_exists($file_name)) {
+            echo 'Archivo guardado con éxito';
+        } else {
+            echo 'Error al guardar el archivo';
+        }
+
         ResultadosController::refreshCacheContest($contest_id);
         return ExitCode::OK;
     }
