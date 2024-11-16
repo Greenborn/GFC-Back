@@ -12,6 +12,12 @@ class ContestResultController extends BaseController {
 
     public $modelClass = 'app\models\ContestResult';
 
+    public function actions(){
+        $actions = parent::actions();
+        $actions['index']['class'] = 'app\actions\ContestResultViewAction';
+        return $actions;
+    }
+
     public function prepareDataProvider(){
         $user          = Yii::$app->user->identity;
         $esAdmin       = $user->role_id == 1;
