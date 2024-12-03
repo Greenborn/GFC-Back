@@ -83,6 +83,11 @@ class Profile extends \yii\db\ActiveRecord
         $image = UploadedFile::getInstanceByName('image_file');
         // var_dump($_FILES);
 
+        if ($this->executive === 'false')
+            $this->executive = false;
+        if ($this->executive === 'true')
+            $this->executive = false;
+
         if (isset($image)) {
             // cargar img y sobrescribir la url
             // $tipo   = $image->type;
