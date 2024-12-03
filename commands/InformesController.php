@@ -8,6 +8,8 @@ use yii\console\ExitCode;
 use app\models\ContestResult;
 use app\models\ProfileContest;
 use app\models\Contest;
+use app\models\Metric;
+
 const BASE_URL    = 'https://gfc.prod-api.greenborn.com.ar/';
 const RUTA_ARCHIVO = './informe_concurso_';
 
@@ -20,6 +22,25 @@ function formatear_dni($dni){
 
     return  number_format(intval($dni), 0, "", ".");
 }
+
+function comienzo_temporada(){
+    return strtotime('first day of January', time());
+}
+
+function rrmdir($dir) { 
+    if (is_dir($dir)) { 
+      $objects = scandir($dir);
+      foreach ($objects as $object) { 
+        if ($object != "." && $object != "..") { 
+          if (is_dir($dir. DIRECTORY_SEPARATOR .$object) && !is_link($dir."/".$object))
+            rrmdir($dir. DIRECTORY_SEPARATOR .$object);
+          else
+            unlink($dir. DIRECTORY_SEPARATOR .$object); 
+        } 
+      }
+      rmdir($dir); 
+    } 
+ }
 
 class InformesController extends Controller
 {
@@ -226,12 +247,12 @@ class InformesController extends Controller
 
     }
 
-    public function actionParticipantesConcurso($id_concurso){
+    private function getResultadosConcurso( $id_concurso, $prefijo_archivo ){
         $resultados = ContestResult::find()
             ->where(['contest_id' => $id_concurso])->all();
         $contest = Contest::findOne($id_concurso);
 
-        $csv = "Apellido y Nombre; Nombre de Usuario; E-Mail; Categoria; Sección\n"; 
+        $csv = "Premio; Apellido y Nombre; Nombre de Usuario; E-Mail; Categoria; Sección\n"; 
 
         $concursantes = []; 
         foreach ($resultados as $key => $resultado_) {
@@ -239,13 +260,40 @@ class InformesController extends Controller
             $user      = $profile->user;
             if (!isset($concursantes[$user->id])) {
                 $nombre_completo = $profile->last_name." ".$profile->name;
+                $metric = Metric::find()->where(['id' => $resultado_->metric_id])->one();
                 $categoria = ProfileContest::find()->where(['contest_id' => $id_concurso, 'profile_id' => $resultado_->image->profile->id ])->one()->category->name;
-                $csv       .= $nombre_completo.";".$user->username."; ".$user->email."; ".$categoria."; ".$resultado_->section->name."\n";
+                $csv       .= $metric->prize."; ".$nombre_completo.";".$user->username."; ".$user->email."; ".$categoria."; ".$resultado_->section->name."\n";
                 $concursantes[$user->id] = true;
             }
         }
-
-        file_put_contents("./concursantes_concurso_".$id_concurso.".csv", $csv);
+        file_put_contents("./resultados/".$prefijo_archivo."_".str_replace(' ', '_', preg_replace("/[^A-Za-z0-9 ]/", '', $contest->name) ).".csv", $csv);
         var_dump($csv);
+    }
+
+    public function actionParticipantesConcurso($id_concurso){
+        if (file_exists("./resultados"))
+            rrmdir("./resultados");
+        
+        mkdir("./resultados");
+        $this->getResultadosConcurso($id_concurso, "resultados");
+    }
+
+    public function actionResultadosTemporada(){
+        $comienzo_temporada = comienzo_temporada();
+
+        $concursos_pasados = Contest::find()
+            ->where([ '>', 'end_date', date('d-m-Y', $comienzo_temporada) ])
+            ->andWhere([ '=', 'organization_type', 'INTERNO' ])
+            ->all();
+
+        if (file_exists("./resultados"))
+            rrmdir("./resultados");
+        
+        
+        mkdir("./resultados");
+        for ($c = 0; $c < count($concursos_pasados); $c++){
+            $this->getResultadosConcurso($concursos_pasados[$c]->id, "resultados");
+        }
+
     }
 }
