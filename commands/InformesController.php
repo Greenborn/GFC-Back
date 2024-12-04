@@ -23,10 +23,6 @@ function formatear_dni($dni){
     return  number_format(intval($dni), 0, "", ".");
 }
 
-function comienzo_temporada(){
-    return strtotime('first day of January', time());
-}
-
 function rrmdir($dir) { 
     if (is_dir($dir)) { 
       $objects = scandir($dir);
@@ -254,17 +250,15 @@ class InformesController extends Controller
 
         $csv = "Premio; Apellido y Nombre; Nombre de Usuario; E-Mail; Categoria; Sección\n"; 
 
-        $concursantes = []; 
+        
         foreach ($resultados as $key => $resultado_) {
             $profile   = $resultado_->image->profile;
             $user      = $profile->user;
-            if (!isset($concursantes[$user->id])) {
-                $nombre_completo = $profile->last_name." ".$profile->name;
-                $metric = Metric::find()->where(['id' => $resultado_->metric_id])->one();
-                $categoria = ProfileContest::find()->where(['contest_id' => $id_concurso, 'profile_id' => $resultado_->image->profile->id ])->one()->category->name;
-                $csv       .= $metric->prize."; ".$nombre_completo.";".$user->username."; ".$user->email."; ".$categoria."; ".$resultado_->section->name."\n";
-                $concursantes[$user->id] = true;
-            }
+            
+            $nombre_completo = $profile->last_name." ".$profile->name;
+            $metric = Metric::find()->where(['id' => $resultado_->metric_id])->one();
+            $categoria = ProfileContest::find()->where(['contest_id' => $id_concurso, 'profile_id' => $resultado_->image->profile->id ])->one()->category->name;
+            $csv       .= $metric->prize."; ".$nombre_completo.";".$user->username."; ".$user->email."; ".$categoria."; ".$resultado_->section->name."\n";
         }
         file_put_contents("./resultados/".$prefijo_archivo."_".str_replace(' ', '_', preg_replace("/[^A-Za-z0-9 ]/", '', $contest->name) ).".csv", $csv);
         var_dump($csv);
@@ -279,7 +273,7 @@ class InformesController extends Controller
     }
 
     public function actionResultadosTemporada(){
-        $comienzo_temporada = comienzo_temporada();
+        $comienzo_temporada = strtotime('first day of January', time());
 
         $concursos_pasados = Contest::find()
             ->where([ '>', 'end_date', date('d-m-Y', $comienzo_temporada) ])
