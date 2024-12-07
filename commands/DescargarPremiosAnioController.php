@@ -9,6 +9,7 @@ use app\models\ContestResult;
 use app\models\ProfileContest;
 use app\models\Contest;
 
+const TMP_DIR = "./tmp/exportacion/";
 
 class DescargarPremiosAnioController extends Controller {
   
@@ -16,20 +17,23 @@ class DescargarPremiosAnioController extends Controller {
     echo "Exportando Premios Concurso \n";
 
     $fecha_ini = strtotime('first day of January', time());
-    $concursos_pasados = Contest::find()->where([ '>', 'end_date', date('d-m-Y', $fecha_ini) ])->all();
+    $concursos_pasados = Contest::find()
+        ->where([ '>', 'end_date', date('d-m-Y', $fecha_ini) ])
+        ->andWhere([ '=', 'organization_type', 'INTERNO' ])
+        ->all();
 
     echo "seteando directorio temporal: \n";
-    if (file_exists('commands/tmp/exportacion/')){
-      exec( 'rm -rf '. 'commands/tmp/exportacion/' );
+    if (file_exists(TMP_DIR)){
+      exec( 'rm -rf '. TMP_DIR );
     }
-    mkdir('commands/tmp/exportacion/');
+    mkdir(TMP_DIR);
 
     for ($i=0; $i < count($concursos_pasados); $i++ ){
         $concurso = $concursos_pasados[$i];
         $nombre_concurso = str_replace(' ', '_', preg_replace("/[^A-Za-z0-9 ]/", '', $concurso->name) );
 
         $resultadoConcurso = ContestResult::find()->where([ 'contest_id' => $concurso->id ])->all();
-        $path = 'commands/tmp/exportacion/'.$nombre_concurso;
+        $path = TMP_DIR.$nombre_concurso;
         if (!file_exists($path)){
           echo "creando directorio ".$path."\n";
           mkdir($path);
@@ -42,19 +46,19 @@ class DescargarPremiosAnioController extends Controller {
             echo "procesando imagen ".$resultadoConcurso[$c]->image->title. "  ". $premio ."\n";
             $premio = str_replace(' ', '_', $premio );
             $categoria = preg_replace("/[^A-Za-z0-9 ]/", '', ProfileContest::find()->where(['contest_id' => $concurso->id, 'profile_id' => $resultadoConcurso[$c]->image->profile->id ])->one()->category->name);
-            $path = 'commands/tmp/exportacion/'.$nombre_concurso.'/'.$categoria;
+            $path = TMP_DIR.$nombre_concurso.'/'.$categoria;
             if (!file_exists($path)){
               echo "creando directorio ".$path."\n";
               mkdir($path);
             }
 
             $seccion = $resultadoConcurso[$c]->section->name;
-            if (!file_exists('commands/tmp/exportacion/'.$nombre_concurso.'/'.$categoria.'/'.$seccion)){
+            if (!file_exists(TMP_DIR.$nombre_concurso.'/'.$categoria.'/'.$seccion)){
               echo "creando directorio ".$seccion."\n";
-              mkdir('commands/tmp/exportacion/'.$nombre_concurso.'/'.$categoria.'/'.$seccion);
+              mkdir(TMP_DIR.$nombre_concurso.'/'.$categoria.'/'.$seccion);
             }
 
-            $path = 'commands/tmp/exportacion/'.$nombre_concurso.'/'.$categoria.'/'.$seccion.'/'.$premio;
+            $path = TMP_DIR.$nombre_concurso.'/'.$categoria.'/'.$seccion.'/'.$premio;
             if (!file_exists($path)){
               echo "creando directorio ".$path."\n";
               mkdir($path);
@@ -62,9 +66,9 @@ class DescargarPremiosAnioController extends Controller {
       
             $name_autor = str_replace(' ', '_', preg_replace("/[^A-Za-z0-9 ]/", '_',$resultadoConcurso[$c]->image->profile->name.$resultadoConcurso[$c]->image->profile->last_name) );
 
-            $destino = " commands/tmp/exportacion/".$nombre_concurso.'/'.$categoria.'/'.$seccion.'/'.$premio.'/';
+            $destino = TMP_DIR.$nombre_concurso.'/'.$categoria.'/'.$seccion.'/'.$premio.'/';
             $destino .= $resultadoConcurso[$c]->image->code.$name_autor.".jpg";
-            exec( "cp web/".$resultadoConcurso[$c]->image->url.$destino);
+            exec( "cp web/".$resultadoConcurso[$c]->image->url." ".$destino);
           }
           
         }
@@ -72,6 +76,6 @@ class DescargarPremiosAnioController extends Controller {
     }
 
     echo "comprimiendo nuevo directorio \n";
-    exec('zip -r commands/fotografias_ganadoras.zip commands/tmp/exportacion');
+    exec('cd tmp && zip -r fotografias_ganadoras.zip exportacion');
   }
 }
