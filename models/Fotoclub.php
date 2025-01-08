@@ -29,9 +29,10 @@ class Fotoclub extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['name'], 'required'],
+            [['name', 'organization_type'], 'required'],
             [['name', 'facebook', 'instagram', 'email'], 'string', 'max' => 45],
             [['description', 'photo_url'], 'string', 'max' => 255],
+            [['organization_type'], 'string', 'max' => 250],
         ];
     }
 
@@ -47,6 +48,7 @@ class Fotoclub extends \yii\db\ActiveRecord
             'instagram' => 'Instagram',
             'email' => 'Email',
             'description' => 'Description',
+            'organization_type' => 'Tipo de Organización',
             // 'photo_url' => 'Photo_url',
         ];
     }
