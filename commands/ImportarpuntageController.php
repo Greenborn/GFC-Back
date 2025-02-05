@@ -155,17 +155,19 @@ class ImportarpuntageController extends Controller
             foreach ($fotografias[$categoria] as $seccion => $data_secc) {
                 foreach ($fotografias[$categoria][$seccion] as $premio => $data_premio) {
                     foreach ($fotografias[$categoria][$seccion][$premio] as $foto_i => $data_foto) {
-                        $puntage = MetricAbm::find()->where(['prize' => $premio])->one();
                         $code    = reemplazo_code(explode('.jpg',$data_foto)[0]);
                         $image   = Image::find()->where(['code' => $code])->one();
                         if ($image != NULL){
                             $cant_contest_result++;
                             $contest_result = ContestResult::find()->where(['image_id' => $image->id])->one();
+                            $contest_id = $contest_result->contest_id;
+                            $contest = Contest::find()->where(['id' => $contest_id])->one();
+                            $puntage = MetricAbm::find()->where(['prize' => $premio, 'organization_type' => $contest->organization_type])->one();
                             $metric = Metric::find()->where(['id' => $contest_result->metric_id])->one();
                             if ($metric == null){
                                 echo 'error metric null , code '.$code.' metrica n '.$contest_result->metric_id.' premio '.$premio.' puntage '.$puntage->score."\n";
                             }
-                            $contest_id = $contest_result->contest_id;
+                            
                             $metric->prize = $premio;
                             $metric->score = $puntage->score;
                             if($metric->save(false)){
