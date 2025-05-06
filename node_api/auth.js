@@ -48,8 +48,10 @@ router.post('/cerrar-sesion', (req, res) => {
 
 router.get('/users', async (req, res) => {
   try {
-    const registros = await global.knex('user')
-    res.json({ user_data:registros });
+    res.json({ 
+      user_data: await global.knex('user'),
+      profile: await global.knex('profile')
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error al obtener registros' });
