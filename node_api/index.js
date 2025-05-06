@@ -8,7 +8,7 @@ const server_admin = require('http').Server(app_admin);
 const cors = require('cors')
 const Session = require('express-session')
 const bodyParser = require("body-parser")
-const db = require('./db.js')
+const db = require('./knexfile.js')
 
 const cors_origin = global.config.cors_origin.split(' ')
 var corsOptions = {
