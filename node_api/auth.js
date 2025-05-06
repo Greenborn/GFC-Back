@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const LogOperacion = require('./log_operaciones.js');
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
@@ -13,14 +14,17 @@ router.post('/login', async (req, res) => {
     const user = await global.knex('user').where('username', username).first();
 
     if (!user) {
+      await LogOperacion(0, 'usuario no encontrado', '{"user":"'+username+'"}', new Date());
       return res.status(401).json({ r: false, error: 'Usuario o Contraseña Incorrecta' });
     }
 
     const isValidPassword = bcrypt.compareSync(password, user.password_hash);
 
     if (!isValidPassword) {
+      await LogOperacion(user.id, 'contraseña incorrecta', '{"user":"'+username+'"}', new Date());
       return res.status(401).json({ r: false, error: 'Usuario o Contraseña Incorrecta' });
     }
+    await LogOperacion(user.id, 'login', null, new Date());
 
     // Si el usuario y la contraseña son válidos, creamos una sesión
     req.session.user = user;
