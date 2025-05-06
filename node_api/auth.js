@@ -49,8 +49,9 @@ router.post('/cerrar-sesion', (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     res.json({ 
-      user_data: await global.knex('user'),
-      profile: await global.knex('profile')
+      items: await global.knex('user'),
+      profile: await global.knex('profile'),
+      role: await global.knex('role')
     });
   } catch (error) {
     console.error(error);
