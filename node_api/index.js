@@ -8,7 +8,10 @@ const server_admin = require('http').Server(app_admin);
 const cors = require('cors')
 const Session = require('express-session')
 const bodyParser = require("body-parser")
-const db = require('./knexfile.js')
+const knex = require('./knexfile.js');
+
+
+const loginRouter = require('./auth.js');
 
 const cors_origin = global.config.cors_origin.split(' ')
 var corsOptions = {
@@ -24,6 +27,8 @@ app_admin.use(Session({
     saveUninitialized: false,
     resave: true,
 }))
+
+app_admin.use('/api', loginRouter);
 
 server_admin.listen(global.config.service_port_admin)
 console.log("Servidor API Admin escuchando en  ", global.config.service_port_admin)
