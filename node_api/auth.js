@@ -35,4 +35,38 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/cerrar-sesion', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error al cerrar sesión:', err);
+      res.status(500).send({ error: 'Error interno del servidor' });
+    } else {
+      res.redirect('/login');
+    }
+  });
+});
+
+router.get('/users', async (req, res) => {
+  try {
+    res.json({ 
+      items: await global.knex('user'),
+      profile: await global.knex('profile'),
+      role: await global.knex('role')
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al obtener registros' });
+  }
+});
+
+router.get('/log-operaciones', async (req, res) => {
+  try {
+    const registros = await global.knex('log_operaciones')
+    res.json(registros);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al obtener registros' });
+  }
+});
+
 module.exports = router;
