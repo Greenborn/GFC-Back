@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const LogOperacion = require('./log_operaciones.js');
+const LogOperacion = require('../controllers/log_operaciones.js');
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
