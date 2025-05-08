@@ -32,6 +32,7 @@ app_admin.use('/api', require('./routes/fotoclub.js'));
 app_admin.use('/api', require('./routes/section.js'));
 app_admin.use('/api', require('./routes/metrics.js'));
 app_admin.use('/api/users', require('./routes/user.js'));
+app_admin.use('/api/contests', require('./routes/contest.js'))
 
 server_admin.listen(global.config.service_port_admin)
 console.log("Servidor API Admin escuchando en  ", global.config.service_port_admin)
