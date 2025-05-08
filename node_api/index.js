@@ -9,6 +9,7 @@ const cors = require('cors')
 const Session = require('express-session')
 const bodyParser = require("body-parser")
 const knex = require('./knexfile.js');
+const LogOperacion = require('./controllers/log_operaciones.js');
 
 const cors_origin = global.config.cors_origin.split(' ')
 var corsOptions = {
@@ -25,8 +26,11 @@ app_admin.use(Session({
     resave: true,
 }))
 
-app_admin.use('/api', require('./auth.js'));
-app_admin.use('/api', require('./fotoclub.js'));
+app_admin.use('/api', require('./routes/auth.js'));
+app_admin.use('/api', require('./routes/fotoclub.js'));
 
 server_admin.listen(global.config.service_port_admin)
 console.log("Servidor API Admin escuchando en  ", global.config.service_port_admin)
+setTimeout(async () => {
+    await LogOperacion(0, 'Se inicia el servidor', null, new Date());
+}, 1000)

@@ -1,11 +1,11 @@
 const express      = require('express');
 const router       = express.Router();
-const LogOperacion = require('./log_operaciones.js');
+const LogOperacion = require('../controllers/log_operaciones.js');
 
-router.get('/get_all_fotoclub', async (req, res) => {
+router.get('/get_all_section', async (req, res) => {
     try {
       res.json({ 
-        items: await global.knex('fotoclub'),
+        items: await global.knex('section'),
       });
     } catch (error) {
       console.error(error);
