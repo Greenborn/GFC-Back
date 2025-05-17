@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const LogOperacion = require('./log_operaciones.js');
+const LogOperacion = require('../controllers/log_operaciones.js');
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
@@ -28,10 +29,33 @@ router.post('/login', async (req, res) => {
 
     // Si el usuario y la contraseña son válidos, creamos una sesión
     req.session.user = user;
-    res.json({ r: true, message: 'Login exitoso' });
+    const token = crypto.randomBytes(32).toString('hex');
+    req.session.token = token;
+    res.json({ r: true, t: token, message: 'Login exitoso' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ r: false, error: 'Error interno del servidor' });
+  }
+});
+
+router.post('/cerrar-sesion', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error al cerrar sesión:', err);
+      res.status(500).send({ error: 'Error interno del servidor' });
+    } else {
+      res.redirect('/login');
+    }
+  });
+});
+
+router.get('/log-operaciones', async (req, res) => {
+  try {
+    const registros = await global.knex('log_operaciones')
+    res.json(registros);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al obtener registros' });
   }
 });
 
