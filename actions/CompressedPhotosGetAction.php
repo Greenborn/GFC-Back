@@ -82,11 +82,16 @@ class CompressedPhotosGetAction extends ViewAction {
                 $path = TEMP_PATH.EXPOR_DIR.$categoria_path.'/'.$seccion.'/'.$metrics[$i]->prize;
                 $this->createDirIfnotExists($path);
               }
-        
-              $origen  = WEB_PATH.$resultado_->image->url;
-              $destino = TEMP_PATH.EXPOR_DIR.$categoria_path.'/'.$seccion.'/'.$resultado_->image->code.".jpg";
-              $res_copy = copy($origen, $destino);
-              LogManager::toLog('Copiando '.($res_copy ? 'true': 'false').' : '.$origen.' > '.$destino, 'CompressedPhotosGetAction');
+              
+              try {
+                $origen  = WEB_PATH.$resultado_->image->url;
+                $destino = TEMP_PATH.EXPOR_DIR.$categoria_path.'/'.$seccion.'/'.$resultado_->image->code.".jpg";
+                $res_copy = copy($origen, $destino);
+                LogManager::toLog('Copiando '.($res_copy ? 'true': 'false').' : '.$origen.' > '.$destino, 'CompressedPhotosGetAction');
+              } catch (\Throwable $th) {
+                //throw $th;
+              }
+              
 // EXTERNO_UNICEN
             } else if ($tipo_org == 'EXTERNO_UNICEN'){
               $organization = $resultado_->image->profile->fotoclub->name;
