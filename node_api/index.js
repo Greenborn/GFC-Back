@@ -27,7 +27,7 @@ app_admin.use(Session({
 }))
 
 app_admin.use('/api/auth', require('./routes/auth.js'));
-app_admin.use('/api', require('./routes/category.js'));
+app_admin.use('/api/category', require('./routes/category.js'));
 app_admin.use('/api/fotoclub', require('./routes/fotoclub.js'));
 app_admin.use('/api/section', require('./routes/section.js'));
 app_admin.use('/api', require('./routes/metrics.js'));
