@@ -9,7 +9,7 @@ router.get('/get_all', async (req, res) => {
         items: await global.knex('contest'),
         contest_category: await global.knex('contest_category'),
         category: await global.knex('category'),
-        section: await global.knex('section'),
+        //section: await global.knex('section'),
         contests_records: await global.knex('contests_records'),
         contest_result: await global.knex('contest_result')
 });
