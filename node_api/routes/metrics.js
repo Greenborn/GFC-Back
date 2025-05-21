@@ -2,10 +2,10 @@ const express      = require('express');
 const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
 
-router.get('/get_all_metric', async (req, res) => {
+router.get('/get_all', async (req, res) => {
     try {
       res.json({ 
-        items: await global.knex('metric'),
+        items: await global.knex('metric_abm'),
       });
     } catch (error) {
       console.error(error);

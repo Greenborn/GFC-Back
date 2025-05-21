@@ -2,7 +2,7 @@ const express      = require('express');
 const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
 
-router.get('/get_all_section', async (req, res) => {
+router.get('/get_all', async (req, res) => {
     try {
       res.json({ 
         items: await global.knex('section'),
