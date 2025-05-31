@@ -23,7 +23,7 @@ router.put('/edit', async (req, res) => {
     }
 
     // Validar que el score sea un número entero
-    if (isNaN(score) || score <= 0) {
+    if (isNaN(score)) {
       return res.json({ stat: false, text: 'El score debe ser un número entero positivo' });
     }
 
@@ -40,7 +40,9 @@ router.put('/edit', async (req, res) => {
         prize,
         score,
         organization_type
-      });
+      })
+      
+    await LogOperacion(req.session.user.id, 'Modificacioón de Métrica', null, new Date()) 
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
