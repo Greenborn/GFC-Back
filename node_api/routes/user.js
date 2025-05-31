@@ -8,7 +8,8 @@ router.get('/get_all', async (req, res) => {
       res.json({ 
         items: await global.knex('user'),
         profile: await global.knex('profile'),
-        role: await global.knex('role')
+        role: await global.knex('role'),
+        fotoclub: await global.knex('fotoclub')
       });
     } catch (error) {
       console.error(error);
