@@ -4,6 +4,8 @@ const LogOperacion = require('../controllers/log_operaciones.js');
 
 router.get('/get_all', async (req, res) => {
     try {
+      await LogOperacion(req.session.user.id, 'Consulta de Métrica', null, new Date()) 
+
       res.json({ 
         items: await global.knex('metric_abm'),
       });
@@ -42,7 +44,7 @@ router.put('/edit', async (req, res) => {
         organization_type
       })
       
-    await LogOperacion(req.session.user.id, 'Modificacioón de Métrica', null, new Date()) 
+    await LogOperacion(req.session.user.id, 'Modificación de Métrica', null, new Date()) 
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
