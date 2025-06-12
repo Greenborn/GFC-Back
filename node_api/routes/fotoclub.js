@@ -4,6 +4,8 @@ const LogOperacion = require('../controllers/log_operaciones.js');
 
 router.get('/get_all', async (req, res) => {
     try {
+      await LogOperacion(req.session.user.id, 'Consulta de Fotoclubes - ' + req.session.user.username, null, new Date()) 
+
       res.json({ 
         items: await global.knex('fotoclub'),
       });
