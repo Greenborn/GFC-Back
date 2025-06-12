@@ -31,6 +31,7 @@ router.post('/login', async (req, res) => {
     req.session.user = user;
     const token = crypto.randomBytes(32).toString('hex');
     req.session.token = token;
+    req.session.save()
     res.json({ r: true, t: token, message: 'Login exitoso' });
   } catch (error) {
     console.error(error);

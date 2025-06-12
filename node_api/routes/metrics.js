@@ -4,7 +4,7 @@ const LogOperacion = require('../controllers/log_operaciones.js');
 
 router.get('/get_all', async (req, res) => {
     try {
-      await LogOperacion(req.session.user.id, 'Consulta de Métrica', null, new Date()) 
+      await LogOperacion(req.session.user.id, 'Consulta de Métrica - '+req.session.user.username, null, new Date()) 
 
       res.json({ 
         items: await global.knex('metric_abm'),

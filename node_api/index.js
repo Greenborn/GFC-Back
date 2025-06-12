@@ -7,6 +7,7 @@ const app_admin = require('express')();
 const server_admin = require('http').Server(app_admin);
 const cors = require('cors')
 const Session = require('express-session')
+const SessionFileStore = require('session-file-store')(Session)
 const bodyParser = require("body-parser")
 const knex = require('./knexfile.js');
 const LogOperacion = require('./controllers/log_operaciones.js');
@@ -21,6 +22,9 @@ app_admin.use(cors(corsOptions))
 app_admin.use(bodyParser.json({ limit: '5mb', extended: true }))
 
 app_admin.use(Session({
+    store: new SessionFileStore({
+        path: './sessions' 
+    }),
     secret: 'admin_session_secret',
     saveUninitialized: false,
     resave: true,
