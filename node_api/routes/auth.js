@@ -31,6 +31,7 @@ router.post('/login', async (req, res) => {
     req.session.user = user;
     const token = crypto.randomBytes(32).toString('hex');
     req.session.token = token;
+    req.session.save()
     res.json({ r: true, t: token, message: 'Login exitoso' });
   } catch (error) {
     console.error(error);
@@ -47,16 +48,6 @@ router.post('/cerrar-sesion', (req, res) => {
       res.redirect('/login');
     }
   });
-});
-
-router.get('/log-operaciones', async (req, res) => {
-  try {
-    const registros = await global.knex('log_operaciones')
-    res.json(registros);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al obtener registros' });
-  }
 });
 
 module.exports = router;
