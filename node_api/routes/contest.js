@@ -5,6 +5,8 @@ const LogOperacion = require('../controllers/log_operaciones.js')
 
 router.get('/get_all', async (req, res) => {
     try {
+      await LogOperacion(req.session.user.id, 'Consulta de Concursos - ' + req.session.user.username, null, new Date()) 
+
       res.json({ 
         items: await global.knex('contest'),
         contest_category: await global.knex('contest_category'),

@@ -44,7 +44,7 @@ router.put('/edit', async (req, res) => {
         organization_type
       })
       
-    await LogOperacion(req.session.user.id, 'Modificación de Métrica', null, new Date()) 
+    await LogOperacion(req.session.user.id, 'Modificación de Métrica - ' + req.session.user.username, null, new Date()) 
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
