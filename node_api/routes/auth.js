@@ -44,13 +44,13 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/cerrar-sesion', (req, res) => {
+router.post('/cerrar_sesion', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       console.error('Error al cerrar sesión:', err);
       res.status(500).send({ error: 'Error interno del servidor' });
     } else {
-      res.redirect('/login');
+      return res.json({ stat: true, text: 'No hay sesión activa' });
     }
   });
 });
