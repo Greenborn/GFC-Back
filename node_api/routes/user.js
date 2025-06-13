@@ -5,10 +5,13 @@ const LogOperacion = require('../controllers/log_operaciones.js')
 
 router.get('/get_all', async (req, res) => {
     try {
+      await LogOperacion(req.session.user.id, 'Consulta de Usuarios - ' + req.session.user.username, null, new Date()) 
+
       res.json({ 
         items: await global.knex('user'),
         profile: await global.knex('profile'),
-        role: await global.knex('role')
+        role: await global.knex('role'),
+        fotoclub: await global.knex('fotoclub')
       });
     } catch (error) {
       console.error(error);
