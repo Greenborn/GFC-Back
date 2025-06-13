@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js');
+const { profile } = require('console');
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
@@ -32,9 +33,8 @@ router.post('/login', async (req, res) => {
     req.session.user = user;
     const token = crypto.randomBytes(32).toString('hex');
     req.session.token = token;
-    res.status(200).send({ r: true, user: {
-      profile: profile,
-    },  message: 'Login exitoso' });
+    req.session.profile = profile;
+    res.status(200).send({ r: true, profile: profile,  message: 'Login exitoso' });
     req.session.save()
     return
   } catch (error) {
@@ -53,6 +53,19 @@ router.post('/cerrar-sesion', (req, res) => {
       res.redirect('/login');
     }
   });
+});
+
+router.get('/session', async (req, res) => {
+  try {
+    if (req.session.user) {
+      return res.json({ profile: req.session.profile });
+    } else {
+      return res.json({ error: 'No hay sesión activa' });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 module.exports = router;
