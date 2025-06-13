@@ -58,13 +58,13 @@ router.post('/cerrar-sesion', (req, res) => {
 router.get('/session', async (req, res) => {
   try {
     if (req.session.user) {
-      return res.json({ profile: req.session.profile });
+      return res.json({ stat: true, profile: req.session.profile });
     } else {
-      return res.json({ error: 'No hay sesión activa' });
+      return res.json({ stat: false, error: 'No hay sesión activa' });
     }
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ stat: false, error: 'Error interno del servidor' });
   }
 });
 
