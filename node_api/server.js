@@ -28,6 +28,10 @@ app_admin.use(Session({
     secret: 'admin_session_secret',
     saveUninitialized: false,
     resave: true,
+    cookie: {
+        maxAge: 60 * 60 * 1000 * 24, // 1 día
+        rolling: true
+    }
 }))
 
 app_admin.use('/api/auth', require('./routes/auth.js'));
