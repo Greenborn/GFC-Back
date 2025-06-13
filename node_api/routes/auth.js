@@ -32,10 +32,12 @@ router.post('/login', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     req.session.token = token;
     req.session.save()
-    res.json({ r: true, t: token, message: 'Login exitoso' });
+    res.status(200).send({ r: true,  message: 'Login exitoso' });
+    return
   } catch (error) {
     console.error(error);
     res.status(500).json({ r: false, error: 'Error interno del servidor' });
+    return
   }
 });
 
