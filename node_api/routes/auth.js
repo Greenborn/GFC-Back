@@ -25,13 +25,16 @@ router.post('/login', async (req, res) => {
       await LogOperacion(user.id, 'contraseña incorrecta', '{"user":"'+username+'"}', new Date());
       return res.status(401).json({ r: false, error: 'Usuario o Contraseña Incorrecta' });
     }
-    await LogOperacion(user.id, 'login', null, new Date());
+    await LogOperacion(user.id, 'login - '+username, null, new Date());
 
+    const profile = await global.knex('profile').where('id', user?.profile_id).first();
     // Si el usuario y la contraseña son válidos, creamos una sesión
     req.session.user = user;
     const token = crypto.randomBytes(32).toString('hex');
     req.session.token = token;
-    res.status(200).send({ r: true,  message: 'Login exitoso' });
+    res.status(200).send({ r: true, user: {
+      profile: profile,
+    },  message: 'Login exitoso' });
     req.session.save()
     return
   } catch (error) {
