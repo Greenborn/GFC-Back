@@ -125,7 +125,7 @@ router.post('/recupera_pass', async (req, res) => {
         to: user.email,
         subject: '[Grupo Fotográfico Centro] Código de verificación'
       }
-      //await Mailer.sendEmail(email_data)
+      proms_arr.push( Mailer.sendEmail(email_data) )
       let proms_res = await Promise.all(proms_arr)
       if (proms_res){
         console.log(proms_res)
