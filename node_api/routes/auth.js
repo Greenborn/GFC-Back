@@ -6,7 +6,7 @@ const LogOperacion = require('../controllers/log_operaciones.js')
 const Mailer = require('../controllers/mailer.js')
 
 router.post('/recupera_pass', async (req, res) => {
-  const { email } = req.body;
+  const email = req.body?.email;
 
   if (!email) {
     return res.status(400).json({ r: false, error: 'Falta email' });
@@ -25,7 +25,7 @@ router.post('/recupera_pass', async (req, res) => {
       await LogOperacion(user.id, 'recuperar contraseña', '{"email":"'+email+'"}', AHORA)
       await global.knex('user')
         .update({
-          'token_recupera_pass': TOKEN_RECUPERA_PASS,
+          'password_reset_token': TOKEN_RECUPERA_PASS,
           'pass_recovery_date':  AHORA
         })
         .where('email', email)
