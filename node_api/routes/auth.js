@@ -3,7 +3,28 @@ const router = express.Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js');
-const { profile } = require('console');
+
+router.post('/recupera_pass', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ r: false, error: 'Falta email' });
+  }
+
+  try {
+    const user = await global.knex('user').where('email', email).first();
+
+    if (!user) {
+      return res.status(401).json({ r: true });
+    }
+
+    return res.status(200).json({ r: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ r: false, error: 'Error interno del servidor' });
+    return
+  }
+});
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
