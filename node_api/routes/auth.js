@@ -117,11 +117,11 @@ router.post('/recupera_pass', async (req, res) => {
             Hola ${user.username},<br><br>
             
             A continuación se adjunta código de verificación solicitado para recuperación de contraseña:<br>
-            <h1><b>${user.sign_up_verif_code}</b></h1>
+            <h1><b>${TOKEN_RECUPERA_PASS}</b></h1>
             <div style="font-size:10px;">Este mensaje es enviado automáticamente, por favor no lo responda </div>
           </div>
         `,
-        text: `Hola ${user.username} \n\nA continuación se adjunta código de verificación solicitado para recuperación de contraseña: ${user.sign_up_verif_code}`,
+        text: `Hola ${user.username} \n\nA continuación se adjunta código de verificación solicitado para recuperación de contraseña: ${TOKEN_RECUPERA_PASS}`,
         to: user.email,
         subject: '[Grupo Fotográfico Centro] Código de verificación'
       }
