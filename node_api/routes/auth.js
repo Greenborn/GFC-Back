@@ -1,8 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
-const LogOperacion = require('../controllers/log_operaciones.js');
+const express = require('express')
+const router = express.Router()
+const crypto = require('crypto')
+const bcrypt = require('bcryptjs')
+const LogOperacion = require('../controllers/log_operaciones.js')
+const Mailer = require('../controllers/mailer.js')
 
 router.post('/recupera_pass', async (req, res) => {
   const { email } = req.body;
@@ -15,7 +16,36 @@ router.post('/recupera_pass', async (req, res) => {
     const user = await global.knex('user').where('email', email).first();
 
     if (!user) {
-      return res.status(401).json({ r: true });
+      return res.status(200).json({ r: true });
+    }
+
+    if (user){
+      const TOKEN_RECUPERA_PASS = crypto.randomBytes(32).toString('hex')
+      const AHORA = new Date()
+      await LogOperacion(user.id, 'recuperar contraseña', '{"email":"'+email+'"}', AHORA)
+      await global.knex('user')
+        .update({
+          'token_recupera_pass': TOKEN_RECUPERA_PASS,
+          'pass_recovery_date':  AHORA
+        })
+        .where('email', email)
+
+      const email_data = {
+        html: `
+          <div class="password-reset">
+            Hola ${user.username},<br><br>
+            
+            A continuación se adjunta código de verificación solicitado para recuperación de contraseña:<br>
+            <h1><b>${user.sign_up_verif_code}</b></h1>
+            <div style="font-size:10px;">Este mensaje es enviado automáticamente, por favor no lo responda </div>
+          </div>
+        `,
+        text: `Hola ${user.username} \n\nA continuación se adjunta código de verificación solicitado para recuperación de contraseña: ${user.sign_up_verif_code}`,
+        to: user.email,
+        subject: '[Grupo Fotográfico Centro] Código de verificación'
+      }
+      await Mailer.sendEmail(email_data)
+      return res.status(200).json({ r: true });
     }
 
     return res.status(200).json({ r: true });
