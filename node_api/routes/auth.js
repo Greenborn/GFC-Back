@@ -20,7 +20,7 @@ router.post('/recupera_pass', async (req, res) => {
     }
 
     if (user){
-      const TOKEN_RECUPERA_PASS = crypto.randomBytes(32).toString('hex')
+      const TOKEN_RECUPERA_PASS = crypto.randomBytes(32).toString('hex').slice(0, 6);
       const AHORA = new Date()
       await LogOperacion(user.id, 'recuperar contraseña', '{"email":"'+email+'"}', AHORA)
       await global.knex('user')
