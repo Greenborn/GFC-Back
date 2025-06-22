@@ -14,13 +14,21 @@ router.post('/recupera_pass_confirm_code', async (req, res) => {
   }
 
   try {
-    const user = await global.knex('user').where('email', email).first();
+    const AHORA = new Date()
+    const user = await global.knex('user').where({
+      'email': email,
+      'password_reset_token': code
+    }).first();
 
     if (!user) {
       return res.status(200).json({ r: false });
-    }
+    } else {
+      const TIME_DIFF = new Date().getTime() - new Date(user.pass_recovery_date).getTime()
+      if ( TIME_DIFF < 0 && TIME_DIFF > global.config.verify_code_time ) {
+        return res.status(200).json({ r: false });
+      }
 
-    if (!user) {
+      console.log(user)
       return res.status(200).json({ r: true });
     }
   } catch (error) {
@@ -42,19 +50,19 @@ router.post('/recupera_pass', async (req, res) => {
 
     if (!user) {
       return res.status(200).json({ r: true });
-    }
-
-    if (user){
+    } else {
       const TOKEN_RECUPERA_PASS = crypto.randomBytes(32).toString('hex').slice(0, 6);
       const AHORA = new Date()
-      await LogOperacion(user.id, 'recuperar contraseña', '{"email":"'+email+'"}', AHORA)
-      await global.knex('user')
+
+      let proms_arr = []
+      proms_arr.push( LogOperacion(user.id, 'recuperar contraseña', '{"email":"'+email+'"}', AHORA) )
+      proms_arr.push( global.knex('user')
         .update({
           'password_reset_token': TOKEN_RECUPERA_PASS,
           'pass_recovery_date':  AHORA
         })
-        .where('email', email)
-
+        .where({'email': email})
+      )
       const email_data = {
         html: `
           <div class="password-reset">
@@ -69,11 +77,15 @@ router.post('/recupera_pass', async (req, res) => {
         to: user.email,
         subject: '[Grupo Fotográfico Centro] Código de verificación'
       }
-      await Mailer.sendEmail(email_data)
-      return res.status(200).json({ r: true });
+      //await Mailer.sendEmail(email_data)
+      let proms_res = await Promise.all(proms_arr)
+      if (proms_res){
+        console.log(proms_res)
+        return res.status(200).json({ r: true });
+      } else 
+        return res.status(200).json({ r: false, error: 'Error interno del servidor' });
     }
 
-    return res.status(200).json({ r: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ r: false, error: 'Error interno del servidor' });
