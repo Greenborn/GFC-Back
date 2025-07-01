@@ -50,7 +50,7 @@ router.delete('/delete', async (req, res) => {
         return res.status(500).json({ message: 'No se puede eliminar concurso que pasó por el Juzgamiento' });
       }
 
-      let constest_records = await global.knex('contest_records').where({'contest_id':ID})
+      let constest_records = await global.knex('contest_record').where({'contest_id':ID})
       if (constest_records.length > 0) {
         return res.status(500).json({ message: 'No se puede eliminar concurso con Grabaciones' });
       }
