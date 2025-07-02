@@ -21,6 +21,17 @@ router.get('/get_all', async (req, res) => {
     }
 })
 
+router.get('/get_compressed_images', async (req, res) => {
+    try {
+      await LogOperacion(req.session?.user?.id, 'Solicita archivo comprimido de imágenes - ' + req.session?.user?.username, null, new Date()) 
+
+      return res.status(200).json({ message: 'En desarrollo' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error al obtener registros' });
+    }
+})
+
 router.delete('/delete', async (req, res) => {
     let trx = null
     try{
