@@ -3,8 +3,11 @@ const router = express.Router();
 
 router.get('/get_all', async (req, res) => {
   try {
-    const registros = await global.knex('log_operaciones')
-    res.json(registros);
+    let registros = global.knex('log_operaciones')
+    if (req.query?.count) {
+      registros = registros.limit(req.query?.count)
+    }
+    res.json(await registros);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error al obtener registros' });
