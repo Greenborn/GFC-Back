@@ -1,7 +1,7 @@
 const axios = require('axios')
 
 async function sendEmail(email_data) {
-  const url = global.config.email_service_url
+  const url = global.config.email_service_url+'/email'
 
   const headers = {
     'Content-Type': 'application/json'
