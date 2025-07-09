@@ -47,7 +47,7 @@ class PasswordResetAction extends CreateAction{
   
       if ($status){
         //Se envia el email
-        $url = 'http://localhost:34555';
+        $url = 'http://localhost:34555/email';
         $headers = [
           'Content-Type: application/json'
         ];

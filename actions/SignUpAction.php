@@ -86,7 +86,7 @@ class SignUpAction extends CreateAction {
     $out['profile']             = [ 'id' => $perfil->id ];
 
     //Se envia el email
-    $url = 'http://localhost:34555';
+    $url = 'http://localhost:34555/email';
     $headers = [
       'Content-Type: application/json'
     ];
