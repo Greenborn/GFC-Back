@@ -102,6 +102,7 @@ class SignUpAction extends CreateAction {
           </div>',
       'text' => 'Hola '.$user->username.' Por favor ingrese el siguiente código de verificación para confirmar su registro: '.$user->sign_up_verif_code,
       'to' => $user->email,
+      'from' => 'registro.gfc@greenborn.com.ar',
       'subject' => '[Grupo Fotográfico Centro] Código de verificación'
     ];
     

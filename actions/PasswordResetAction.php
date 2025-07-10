@@ -61,6 +61,7 @@ class PasswordResetAction extends CreateAction{
       </div>",
           'text' => 'Hola '.$user->username.' Por favor copie y pegue el siguiente enlace en su navegador para recperar su contraseña: https://www.grupofotograficocentro.com/reset-password-token?token='.$user->password_reset_token,
           'to' => $user->email,
+          'from' => 'registro.gfc@greenborn.com.ar',
           'subject' => '[Grupo Fotográfico Centro] Recuperacion de contraseña'
         ];
         
