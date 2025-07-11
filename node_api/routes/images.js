@@ -25,18 +25,28 @@ router.get('/search', async (req, res) => {
 
         // Consultar imágenes que coincidan con el código o título
         const images = await global.knex('image')
-            .select('id', 'code', 'title', 'profile_id', 'url')
+            .select(
+                'image.id',
+                'image.code',
+                'image.title',
+                'image.profile_id',
+                'image.url',
+                'profile.name as author_name',
+                'profile.last_name as author_last_name'
+            )
+            .leftJoin('profile', 'image.profile_id', 'profile.id')
             .where(function() {
-                this.where('code', 'like', searchTerm)
-                    .orWhere('title', 'like', searchTerm);
+                this.where('image.code', 'like', searchTerm)
+                    .orWhere('image.title', 'like', searchTerm);
             })
-            .orderBy('title', 'asc')
+            .orderBy('image.title', 'asc')
             .limit(10);
 
-        // Agregar URL base a las imágenes
+        // Agregar URL base a las imágenes y formatear nombre del autor
         const imagesWithFullUrl = images.map(image => ({
             ...image,
-            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`
+            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
+            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible'
         }));
 
         // Log de la operación (sin usuario ya que es público)
@@ -68,14 +78,24 @@ router.get('/search', async (req, res) => {
 router.get('/all', async (req, res) => {
     try {
         const images = await global.knex('image')
-            .select('id', 'code', 'title', 'profile_id', 'url')
-            .orderBy('title', 'asc')
+            .select(
+                'image.id',
+                'image.code',
+                'image.title',
+                'image.profile_id',
+                'image.url',
+                'profile.name as author_name',
+                'profile.last_name as author_last_name'
+            )
+            .leftJoin('profile', 'image.profile_id', 'profile.id')
+            .orderBy('image.title', 'asc')
             .limit(10);
 
-        // Agregar URL base a las imágenes
+        // Agregar URL base a las imágenes y formatear nombre del autor
         const imagesWithFullUrl = images.map(image => ({
             ...image,
-            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`
+            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
+            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible'
         }));
 
         // Log de la operación
