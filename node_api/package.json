@@ -6,7 +6,9 @@
   "scripts": {
     "start": "nodemon --ignore ./sessions server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "migrate": "knex migrate:latest"
+    "migrate": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "migrate:status": "knex migrate:status"
   },
   "repository": {
     "type": "git",
@@ -31,6 +33,7 @@
     "http": "^0.0.1-security",
     "knex": "^3.1.0",
     "mysql": "^2.18.1",
+    "pg": "^8.11.3",
     "session-file-store": "^1.5.0",
     "uuid": "^8.3.2"
   }
