@@ -32,9 +32,12 @@ router.get('/search', async (req, res) => {
                 'image.profile_id',
                 'image.url',
                 'profile.name as author_name',
-                'profile.last_name as author_last_name'
+                'profile.last_name as author_last_name',
+                'section.name as section_name'
             )
             .leftJoin('profile', 'image.profile_id', 'profile.id')
+            .leftJoin('contest_result', 'image.id', 'contest_result.image_id')
+            .leftJoin('section', 'contest_result.section_id', 'section.id')
             .where(function() {
                 this.where('image.code', 'like', searchTerm)
                     .orWhere('image.title', 'like', searchTerm);
@@ -42,11 +45,12 @@ router.get('/search', async (req, res) => {
             .orderBy('image.title', 'asc')
             .limit(10);
 
-        // Agregar URL base a las imágenes y formatear nombre del autor
+        // Agregar URL base a las imágenes y formatear nombre del autor y sección
         const imagesWithFullUrl = images.map(image => ({
             ...image,
             url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
-            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible'
+            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
+            section: image.section_name || 'Sin sección asignada'
         }));
 
         // Log de la operación (sin usuario ya que es público)
@@ -85,17 +89,21 @@ router.get('/all', async (req, res) => {
                 'image.profile_id',
                 'image.url',
                 'profile.name as author_name',
-                'profile.last_name as author_last_name'
+                'profile.last_name as author_last_name',
+                'section.name as section_name'
             )
             .leftJoin('profile', 'image.profile_id', 'profile.id')
+            .leftJoin('contest_result', 'image.id', 'contest_result.image_id')
+            .leftJoin('section', 'contest_result.section_id', 'section.id')
             .orderBy('image.title', 'asc')
             .limit(10);
 
-        // Agregar URL base a las imágenes y formatear nombre del autor
+        // Agregar URL base a las imágenes y formatear nombre del autor y sección
         const imagesWithFullUrl = images.map(image => ({
             ...image,
             url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
-            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible'
+            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
+            section: image.section_name || 'Sin sección asignada'
         }));
 
         // Log de la operación
