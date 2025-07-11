@@ -9,7 +9,7 @@ const cors = require('cors')
 const Session = require('express-session')
 const SessionFileStore = require('session-file-store')(Session)
 const bodyParser = require("body-parser")
-const knex = require('./knexfile.js');
+require('./knexfile.js'); // Esto inicializa global.knex
 const LogOperacion = require('./controllers/log_operaciones.js');
 
 // Configuración de CORS
@@ -41,7 +41,7 @@ app_admin.use(Session({
 app_admin.get('/health', async (req, res) => {
     try {
         // Verificar conexión a base de datos
-        await knex.raw('SELECT 1');
+        await global.knex.raw('SELECT 1');
         
         res.json({
             status: 'healthy',
