@@ -32,14 +32,20 @@ router.get('/search', async (req, res) => {
             })
             .orderBy('title', 'asc');
 
+        // Agregar URL base a las imágenes
+        const imagesWithFullUrl = images.map(image => ({
+            ...image,
+            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`
+        }));
+
         // Log de la operación (sin usuario ya que es público)
         await LogOperacion(0, `Búsqueda de imágenes: "${q}"`, null, new Date());
 
         res.json({
             success: true,
             message: 'Búsqueda realizada correctamente',
-            data: images,
-            total: images.length,
+            data: imagesWithFullUrl,
+            total: imagesWithFullUrl.length,
             searchTerm: q.trim()
         });
 
@@ -64,14 +70,20 @@ router.get('/all', async (req, res) => {
             .select('id', 'code', 'title', 'profile_id', 'url')
             .orderBy('title', 'asc');
 
+        // Agregar URL base a las imágenes
+        const imagesWithFullUrl = images.map(image => ({
+            ...image,
+            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`
+        }));
+
         // Log de la operación
         await LogOperacion(0, 'Consulta de todas las imágenes', null, new Date());
 
         res.json({
             success: true,
             message: 'Imágenes obtenidas correctamente',
-            data: images,
-            total: images.length
+            data: imagesWithFullUrl,
+            total: imagesWithFullUrl.length
         });
 
     } catch (error) {
