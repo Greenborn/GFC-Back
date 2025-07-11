@@ -35,6 +35,8 @@
 - Implementar autenticación y autorización
 - Validar datos de entrada
 - Manejar errores de forma consistente
+- **OBLIGATORIO**: Después de cada modificación de endpoints, actualizar la documentación correspondiente antes de hacer commit
+- **FLUJO DE TRABAJO**: Modificar endpoint → Actualizar documentación → Commit
 
 ## Seguridad
 - Validar todas las entradas de usuario
@@ -82,6 +84,10 @@
 - Seguir convenciones de branching
 - Mantener .gitignore actualizado
 - No committear archivos sensibles
+- **REGLAS DE COMMIT**: 
+  - Antes de commitear cambios en endpoints, verificar que la documentación esté actualizada
+  - Incluir documentación actualizada en el mismo commit que los cambios de código
+  - Si se acepta una funcionalidad, actualizar documentación y luego proceder con commit
 
 ## Performance
 - Optimizar consultas de base de datos
