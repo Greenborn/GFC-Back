@@ -30,7 +30,8 @@ router.get('/search', async (req, res) => {
                 this.where('code', 'like', searchTerm)
                     .orWhere('title', 'like', searchTerm);
             })
-            .orderBy('title', 'asc');
+            .orderBy('title', 'asc')
+            .limit(10);
 
         // Agregar URL base a las imágenes
         const imagesWithFullUrl = images.map(image => ({
@@ -68,7 +69,8 @@ router.get('/all', async (req, res) => {
     try {
         const images = await global.knex('image')
             .select('id', 'code', 'title', 'profile_id', 'url')
-            .orderBy('title', 'asc');
+            .orderBy('title', 'asc')
+            .limit(10);
 
         // Agregar URL base a las imágenes
         const imagesWithFullUrl = images.map(image => ({
