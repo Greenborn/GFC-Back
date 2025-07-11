@@ -435,7 +435,12 @@ Busca imágenes por código o título. Endpoint público que no requiere autenti
       "author_last_name": "Pérez",
       "author": "Juan Pérez",
       "section_name": "Color",
-      "section": "Color"
+      "section": "Color",
+      "contest": {
+        "id": 5,
+        "name": "Concurso Nacional 2025",
+        "subtitle": "Primera Edición"
+      }
     }
   ],
   "total": 1,
@@ -473,7 +478,12 @@ Obtiene todas las imágenes disponibles. Endpoint público que no requiere auten
       "author_last_name": "Pérez",
       "author": "Juan Pérez",
       "section_name": "Color",
-      "section": "Color"
+      "section": "Color",
+      "contest": {
+        "id": 5,
+        "name": "Concurso Nacional 2025",
+        "subtitle": "Primera Edición"
+      }
     }
   ],
   "total": 1
@@ -487,6 +497,11 @@ Obtiene todas las imágenes disponibles. Endpoint público que no requiere auten
 - **URLs**: URLs completas con base configurable en `IMG_BASE_PATH`
 - **Autor**: Nombre completo del autor (JOIN con tabla `profile`)
 - **Sección**: Nombre de la sección (JOIN con tablas `contest_result` y `section`)
+- **Concurso**: Información del concurso (JOIN con tabla `contest`)
+  - `contest`: Objeto con la información del concurso al que pertenece la imagen. Puede ser `null` si la imagen no está asociada a ningún concurso.
+    - `id`: ID del concurso
+    - `name`: Nombre del concurso
+    - `subtitle`: Subtítulo del concurso
 
 ---
 
