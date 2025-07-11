@@ -162,10 +162,10 @@ curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/images/search?q=3336_2025
 #### Consulta de Participantes
 La API incluye un endpoint público para consultar participantes de concursos:
 
-- **GET** `/contest/participants?id=<contest_id>` - Obtener listado de participantes de un concurso
+- **GET** `/contest/participants?id=<contest_id>` - Obtener listado básico de participantes de un concurso
 
 ##### Características
-- **Información completa**: Incluye datos del participante, fotoclub y categoría
+- **Información esencial**: Solo nombre, apellido, DNI y categoría
 - **Ordenamiento**: Por apellido y nombre
 - **Sin autenticación**: Acceso público para consultas
 - **Validación**: Verifica que el concurso existe

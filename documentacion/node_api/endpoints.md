@@ -261,7 +261,7 @@ Obtiene los detalles completos de un concurso.
 ### 3.3 Obtener Participantes de un Concurso
 **GET** `/contest/participants`
 
-Obtiene el listado completo de participantes de un concurso específico. Endpoint público que no requiere autenticación.
+Obtiene el listado básico de participantes de un concurso específico. Endpoint público que no requiere autenticación. Devuelve solo información esencial: nombre, apellido, DNI y categoría.
 
 #### Query Parameters
 - `id` (int, requerido): ID del concurso
@@ -280,21 +280,9 @@ Obtiene el listado completo de participantes de un concurso específico. Endpoin
   },
   "participants": [
     {
-      "participation_id": 1,
-      "profile_id": 1,
-      "category_id": 1,
       "name": "Juan",
       "last_name": "Pérez",
-      "profile_image": "https://example.com/profile.jpg",
-      "executive": false,
-      "executive_rol": null,
-      "fotoclub_id": 1,
-      "fotoclub_name": "Fotoclub Tandil",
-      "fotoclub_facebook": "https://facebook.com/fotoclubtandil",
-      "fotoclub_instagram": "@fotoclubtandil",
-      "fotoclub_email": "info@fotoclubtandil.com",
-      "fotoclub_photo": "https://example.com/fotoclub.jpg",
-      "fotoclub_description": "Club fotográfico de Tandil",
+      "dni": "12345678",
       "category_name": "Aficionado"
     }
   ],

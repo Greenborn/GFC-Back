@@ -42,29 +42,15 @@ router.get('/participants', async (req, res) => {
             });
         }
 
-        // Obtener participantes con información completa
+        // Obtener participantes con información específica
         const participants = await global.knex('profile_contest as pc')
             .select(
-                'pc.id as participation_id',
-                'pc.profile_id',
-                'pc.category_id',
                 'p.name',
                 'p.last_name',
-                'p.img_url as profile_image',
-                'p.executive',
-                'p.executive_rol',
-                'f.id as fotoclub_id',
-                'f.name as fotoclub_name',
-                'f.facebook as fotoclub_facebook',
-                'f.instagram as fotoclub_instagram',
-                'f.email as fotoclub_email',
-                'f.photo_url as fotoclub_photo',
-                'f.description as fotoclub_description',
-                'c.id as category_id',
+                'p.dni',
                 'c.name as category_name'
             )
             .join('profile as p', 'pc.profile_id', 'p.id')
-            .leftJoin('fotoclub as f', 'p.fotoclub_id', 'f.id')
             .leftJoin('category as c', 'pc.category_id', 'c.id')
             .where('pc.contest_id', contestId)
             .orderBy('p.last_name', 'asc')
