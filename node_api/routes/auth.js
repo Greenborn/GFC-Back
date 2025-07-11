@@ -4,8 +4,9 @@ const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
 const LogOperacion = require('../controllers/log_operaciones.js')
 const Mailer = require('../controllers/mailer.js')
+const writeProtection = require('../middleware/writeProtection.js')
 
-router.post('/recupera_pass_new_pass', async (req, res) => {
+router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
   const email  = req.body?.email
   const code   = req.body?.code
   const pass_0 = req.body?.pass_0
@@ -86,7 +87,7 @@ router.post('/recupera_pass_confirm_code', async (req, res) => {
   }
 })
 
-router.post('/recupera_pass', async (req, res) => {
+router.post('/recupera_pass', writeProtection, async (req, res) => {
   const email = req.body?.email;
 
   if (!email) {

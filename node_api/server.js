@@ -52,6 +52,10 @@ app_admin.get('/health', async (req, res) => {
                 database: process.env.DB_NAME,
                 status: 'connected'
             },
+            system: {
+                writeMode: process.env.MODO_ESCRITURA || 'READ_WRITE',
+                readOnly: (process.env.MODO_ESCRITURA || 'READ_WRITE') === 'READ_ONLY'
+            },
             timestamp: new Date().toISOString()
         });
     } catch (error) {
@@ -65,6 +69,10 @@ app_admin.get('/health', async (req, res) => {
                 database: process.env.DB_NAME,
                 status: 'disconnected',
                 error: error.message
+            },
+            system: {
+                writeMode: process.env.MODO_ESCRITURA || 'READ_WRITE',
+                readOnly: (process.env.MODO_ESCRITURA || 'READ_WRITE') === 'READ_ONLY'
             },
             timestamp: new Date().toISOString()
         });

@@ -1,6 +1,7 @@
 const express      = require('express');
 const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
+const writeProtection = require('../middleware/writeProtection.js');
 
 router.get('/get_all', async (req, res) => {
     try {
@@ -15,7 +16,7 @@ router.get('/get_all', async (req, res) => {
     }
 })
 
-router.put('/edit', async (req, res) => {
+router.put('/edit', writeProtection, async (req, res) => {
   try {
     const { id, name, mostrar_en_ranking } = req.body;
 
