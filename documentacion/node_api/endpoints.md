@@ -409,7 +409,88 @@ Obtiene métricas generales del sistema.
 
 ---
 
-## 7. Códigos de Error
+## 7. Imágenes
+
+### 7.1 Buscar Imágenes
+**GET** `/images/search`
+
+Busca imágenes por código o título. Endpoint público que no requiere autenticación.
+
+#### Query Parameters
+- `q` (string, requerido): Término de búsqueda para código o título
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Búsqueda realizada correctamente",
+  "data": [
+    {
+      "id": 10047,
+      "code": "3336_2025_38_Color_10047",
+      "title": "A LA DERECHA",
+      "profile_id": 88,
+      "url": "https://gfc.prod-api.greenborn.com.ar/images/2025/Primera/Color/3336_2025_38_Color_10047.jpg",
+      "author_name": "Juan",
+      "author_last_name": "Pérez",
+      "author": "Juan Pérez",
+      "section_name": "Color",
+      "section": "Color"
+    }
+  ],
+  "total": 1,
+  "searchTerm": "3336_2025_38_Color_10047"
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "El parámetro de búsqueda \"q\" es requerido",
+  "data": []
+}
+```
+
+### 7.2 Obtener Todas las Imágenes
+**GET** `/images/all`
+
+Obtiene todas las imágenes disponibles. Endpoint público que no requiere autenticación.
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Imágenes obtenidas correctamente",
+  "data": [
+    {
+      "id": 10047,
+      "code": "3336_2025_38_Color_10047",
+      "title": "A LA DERECHA",
+      "profile_id": 88,
+      "url": "https://gfc.prod-api.greenborn.com.ar/images/2025/Primera/Color/3336_2025_38_Color_10047.jpg",
+      "author_name": "Juan",
+      "author_last_name": "Pérez",
+      "author": "Juan Pérez",
+      "section_name": "Color",
+      "section": "Color"
+    }
+  ],
+  "total": 1
+}
+```
+
+#### Características de los Endpoints de Imágenes
+- **Límite**: Máximo 10 resultados por consulta
+- **Ordenamiento**: Alfabético por título (ascendente)
+- **Búsqueda**: Coincidencia total o parcial en campos `code` y `title`
+- **URLs**: URLs completas con base configurable en `IMG_BASE_PATH`
+- **Autor**: Nombre completo del autor (JOIN con tabla `profile`)
+- **Sección**: Nombre de la sección (JOIN con tablas `contest_result` y `section`)
+
+---
+
+## 8. Códigos de Error
 
 ### 7.1 Códigos de Estado HTTP
 - `200` - OK: Operación exitosa

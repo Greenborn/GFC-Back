@@ -112,6 +112,7 @@ node_api/
 - **ContestResult**: Resultados de concursos
 - **Fotoclub**: Clubes fotográficos
 - **LogOperaciones**: Logs de operaciones del sistema
+- **Image**: Imágenes/fotografías con información de autor y sección
 
 ### Relaciones Clave
 - Sincronización bidireccional con la API PHP
@@ -136,6 +137,25 @@ node_api/
 - Usar JSDoc para todos los métodos públicos
 - Documentar parámetros y valores de retorno
 - Incluir ejemplos de uso cuando sea necesario
+
+## Endpoints Públicos
+
+### Consulta de Imágenes
+La API incluye endpoints públicos para consultar imágenes sin necesidad de autenticación:
+
+- **GET** `/api/images/search?q=termino` - Buscar imágenes por código o título
+- **GET** `/api/images/all` - Obtener todas las imágenes disponibles
+
+#### Características
+- **Límite**: Máximo 10 resultados por consulta
+- **Información completa**: Incluye autor, sección y URL completa
+- **Búsqueda flexible**: Coincidencia total o parcial
+- **Sin autenticación**: Acceso público para consultas
+
+#### Ejemplo de uso
+```bash
+curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/images/search?q=3336_2025_38_Color_10047"
+```
 
 ## WebSockets
 
