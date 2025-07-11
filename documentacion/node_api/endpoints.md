@@ -258,6 +258,75 @@ Obtiene los detalles completos de un concurso.
 }
 ```
 
+### 3.3 Obtener Participantes de un Concurso
+**GET** `/contest/participants`
+
+Obtiene el listado completo de participantes de un concurso específico. Endpoint público que no requiere autenticación.
+
+#### Query Parameters
+- `id` (int, requerido): ID del concurso
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "contest": {
+    "id": 1,
+    "name": "Concurso de Fotografía 2024",
+    "description": "Capturando la belleza natural",
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31",
+    "sub_title": "Edición 2024"
+  },
+  "participants": [
+    {
+      "participation_id": 1,
+      "profile_id": 1,
+      "category_id": 1,
+      "name": "Juan",
+      "last_name": "Pérez",
+      "profile_image": "https://example.com/profile.jpg",
+      "executive": false,
+      "executive_rol": null,
+      "fotoclub_id": 1,
+      "fotoclub_name": "Fotoclub Tandil",
+      "fotoclub_facebook": "https://facebook.com/fotoclubtandil",
+      "fotoclub_instagram": "@fotoclubtandil",
+      "fotoclub_email": "info@fotoclubtandil.com",
+      "fotoclub_photo": "https://example.com/fotoclub.jpg",
+      "fotoclub_description": "Club fotográfico de Tandil",
+      "category_name": "Aficionado"
+    }
+  ],
+  "total_participants": 150,
+  "message": "Se encontraron 150 participantes en el concurso \"Concurso de Fotografía 2024\""
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "ID de concurso inválido"
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "success": false,
+  "message": "Concurso no encontrado"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "success": false,
+  "message": "Error interno del servidor al obtener participantes"
+}
+```
+
 ---
 
 ## 4. Logs de Operaciones

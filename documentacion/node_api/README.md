@@ -140,21 +140,39 @@ node_api/
 
 ## Endpoints Públicos
 
-### Consulta de Imágenes
+### Endpoints Públicos
+
+#### Consulta de Imágenes
 La API incluye endpoints públicos para consultar imágenes sin necesidad de autenticación:
 
 - **GET** `/api/images/search?q=termino` - Buscar imágenes por código o título
 - **GET** `/api/images/all` - Obtener todas las imágenes disponibles
 
-#### Características
+##### Características
 - **Límite**: Máximo 10 resultados por consulta
 - **Información completa**: Incluye autor, sección y URL completa
 - **Búsqueda flexible**: Coincidencia total o parcial
 - **Sin autenticación**: Acceso público para consultas
 
-#### Ejemplo de uso
+##### Ejemplo de uso
 ```bash
 curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/images/search?q=3336_2025_38_Color_10047"
+```
+
+#### Consulta de Participantes
+La API incluye un endpoint público para consultar participantes de concursos:
+
+- **GET** `/contest/participants?id=<contest_id>` - Obtener listado de participantes de un concurso
+
+##### Características
+- **Información completa**: Incluye datos del participante, fotoclub y categoría
+- **Ordenamiento**: Por apellido y nombre
+- **Sin autenticación**: Acceso público para consultas
+- **Validación**: Verifica que el concurso existe
+
+##### Ejemplo de uso
+```bash
+curl -X GET "https://gfc.prod-api.greenborn.com.ar/contest/participants?id=1"
 ```
 
 ## WebSockets
