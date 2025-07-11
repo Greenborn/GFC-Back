@@ -1,6 +1,6 @@
 {
-  "name": "chat_publico_back",
-  "version": "1.0.0",
+  "name": "gfc_back",
+  "version": "1.11.11",
   "description": "",
   "main": "server.js",
   "scripts": {
