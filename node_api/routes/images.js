@@ -36,12 +36,19 @@ router.get('/search', async (req, res) => {
                 'section.name as section_name',
                 'contest.id as contest_id',
                 'contest.name as contest_name',
-                'contest.sub_title as contest_subtitle'
+                'contest.sub_title as contest_subtitle',
+                'category.id as category_id',
+                'category.name as category_name'
             )
             .leftJoin('profile', 'image.profile_id', 'profile.id')
             .leftJoin('contest_result', 'image.id', 'contest_result.image_id')
             .leftJoin('section', 'contest_result.section_id', 'section.id')
             .leftJoin('contest', 'contest_result.contest_id', 'contest.id')
+            .leftJoin('profile_contest', function() {
+                this.on('profile.id', '=', 'profile_contest.profile_id')
+                     .andOn('contest.id', '=', 'profile_contest.contest_id');
+            })
+            .leftJoin('category', 'profile_contest.category_id', 'category.id')
             .where(function() {
                 this.where('image.code', 'like', searchTerm)
                     .orWhere('image.title', 'like', searchTerm);
@@ -49,7 +56,7 @@ router.get('/search', async (req, res) => {
             .orderBy('image.title', 'asc')
             .limit(10);
 
-        // Agregar URL base a las imágenes y formatear nombre del autor, sección y concurso
+        // Agregar URL base a las imágenes y formatear nombre del autor, sección, concurso y categoría
         const imagesWithFullUrl = images.map(image => ({
             ...image,
             url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
@@ -59,6 +66,10 @@ router.get('/search', async (req, res) => {
                 id: image.contest_id,
                 name: image.contest_name,
                 subtitle: image.contest_subtitle
+            } : null,
+            category: image.category_name ? {
+                id: image.category_id,
+                name: image.category_name
             } : null
         }));
 
@@ -102,16 +113,23 @@ router.get('/all', async (req, res) => {
                 'section.name as section_name',
                 'contest.id as contest_id',
                 'contest.name as contest_name',
-                'contest.sub_title as contest_subtitle'
+                'contest.sub_title as contest_subtitle',
+                'category.id as category_id',
+                'category.name as category_name'
             )
             .leftJoin('profile', 'image.profile_id', 'profile.id')
             .leftJoin('contest_result', 'image.id', 'contest_result.image_id')
             .leftJoin('section', 'contest_result.section_id', 'section.id')
             .leftJoin('contest', 'contest_result.contest_id', 'contest.id')
+            .leftJoin('profile_contest', function() {
+                this.on('profile.id', '=', 'profile_contest.profile_id')
+                     .andOn('contest.id', '=', 'profile_contest.contest_id');
+            })
+            .leftJoin('category', 'profile_contest.category_id', 'category.id')
             .orderBy('image.title', 'asc')
             .limit(10);
 
-        // Agregar URL base a las imágenes y formatear nombre del autor, sección y concurso
+        // Agregar URL base a las imágenes y formatear nombre del autor, sección, concurso y categoría
         const imagesWithFullUrl = images.map(image => ({
             ...image,
             url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
@@ -121,6 +139,10 @@ router.get('/all', async (req, res) => {
                 id: image.contest_id,
                 name: image.contest_name,
                 subtitle: image.contest_subtitle
+            } : null,
+            category: image.category_name ? {
+                id: image.category_id,
+                name: image.category_name
             } : null
         }));
 
