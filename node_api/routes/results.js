@@ -9,7 +9,7 @@ async function authMiddleware(req, res, next) {
   }
   const token = auth.slice(7);
   try {
-    const user = await req.app.locals.knex('user').where({ access_token: token }).first();
+    const user = await global.knex('user').where({ access_token: token }).first();
     if (!user) {
       return res.status(401).json({ success: false, message: 'Token inválido' });
     }
@@ -27,7 +27,7 @@ router.post('/judging', authMiddleware, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Datos incompletos' });
   }
   try {
-    const [id] = await req.app.locals.knex('contest_result').insert({
+    const [id] = await global.knex('contest_result').insert({
       contest_id,
       image_id,
       score,
