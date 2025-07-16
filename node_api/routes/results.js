@@ -36,6 +36,7 @@ router.post('/judging', authMiddleware, async (req, res) => {
   };
 
   console.log('Estructura recibida:', JSON.stringify(estructura.exportacion, null, 2));
+  console.log('INICIO procesamiento de estructura');
   // Iniciar transacción
   await global.knex.transaction(async trx => {
     try {
@@ -49,7 +50,8 @@ router.post('/judging', authMiddleware, async (req, res) => {
             console.log('Procesando categoría:', categoria);
             const archivos = estructura.exportacion[concurso][seccion][categoria].__files;
             console.log('Archivos:', archivos);
-            for (const archivo of archivos) {
+            // Procesar todos los archivos en paralelo con Promise.all
+            await Promise.all(archivos.map(async (archivo) => {
               // Extracción del código de imagen (quitando '.jpg' y 'Copia de ')
               let code = archivo.replace('.jpg', '').replace('Copia de ', '');
               // Buscar la imagen en la base de datos por code
@@ -60,28 +62,28 @@ router.post('/judging', authMiddleware, async (req, res) => {
                 if (!contestResult) {
                   informe.no_encontradas.image.push([code, categoria, seccion, concursoNormalizado]);
                   console.log(`No se encontró contest_result para imagen: ${code}`);
-                  continue;
+                  return;
                 }
                 // Obtener el concurso
                 let contest = await trx('contest').where({ id: contestResult.contest_id }).first();
                 if (!contest) {
                   informe.no_encontradas.image.push([code, categoria, seccion, concursoNormalizado]);
                   console.log(`No se encontró contest para contest_id: ${contestResult.contest_id}`);
-                  continue;
+                  return;
                 }
                 // Buscar puntaje en metric_abm
                 let puntaje = await trx('metric_abm').where({ prize: categoria, organization_type: contest.organization_type }).first();
                 if (!puntaje) {
                   informe.no_encontradas.metric.push(contest.organization_type + '|' + categoria);
                   console.log(`No se encontró metric_abm para prize: ${categoria}, organization_type: ${contest.organization_type}`);
-                  continue;
+                  return;
                 }
                 // Buscar metric por metric_id
                 let metric = await trx('metric').where({ id: contestResult.metric_id }).first();
                 if (!metric) {
                   informe.no_encontradas.metric.push(contestResult.metric_id);
                   console.log(`No se encontró metric para id: ${contestResult.metric_id}`);
-                  continue;
+                  return;
                 }
                 // Actualizar metric con premio y puntaje
                 await trx('metric').where({ id: metric.id }).update({ prize: categoria, score: puntaje.score });
@@ -91,10 +93,11 @@ router.post('/judging', authMiddleware, async (req, res) => {
                 informe.no_encontradas.image.push([code, categoria, seccion, concursoNormalizado]);
                 console.log(`Imagen NO encontrada: code=${code}`);
               }
-            }
+            }));
           }
         }
       }
+      console.log('FIN procesamiento de estructura');
       // Forzar rollback manualmente para no aplicar cambios
       await trx.rollback();
     } catch (err) {
