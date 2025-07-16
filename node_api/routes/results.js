@@ -54,10 +54,10 @@ router.post('/judging', authMiddleware, async (req, res) => {
   // Recorrido y extracción de información de la estructura
   const resultados = [];
   for (let concurso in estructura.exportacion) {
-    let concursoNormalizado = concurso === 'Estmulo' ? 'Estimulo' : concurso;
+    let categoriaNormalizada = concurso === 'Estmulo' ? 'Estimulo' : concurso;
     for (const seccion in estructura.exportacion[concurso]) {
-      for (const categoria in estructura.exportacion[concurso][seccion]) {
-        const archivos = estructura.exportacion[concurso][seccion][categoria].__files;
+      for (const premio in estructura.exportacion[concurso][seccion]) {
+        const archivos = estructura.exportacion[concurso][seccion][premio].__files;
         for (const archivo of archivos) {
           // Extracción de datos del nombre de archivo
           let nombreSinExtension = archivo.replace('.jpg', '').replace('Copia de ', '');
@@ -70,9 +70,9 @@ router.post('/judging', authMiddleware, async (req, res) => {
           let seccionArchivo = partes.slice(3, partes.length - 1).join('_');
           let code = nombreSinExtension;
           resultados.push({
-            concurso: concursoNormalizado,
+            categoria: categoriaNormalizada,
             seccion,
-            categoria,
+            premio,
             archivo,
             id_usuario,
             anio,
