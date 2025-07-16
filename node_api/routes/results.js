@@ -20,6 +20,15 @@ async function authMiddleware(req, res, next) {
   }
 }
 
+// Función asíncrona para complementar la información de cada resultado con datos de la imagen
+async function complementaInfoImagen(resultado, knex) {
+  const imagen = await knex('image').where({ code: resultado.code }).first();
+  return {
+    ...resultado,
+    imagen: imagen || null
+  };
+}
+
 // Endpoint: POST /results/judging
 router.post('/judging', authMiddleware, async (req, res) => {
   const estructura = req.body.estructura;
@@ -55,7 +64,7 @@ router.post('/judging', authMiddleware, async (req, res) => {
           let id_imagen = partes[partes.length - 1];
           let seccionArchivo = partes.slice(3, partes.length - 1).join('_');
           let code = nombreSinExtension;
-          const info = {
+          resultados.push({
             concurso: concursoNormalizado,
             seccion,
             categoria,
@@ -66,14 +75,14 @@ router.post('/judging', authMiddleware, async (req, res) => {
             seccionArchivo,
             id_imagen,
             code
-          };
-          resultados.push(info);
-          console.log(info);
+          });
         }
       }
     }
   }
-  res.json({ success: true, message: 'Extracción de información completada', resultados });
+  // Complementar la información de cada resultado con datos de la imagen
+  const resultadosCompletos = await Promise.all(resultados.map(r => complementaInfoImagen(r, global.knex)));
+  res.json({ success: true, resultados: resultadosCompletos });
 });
 
 module.exports = router; 
