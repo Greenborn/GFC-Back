@@ -20,12 +20,13 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-// Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile, el contest_result y la metric
+// Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile, el contest_result, la metric y la metric_abm
 async function complementaInfoImagen(resultado, knex) {
   const imagen = await knex('image').where({ code: resultado.code }).first();
   let profile = null;
   let contestResult = null;
   let metric = null;
+  let metricAbm = null;
   if (imagen) {
     if (imagen.profile_id) {
       profile = await knex('profile').where({ id: imagen.profile_id }).first();
@@ -35,12 +36,18 @@ async function complementaInfoImagen(resultado, knex) {
       metric = await knex('metric').where({ id: contestResult.metric_id }).first();
     }
   }
+  // Buscar metric_abm por prize = resultado.premio
+  metricAbm = await knex('metric_abm').where({ prize: resultado.premio }).first();
+  if (!metricAbm) {
+    throw new Error(`No se encontró metric_abm para el premio '${resultado.premio}' (code: ${resultado.code})`);
+  }
   return {
     ...resultado,
     imagen: imagen || null,
     profile: profile || null,
     contest_result: contestResult || null,
-    metric: metric || null
+    metric: metric || null,
+    metric_abm: metricAbm
   };
 }
 
