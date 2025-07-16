@@ -623,6 +623,14 @@ Ejemplo: `3336_2025_38_Color_10047.jpg`
 }
 ```
 
+#### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado: solo administradores"
+}
+```
+
 #### Respuesta de Error (500)
 ```json
 {
@@ -633,7 +641,7 @@ Ejemplo: `3336_2025_38_Color_10047.jpg`
 ```
 
 #### Características del Endpoint
-- **Autenticación**: Requerida (cualquier rol)
+- **Autenticación**: Requerida (solo rol `admin`)
 - **Transaccional**: Todas las actualizaciones se realizan en una transacción
 - **Validación**: Verifica que todos los premios tengan correspondencia en `metric_abm`
 - **Unicidad**: Solo permite cargar resultados de un concurso por vez
