@@ -22,25 +22,26 @@ async function authMiddleware(req, res, next) {
 
 // Endpoint: POST /results/judging
 router.post('/judging', authMiddleware, async (req, res) => {
-  console.log('estructura recibida:', req.body.estructura);
-  // const { contest_id, image_id, score, comments, section_id } = req.body;
-  // if (!contest_id || !image_id || typeof score !== 'number') {
-  //   return res.status(400).json({ success: false, message: 'Datos incompletos' });
-  // }
-  try {
-    // const [id] = await global.knex('contest_result').insert({
-    //   contest_id,
-    //   image_id,
-    //   score,
-    //   comments,
-    //   section_id,
-    //   evaluated_by: req.user.id,
-    //   evaluated_at: new Date()
-    // }).returning('id');
-    res.json({ success: true, estructura: req.body.estructura });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Error al procesar estructura', error: err.message });
+  const estructura = req.body.estructura;
+  if (!estructura || !estructura.exportacion) {
+    return res.status(400).json({ success: false, message: 'Estructura inválida o faltante' });
   }
+
+  // Recorrer la estructura y mostrar los datos relevantes
+  for (const concurso in estructura.exportacion) {
+    for (const seccion in estructura.exportacion[concurso]) {
+      for (const categoria in estructura.exportacion[concurso][seccion]) {
+        const archivos = estructura.exportacion[concurso][seccion][categoria].__files;
+        for (const archivo of archivos) {
+          // Aquí podrías extraer datos del nombre del archivo si es necesario
+          // Por ahora, solo mostramos la información
+          console.log(`Concurso: ${concurso} | Sección: ${seccion} | Categoría: ${categoria} | Archivo: ${archivo}`);
+        }
+      }
+    }
+  }
+
+  res.json({ success: true, message: 'Estructura procesada y mostrada por consola' });
 });
 
 module.exports = router; 
