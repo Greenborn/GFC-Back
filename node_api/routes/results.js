@@ -20,22 +20,27 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-// Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile y el contest_result
+// Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile, el contest_result y la metric
 async function complementaInfoImagen(resultado, knex) {
   const imagen = await knex('image').where({ code: resultado.code }).first();
   let profile = null;
   let contestResult = null;
+  let metric = null;
   if (imagen) {
     if (imagen.profile_id) {
       profile = await knex('profile').where({ id: imagen.profile_id }).first();
     }
     contestResult = await knex('contest_result').where({ image_id: imagen.id }).first();
+    if (contestResult && contestResult.metric_id) {
+      metric = await knex('metric').where({ id: contestResult.metric_id }).first();
+    }
   }
   return {
     ...resultado,
     imagen: imagen || null,
     profile: profile || null,
-    contest_result: contestResult || null
+    contest_result: contestResult || null,
+    metric: metric || null
   };
 }
 
