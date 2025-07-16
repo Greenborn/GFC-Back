@@ -1,7 +1,7 @@
 {
-  "name": "chat_publico_back",
-  "version": "1.0.0",
-  "description": "",
+  "name": "gfc-node-api",
+  "version": "1.13.11",
+  "description": "API Node.js complementaria para el sistema GFC-Back - WebSockets, procesamiento de archivos y operaciones auxiliares",
   "main": "server.js",
   "scripts": {
     "start": "nodemon --ignore ./sessions server.js",
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Greenborn/chat_publico_back.git"
+    "url": "git+https://github.com/Greenborn/GFC-Back.git"
   },
-  "author": "",
+  "author": "Greenborn",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Greenborn/chat_publico_back/issues"
+    "url": "https://github.com/Greenborn/GFC-Back/issues"
   },
-  "homepage": "https://github.com/Greenborn/chat_publico_back#readme",
+  "homepage": "https://github.com/Greenborn/GFC-Back#readme",
   "dependencies": {
     "axios": "^1.10.0",
     "bcrypt": "^5.1.1",
