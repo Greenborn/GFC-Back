@@ -51,6 +51,15 @@ async function complementaInfoImagen(resultado, knex) {
   };
 }
 
+// Función asíncrona para actualizar el prize en la tabla metric
+async function updatePrizeInMetric(obj, trx) {
+  if (!obj.metric || !obj.metric.id) {
+    throw new Error(`No se puede actualizar metric: objeto sin metric o sin id (code: ${obj.code})`);
+  }
+  await trx('metric').where({ id: obj.metric.id }).update({ prize: obj.premio });
+  return { code: obj.code, metric_id: obj.metric.id, nuevo_prize: obj.premio };
+}
+
 // Endpoint: POST /results/judging
 router.post('/judging', authMiddleware, async (req, res) => {
   const estructura = req.body.estructura;
@@ -102,9 +111,16 @@ router.post('/judging', authMiddleware, async (req, res) => {
       }
     }
   }
-  // Complementar la información de cada resultado con datos de la imagen
+  // Complementar la información de cada resultado con datos de la imagen y demás tablas
   const resultadosCompletos = await Promise.all(resultados.map(r => complementaInfoImagen(r, global.knex)));
-  res.json({ success: true, resultados: resultadosCompletos });
+
+  // Iniciar transacción y actualizar metric.prize
+  let updates = [];
+  await global.knex.transaction(async trx => {
+    updates = await Promise.all(resultadosCompletos.map(obj => updatePrizeInMetric(obj, trx)));
+  });
+
+  res.json({ success: true, actualizaciones: updates });
 });
 
 module.exports = router; 
