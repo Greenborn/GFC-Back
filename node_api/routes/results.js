@@ -118,7 +118,8 @@ router.post('/judging', authMiddleware, async (req, res) => {
 
 // Endpoint: POST /results/recalcular-ranking
 router.post('/recalcular-ranking', authMiddleware, async (req, res) => {
-  if (!req.user || req.user.role !== 'admin') {
+  if (!req.user || req.user.role != '1') {
+    console.log(req.user)
     return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores' });
   }
 
