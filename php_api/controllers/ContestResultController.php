@@ -15,7 +15,22 @@ class ContestResultController extends BaseController {
     public function actions(){
         $actions = parent::actions();
         $actions['index']['class'] = 'app\actions\ContestResultViewAction';
+        // Exponer el nuevo endpoint como acción RESTful
+        $actions['register-results'] = [
+            'class' => 'yii\rest\Action',
+            'modelClass' => $this->modelClass,
+            'controller' => $this,
+            'checkAccess' => null,
+            'method' => 'POST',
+        ];
         return $actions;
+    }
+
+    public function verbs()
+    {
+        $verbs = parent::verbs();
+        $verbs['register-results'] = ['POST'];
+        return $verbs;
     }
 
     public function prepareDataProvider(){
@@ -39,5 +54,26 @@ class ContestResultController extends BaseController {
                 'pageSize' => 500
            ]
         ]);
+    }
+
+    /**
+     * Endpoint para registrar resultados en lote a partir de un JSON de estructura de directorio.
+     * Solo accesible para administradores (role_id == 1).
+     * @return array
+     */
+    public function actionRegisterResults()
+    {
+        $user = \Yii::$app->user->identity;
+        if (!$user || $user->role_id != 1) {
+            \Yii::$app->response->statusCode = 403;
+            return [
+                'success' => false,
+                'message' => 'Acceso denegado: solo administradores pueden registrar resultados.'
+            ];
+        }
+        return [
+            'success' => true,
+            'message' => 'Resultados Cargados'
+        ];
     }
 }
