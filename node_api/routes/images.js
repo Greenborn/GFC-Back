@@ -25,18 +25,52 @@ router.get('/search', async (req, res) => {
 
         // Consultar imágenes que coincidan con el código o título
         const images = await global.knex('image')
-            .select('id', 'code', 'title', 'profile_id', 'url')
-            .where(function() {
-                this.where('code', 'like', searchTerm)
-                    .orWhere('title', 'like', searchTerm);
+            .select(
+                'image.id',
+                'image.code',
+                'image.title',
+                'image.profile_id',
+                'image.url',
+                'profile.name as author_name',
+                'profile.last_name as author_last_name',
+                'section.name as section_name',
+                'contest.id as contest_id',
+                'contest.name as contest_name',
+                'contest.sub_title as contest_subtitle',
+                'category.id as category_id',
+                'category.name as category_name'
+            )
+            .leftJoin('profile', 'image.profile_id', 'profile.id')
+            .leftJoin('contest_result', 'image.id', 'contest_result.image_id')
+            .leftJoin('section', 'contest_result.section_id', 'section.id')
+            .leftJoin('contest', 'contest_result.contest_id', 'contest.id')
+            .leftJoin('profile_contest', function() {
+                this.on('profile.id', '=', 'profile_contest.profile_id')
+                     .andOn('contest.id', '=', 'profile_contest.contest_id');
             })
-            .orderBy('title', 'asc')
+            .leftJoin('category', 'profile_contest.category_id', 'category.id')
+            .where(function() {
+                this.where('image.code', 'like', searchTerm)
+                    .orWhere('image.title', 'like', searchTerm);
+            })
+            .orderBy('image.title', 'asc')
             .limit(10);
 
-        // Agregar URL base a las imágenes
+        // Agregar URL base a las imágenes y formatear nombre del autor, sección, concurso y categoría
         const imagesWithFullUrl = images.map(image => ({
             ...image,
-            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`
+            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
+            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
+            section: image.section_name || 'Sin sección asignada',
+            contest: image.contest_name ? {
+                id: image.contest_id,
+                name: image.contest_name,
+                subtitle: image.contest_subtitle
+            } : null,
+            category: image.category_name ? {
+                id: image.category_id,
+                name: image.category_name
+            } : null
         }));
 
         // Log de la operación (sin usuario ya que es público)
@@ -68,14 +102,48 @@ router.get('/search', async (req, res) => {
 router.get('/all', async (req, res) => {
     try {
         const images = await global.knex('image')
-            .select('id', 'code', 'title', 'profile_id', 'url')
-            .orderBy('title', 'asc')
+            .select(
+                'image.id',
+                'image.code',
+                'image.title',
+                'image.profile_id',
+                'image.url',
+                'profile.name as author_name',
+                'profile.last_name as author_last_name',
+                'section.name as section_name',
+                'contest.id as contest_id',
+                'contest.name as contest_name',
+                'contest.sub_title as contest_subtitle',
+                'category.id as category_id',
+                'category.name as category_name'
+            )
+            .leftJoin('profile', 'image.profile_id', 'profile.id')
+            .leftJoin('contest_result', 'image.id', 'contest_result.image_id')
+            .leftJoin('section', 'contest_result.section_id', 'section.id')
+            .leftJoin('contest', 'contest_result.contest_id', 'contest.id')
+            .leftJoin('profile_contest', function() {
+                this.on('profile.id', '=', 'profile_contest.profile_id')
+                     .andOn('contest.id', '=', 'profile_contest.contest_id');
+            })
+            .leftJoin('category', 'profile_contest.category_id', 'category.id')
+            .orderBy('image.title', 'asc')
             .limit(10);
 
-        // Agregar URL base a las imágenes
+        // Agregar URL base a las imágenes y formatear nombre del autor, sección, concurso y categoría
         const imagesWithFullUrl = images.map(image => ({
             ...image,
-            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`
+            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
+            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
+            section: image.section_name || 'Sin sección asignada',
+            contest: image.contest_name ? {
+                id: image.contest_id,
+                name: image.contest_name,
+                subtitle: image.contest_subtitle
+            } : null,
+            category: image.category_name ? {
+                id: image.category_id,
+                name: image.category_name
+            } : null
         }));
 
         // Log de la operación

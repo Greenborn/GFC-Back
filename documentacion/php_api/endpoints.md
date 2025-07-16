@@ -1451,6 +1451,49 @@ Obtiene todos los resultados de un usuario específico.
 }
 ```
 
+### 6.9 Registrar Resultados en Lote (Solo Administradores)
+**POST** `/contest-result/register-results`
+
+> **Nota:** Actualmente este endpoint solo responde con `success: true` y el mensaje "Resultados Cargados" sin procesar el JSON recibido. Es un stub temporal para pruebas; el procesamiento real se implementará más adelante.
+
+Registra múltiples resultados a partir de un JSON que representa la estructura de un directorio. Solo accesible para usuarios administradores (role_id == 1).
+
+#### Parámetros (JSON)
+```json
+{
+  "estructura_directorio": [
+    {
+      "metric_id": 1,
+      "image_id": 10,
+      "contest_id": 2,
+      "section_id": 5
+    }
+  ]
+}
+```
+
+#### Headers
+```
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+```
+
+#### Respuesta Actual (200)
+```json
+{
+  "success": true,
+  "message": "Resultados Cargados"
+}
+```
+
+#### Respuesta de Acceso Denegado (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado: solo administradores pueden registrar resultados."
+}
+```
+
 ## 7. Códigos de Error
 
 ### 7.1 Códigos de Estado HTTP

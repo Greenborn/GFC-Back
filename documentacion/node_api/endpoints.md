@@ -258,6 +258,63 @@ Obtiene los detalles completos de un concurso.
 }
 ```
 
+### 3.3 Obtener Participantes de un Concurso
+**GET** `/contest/participants`
+
+Obtiene el listado básico de participantes de un concurso específico. Endpoint público que no requiere autenticación. Devuelve solo información esencial: nombre, apellido, DNI y categoría.
+
+#### Query Parameters
+- `id` (int, requerido): ID del concurso
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "contest": {
+    "id": 1,
+    "name": "Concurso de Fotografía 2024",
+    "description": "Capturando la belleza natural",
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31",
+    "sub_title": "Edición 2024"
+  },
+  "participants": [
+    {
+      "name": "Juan",
+      "last_name": "Pérez",
+      "dni": "12345678",
+      "category_name": "Aficionado"
+    }
+  ],
+  "total_participants": 150,
+  "message": "Se encontraron 150 participantes en el concurso \"Concurso de Fotografía 2024\""
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "ID de concurso inválido"
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "success": false,
+  "message": "Concurso no encontrado"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "success": false,
+  "message": "Error interno del servidor al obtener participantes"
+}
+```
+
 ---
 
 ## 4. Logs de Operaciones
@@ -409,9 +466,243 @@ Obtiene métricas generales del sistema.
 
 ---
 
-## 7. Códigos de Error
+## 7. Imágenes
 
-### 7.1 Códigos de Estado HTTP
+### 7.1 Buscar Imágenes
+**GET** `/images/search`
+
+Busca imágenes por código o título. Endpoint público que no requiere autenticación.
+
+#### Query Parameters
+- `q` (string, requerido): Término de búsqueda para código o título
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Búsqueda realizada correctamente",
+  "data": [
+    {
+      "id": 10047,
+      "code": "3336_2025_38_Color_10047",
+      "title": "A LA DERECHA",
+      "profile_id": 88,
+      "url": "https://gfc.prod-api.greenborn.com.ar/images/2025/Primera/Color/3336_2025_38_Color_10047.jpg",
+      "author_name": "Juan",
+      "author_last_name": "Pérez",
+      "author": "Juan Pérez",
+      "section_name": "Color",
+      "section": "Color",
+      "contest": {
+        "id": 5,
+        "name": "Concurso Nacional 2025",
+        "subtitle": "Primera Edición"
+      }
+    }
+  ],
+  "total": 1,
+  "searchTerm": "3336_2025_38_Color_10047"
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "El parámetro de búsqueda \"q\" es requerido",
+  "data": []
+}
+```
+
+### 7.2 Obtener Todas las Imágenes
+**GET** `/images/all`
+
+Obtiene todas las imágenes disponibles. Endpoint público que no requiere autenticación.
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Imágenes obtenidas correctamente",
+  "data": [
+    {
+      "id": 10047,
+      "code": "3336_2025_38_Color_10047",
+      "title": "A LA DERECHA",
+      "profile_id": 88,
+      "url": "https://gfc.prod-api.greenborn.com.ar/images/2025/Primera/Color/3336_2025_38_Color_10047.jpg",
+      "author_name": "Juan",
+      "author_last_name": "Pérez",
+      "author": "Juan Pérez",
+      "section_name": "Color",
+      "section": "Color",
+      "contest": {
+        "id": 5,
+        "name": "Concurso Nacional 2025",
+        "subtitle": "Primera Edición"
+      }
+    }
+  ],
+  "total": 1
+}
+```
+
+#### Características de los Endpoints de Imágenes
+- **Límite**: Máximo 10 resultados por consulta
+- **Ordenamiento**: Alfabético por título (ascendente)
+- **Búsqueda**: Coincidencia total o parcial en campos `code` y `title`
+- **URLs**: URLs completas con base configurable en `IMG_BASE_PATH`
+- **Autor**: Nombre completo del autor (JOIN con tabla `profile`)
+- **Sección**: Nombre de la sección (JOIN con tablas `contest_result` y `section`)
+- **Concurso**: Información del concurso (JOIN con tabla `contest`)
+  - `contest`: Objeto con la información del concurso al que pertenece la imagen. Puede ser `null` si la imagen no está asociada a ningún concurso.
+    - `id`: ID del concurso
+    - `name`: Nombre del concurso
+    - `subtitle`: Subtítulo del concurso
+
+---
+
+## 8. Resultados de Concursos
+
+### 8.1 Cargar Resultados de Jurado
+**POST** `/results/judging`
+
+Carga los resultados de jurado de un concurso fotográfico. Este endpoint procesa una estructura JSON compleja con los resultados de evaluación y actualiza las métricas correspondientes en la base de datos.
+
+#### Headers
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+#### Parámetros
+```json
+{
+  "estructura": {
+    "exportacion": {
+      "Concurso1": {
+        "Seccion1": {
+          "Premio1": {
+            "__files": ["archivo1.jpg", "archivo2.jpg"]
+          },
+          "Premio2": {
+            "__files": ["archivo3.jpg"]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Estructura de Archivos
+Los nombres de archivo deben seguir el formato: `{id_usuario}_{anio}_{id_concurso}_{seccion}_{id_imagen}.jpg`
+
+Ejemplo: `3336_2025_38_Color_10047.jpg`
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "actualizaciones": [
+    {
+      "code": "3336_2025_38_Color_10047",
+      "metric_id": 123,
+      "nuevo_prize": "Primer Premio",
+      "nuevo_score": 95
+    }
+  ]
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "Estructura inválida o faltante"
+}
+```
+
+#### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado: solo administradores"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "success": false,
+  "message": "Error al procesar resultados",
+  "error": "Detalles del error"
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Requerida (solo rol `admin`)
+- **Transaccional**: Todas las actualizaciones se realizan en una transacción
+- **Validación**: Verifica que todos los premios tengan correspondencia en `metric_abm`
+- **Unicidad**: Solo permite cargar resultados de un concurso por vez
+- **Actualización automática**: Marca el concurso como `judged: true` al finalizar
+
+### 8.2 Recalcular Ranking
+**POST** `/results/recalcular-ranking`
+
+Ejecuta el comando PHP para recalcular el ranking de usuarios. Este endpoint ejecuta el comando `php8.1 yii actualizar-ranking/index` en el directorio del servidor PHP.
+
+#### Headers
+```
+Authorization: Bearer <token>
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Ranking recalculado exitosamente",
+  "output": "Salida del comando PHP ejecutado"
+}
+```
+
+#### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado: solo administradores"
+}
+```
+
+#### Respuesta de Error (408)
+```json
+{
+  "success": false,
+  "message": "Timeout: El comando tardó demasiado en ejecutarse"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "success": false,
+  "message": "Error al ejecutar el comando de actualización de ranking",
+  "error": "Detalles del error"
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Requerida (solo rol `admin`)
+- **Timeout**: 5 minutos máximo de ejecución
+- **Comando**: Ejecuta `php8.1 yii actualizar-ranking/index` en `/var/www/gfc.prod-api.greenborn.com.ar`
+- **Logging**: Registra inicio y resultado de la ejecución
+- **Manejo de errores**: Captura errores de Node.js y del comando PHP
+
+---
+
+## 9. Códigos de Error
+
+### 9.1 Códigos de Estado HTTP
 - `200` - OK: Operación exitosa
 - `201` - Created: Recurso creado exitosamente
 - `400` - Bad Request: Datos inválidos
@@ -421,7 +712,7 @@ Obtiene métricas generales del sistema.
 - `422` - Unprocessable Entity: Validación fallida
 - `500` - Internal Server Error: Error del servidor
 
-### 7.2 Códigos de Error Específicos
+### 9.2 Códigos de Error Específicos
 ```json
 {
   "VALIDATION_ERROR": "Datos de entrada inválidos",

@@ -35,6 +35,8 @@
 - Implementar autenticación y autorización
 - Validar datos de entrada
 - Manejar errores de forma consistente
+- **OBLIGATORIO**: Después de cada modificación de endpoints, actualizar la documentación correspondiente antes de hacer commit
+- **FLUJO DE TRABAJO**: Modificar endpoint → Actualizar documentación → Commit
 
 ## Seguridad
 - Validar todas las entradas de usuario
@@ -77,11 +79,77 @@
 - Documentar APIs con Postman collections
 - Comentar código complejo con documentación inline
 
+### Documentación de Endpoints (endpoints.md)
+- **Estructura obligatoria** para cada endpoint:
+  - Título con método HTTP y ruta
+  - Descripción clara del propósito
+  - Headers requeridos (especialmente Authorization)
+  - Parámetros de query (si aplica)
+  - Body de request con ejemplo JSON
+  - Respuesta exitosa (200/201) con ejemplo JSON
+  - Todas las respuestas de error posibles (400, 401, 403, 404, 422, 500, etc.)
+  - Características técnicas del endpoint (autenticación, permisos, etc.)
+
+- **Formato estándar**:
+  ```markdown
+  ### X.Y Nombre del Endpoint
+  **METHOD** `/ruta/endpoint`
+  
+  Descripción del endpoint.
+  
+  #### Headers
+  ```
+  Authorization: Bearer <token>
+  Content-Type: application/json
+  ```
+  
+  #### Parámetros
+  ```json
+  {
+    "campo": "valor"
+  }
+  ```
+  
+  #### Respuesta Exitosa (200)
+  ```json
+  {
+    "success": true,
+    "data": {}
+  }
+  ```
+  
+  #### Respuesta de Error (400)
+  ```json
+  {
+    "success": false,
+    "message": "Descripción del error"
+  }
+  ```
+  
+  #### Características del Endpoint
+  - **Autenticación**: Requerida/No requerida (especificar roles si aplica)
+  - **Permisos**: Roles específicos si aplica
+  - **Validación**: Tipos de validación aplicados
+  - **Transaccional**: Si usa transacciones de BD
+  - **Rate Limiting**: Límites específicos si aplica
+  ```
+
+- **Secciones obligatorias** en endpoints.md:
+  - Información General (Base URL, autenticación, formatos)
+  - Endpoints agrupados por funcionalidad (Autenticación, Usuarios, etc.)
+  - Códigos de Error (HTTP y específicos del sistema)
+  - Ejemplos de uso (flujos completos)
+  - Navegación entre documentos
+
 ## Git y Versionado
 - Usar commits descriptivos de hasta 255 caracteres
 - Seguir convenciones de branching
 - Mantener .gitignore actualizado
 - No committear archivos sensibles
+- **REGLAS DE COMMIT**: 
+  - Antes de commitear cambios en endpoints, verificar que la documentación esté actualizada
+  - Incluir documentación actualizada en el mismo commit que los cambios de código
+  - Si se acepta una funcionalidad, actualizar documentación y luego proceder con commit
 
 ## Performance
 - Optimizar consultas de base de datos

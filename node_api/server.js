@@ -89,6 +89,7 @@ app_admin.use('/api/users', require('./routes/user.js'));
 app_admin.use('/api/contests', require('./routes/contest.js'))
 app_admin.use('/api/images', require('./routes/images.js'));
 app_admin.use('/api/log', require('./routes/log.js'));
+app_admin.use('/api/results', require('./routes/results.js'));
 
 // Manejo de errores global
 app_admin.use((err, req, res, next) => {
