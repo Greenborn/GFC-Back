@@ -115,10 +115,17 @@ router.post('/judging', authMiddleware, async (req, res) => {
   // Complementar la información de cada resultado con datos de la imagen y demás tablas
   const resultadosCompletos = await Promise.all(resultados.map(r => complementaInfoImagen(r, global.knex)));
 
-  // Iniciar transacción y actualizar metric.prize
+  // Iniciar transacción y actualizar metric.prize y metric.score
   let updates = [];
   await global.knex.transaction(async trx => {
     updates = await Promise.all(resultadosCompletos.map(obj => updatePrizeInMetric(obj, trx)));
+    // Obtener los contest_id únicos de los resultados
+    const contestIds = [...new Set(resultadosCompletos.map(obj => obj.contest_result && obj.contest_result.contest_id).filter(Boolean))];
+    if (contestIds.length !== 1) {
+      throw new Error(`Solo se permite cargar resultados de un concurso por vez. Se detectaron los siguientes contest_id: ${contestIds.join(', ')}`);
+    }
+    // Actualizar judged=true en el único concurso involucrado
+    await trx('contest').where({ id: contestIds[0] }).update({ judged: true });
   });
 
   res.json({ success: true, actualizaciones: updates });
