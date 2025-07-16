@@ -28,14 +28,25 @@ router.post('/judging', authMiddleware, async (req, res) => {
   }
 
   // Recorrer la estructura y mostrar los datos relevantes
-  for (const concurso in estructura.exportacion) {
+  for (let concurso in estructura.exportacion) {
+    // Normalizar 'Estmulo' a 'Estimulo'
+    let concursoNormalizado = concurso === 'Estmulo' ? 'Estimulo' : concurso;
     for (const seccion in estructura.exportacion[concurso]) {
       for (const categoria in estructura.exportacion[concurso][seccion]) {
         const archivos = estructura.exportacion[concurso][seccion][categoria].__files;
         for (const archivo of archivos) {
+          // Extracción del código de imagen (quitando '.jpg' y 'Copia de ')
+          let code = archivo.replace('.jpg', '').replace('Copia de ', '');
+          // Buscar la imagen en la base de datos por code
+          let image = await global.knex('image').where({ code }).first();
+          if (image) {
+            console.log(`Imagen encontrada: code=${code}, id=${image.id}`);
+          } else {
+            console.log(`Imagen NO encontrada: code=${code}`);
+          }
           // Aquí podrías extraer datos del nombre del archivo si es necesario
           // Por ahora, solo mostramos la información
-          console.log(`Concurso: ${concurso} | Sección: ${seccion} | Categoría: ${categoria} | Archivo: ${archivo}`);
+          console.log(`Concurso: ${concursoNormalizado} | Sección: ${seccion} | Categoría: ${categoria} | Archivo: ${archivo}`);
         }
       }
     }
