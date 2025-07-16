@@ -48,6 +48,11 @@ async function updatePrizeInMetric(obj, trx) {
 
 // Endpoint: POST /results/judging
 router.post('/judging', authMiddleware, async (req, res) => {
+  if (!req.user || req.user.role_id != '1') {
+    console.log(req.user)
+    return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores' });
+  }
+
   const estructura = req.body.estructura;
   if (!estructura || !estructura.exportacion) {
     return res.status(400).json({ success: false, message: 'Estructura inválida o faltante' });
