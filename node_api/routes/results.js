@@ -40,60 +40,36 @@ router.post('/judging', authMiddleware, async (req, res) => {
   // Iniciar transacción
   await global.knex.transaction(async trx => {
     try {
+      // Recorrido y extracción de información de la estructura
       for (let concurso in estructura.exportacion) {
-        // Normalizar 'Estmulo' a 'Estimulo'
         let concursoNormalizado = concurso === 'Estmulo' ? 'Estimulo' : concurso;
-        console.log('Procesando concurso:', concursoNormalizado);
         for (const seccion in estructura.exportacion[concurso]) {
-          console.log('Procesando sección:', seccion);
           for (const categoria in estructura.exportacion[concurso][seccion]) {
-            console.log('Procesando categoría:', categoria);
             const archivos = estructura.exportacion[concurso][seccion][categoria].__files;
-            console.log('Archivos:', archivos);
-            // Procesar todos los archivos en paralelo con Promise.all
-            await Promise.all(archivos.map(async (archivo) => {
-              // Extracción del código de imagen (quitando '.jpg' y 'Copia de ')
-              let code = archivo.replace('.jpg', '').replace('Copia de ', '');
-              // Buscar la imagen en la base de datos por code
-              let image = await trx('image').where({ code }).first();
-              if (image) {
-                // Buscar contest_result por image_id
-                let contestResult = await trx('contest_result').where({ image_id: image.id }).first();
-                if (!contestResult) {
-                  informe.no_encontradas.image.push([code, categoria, seccion, concursoNormalizado]);
-                  console.log(`No se encontró contest_result para imagen: ${code}`);
-                  return;
-                }
-                // Obtener el concurso
-                let contest = await trx('contest').where({ id: contestResult.contest_id }).first();
-                if (!contest) {
-                  informe.no_encontradas.image.push([code, categoria, seccion, concursoNormalizado]);
-                  console.log(`No se encontró contest para contest_id: ${contestResult.contest_id}`);
-                  return;
-                }
-                // Buscar puntaje en metric_abm
-                let puntaje = await trx('metric_abm').where({ prize: categoria, organization_type: contest.organization_type }).first();
-                if (!puntaje) {
-                  informe.no_encontradas.metric.push(contest.organization_type + '|' + categoria);
-                  console.log(`No se encontró metric_abm para prize: ${categoria}, organization_type: ${contest.organization_type}`);
-                  return;
-                }
-                // Buscar metric por metric_id
-                let metric = await trx('metric').where({ id: contestResult.metric_id }).first();
-                if (!metric) {
-                  informe.no_encontradas.metric.push(contestResult.metric_id);
-                  console.log(`No se encontró metric para id: ${contestResult.metric_id}`);
-                  return;
-                }
-                // Actualizar metric con premio y puntaje
-                await trx('metric').where({ id: metric.id }).update({ prize: categoria, score: puntaje.score });
-                informe.procesadas.push([code, categoria, seccion, concursoNormalizado, puntaje.score]);
-                console.log(`Procesada: imagen ${code}, premio ${categoria}, puntaje ${puntaje.score}`);
-              } else {
-                informe.no_encontradas.image.push([code, categoria, seccion, concursoNormalizado]);
-                console.log(`Imagen NO encontrada: code=${code}`);
-              }
-            }));
+            for (const archivo of archivos) {
+              // Extracción de datos del nombre de archivo
+              let nombreSinExtension = archivo.replace('.jpg', '').replace('Copia de ', '');
+              let partes = nombreSinExtension.split('_');
+              let id_usuario = partes[0];
+              let anio = partes[1];
+              let id_concurso = partes[2];
+              // La sección puede tener guiones bajos si tiene espacios
+              let id_imagen = partes[partes.length - 1];
+              let seccionArchivo = partes.slice(3, partes.length - 1).join('_');
+              let code = nombreSinExtension;
+              console.log({
+                concurso: concursoNormalizado,
+                seccion,
+                categoria,
+                archivo,
+                id_usuario,
+                anio,
+                id_concurso,
+                seccionArchivo,
+                id_imagen,
+                code
+              });
+            }
           }
         }
       }
@@ -106,7 +82,7 @@ router.post('/judging', authMiddleware, async (req, res) => {
     }
   });
 
-  res.json({ success: true, message: 'Importación finalizada', informe });
+  res.json({ success: true, message: 'Extracción de información completada (ver consola)' });
 });
 
 module.exports = router; 
