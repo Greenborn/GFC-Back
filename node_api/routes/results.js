@@ -35,15 +35,20 @@ router.post('/judging', authMiddleware, async (req, res) => {
     procesadas: []
   };
 
+  console.log('Estructura recibida:', JSON.stringify(estructura.exportacion, null, 2));
   // Iniciar transacción
   await global.knex.transaction(async trx => {
     try {
       for (let concurso in estructura.exportacion) {
         // Normalizar 'Estmulo' a 'Estimulo'
         let concursoNormalizado = concurso === 'Estmulo' ? 'Estimulo' : concurso;
+        console.log('Procesando concurso:', concursoNormalizado);
         for (const seccion in estructura.exportacion[concurso]) {
+          console.log('Procesando sección:', seccion);
           for (const categoria in estructura.exportacion[concurso][seccion]) {
+            console.log('Procesando categoría:', categoria);
             const archivos = estructura.exportacion[concurso][seccion][categoria].__files;
+            console.log('Archivos:', archivos);
             for (const archivo of archivos) {
               // Extracción del código de imagen (quitando '.jpg' y 'Copia de ')
               let code = archivo.replace('.jpg', '').replace('Copia de ', '');
