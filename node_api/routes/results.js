@@ -56,8 +56,9 @@ async function updatePrizeInMetric(obj, trx) {
   if (!obj.metric || !obj.metric.id) {
     throw new Error(`No se puede actualizar metric: objeto sin metric o sin id (code: ${obj.code})`);
   }
-  await trx('metric').where({ id: obj.metric.id }).update({ prize: obj.premio, score: obj.metric_abm.score });
-  return { code: obj.code, metric_id: obj.metric.id, nuevo_prize: obj.premio, nuevo_score: obj.metric_abm.score };
+  const scoreInt = Math.round(Number(obj.metric_abm.score));
+  await trx('metric').where({ id: obj.metric.id }).update({ prize: obj.premio, score: scoreInt });
+  return { code: obj.code, metric_id: obj.metric.id, nuevo_prize: obj.premio, nuevo_score: scoreInt };
 }
 
 // Endpoint: POST /results/judging
