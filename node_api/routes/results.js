@@ -22,23 +22,24 @@ async function authMiddleware(req, res, next) {
 
 // Endpoint: POST /results/judging
 router.post('/judging', authMiddleware, async (req, res) => {
-  const { contest_id, image_id, score, comments, section_id } = req.body;
-  if (!contest_id || !image_id || typeof score !== 'number') {
-    return res.status(400).json({ success: false, message: 'Datos incompletos' });
-  }
+  console.log('estructura recibida:', req.body.estructura);
+  // const { contest_id, image_id, score, comments, section_id } = req.body;
+  // if (!contest_id || !image_id || typeof score !== 'number') {
+  //   return res.status(400).json({ success: false, message: 'Datos incompletos' });
+  // }
   try {
-    const [id] = await global.knex('contest_result').insert({
-      contest_id,
-      image_id,
-      score,
-      comments,
-      section_id,
-      evaluated_by: req.user.id,
-      evaluated_at: new Date()
-    }).returning('id');
-    res.json({ success: true, id });
+    // const [id] = await global.knex('contest_result').insert({
+    //   contest_id,
+    //   image_id,
+    //   score,
+    //   comments,
+    //   section_id,
+    //   evaluated_by: req.user.id,
+    //   evaluated_at: new Date()
+    // }).returning('id');
+    res.json({ success: true, estructura: req.body.estructura });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Error al registrar resultado', error: err.message });
+    res.status(500).json({ success: false, message: 'Error al procesar estructura', error: err.message });
   }
 });
 
