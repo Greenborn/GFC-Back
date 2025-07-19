@@ -60,8 +60,11 @@ class UserCreateAction extends CreateAction {
         'id'   => $user->id,
       ];
     } else {
-      throw new BadRequestHttpException;
-      // $response->statusCode = 400;
+      $response->statusCode = 400;
+      $response->data = [
+        'status' => false,
+        'message' => 'Error en la creación del usuario. Verifique que todos los campos requeridos estén completos y que el perfil y rol existan.',
+      ];
     }
 
     // $response->data = $status ? [

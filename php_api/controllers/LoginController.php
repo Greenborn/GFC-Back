@@ -10,9 +10,17 @@ class LoginController extends ActiveController {
 
   public function beforeAction($event)
   {
+      // Leer el body de forma segura
+      $bodyData = '';
+      try {
+          $bodyData = file_get_contents('php://input');
+      } catch (Exception $e) {
+          $bodyData = 'Error reading body: ' . $e->getMessage();
+      }
+      
       LogManager::toLog([
         'POST_DATA'    => $_POST,
-        'BODY_DATA'    => file_get_contents('php://input'),
+        'BODY_DATA'    => $bodyData,
         'GET_DATA'     => $_GET,
         'REQUEST_DATA' => $_REQUEST,
         'SERVER_DATA'  => $_SERVER,

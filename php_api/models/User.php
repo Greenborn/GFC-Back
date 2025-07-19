@@ -134,6 +134,11 @@ class User extends \yii\db\ActiveRecord implements \yii\web\IdentityInterface
     public function validateAuthKey($authKey) {}
 
     public static function findIdentityByAccessToken($token, $type = null){
+      // Si el token está vacío o es null, retornar null inmediatamente
+      if (empty($token)) {
+        return null;
+      }
+      
       return static::find()->where(['access_token' => $token])->one();
     }
 
