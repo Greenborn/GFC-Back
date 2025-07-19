@@ -50,7 +50,7 @@ $config = [
                 $response->headers->set('Access-Control-Allow-Origin', '*');
                 $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
                 $response->headers->set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-                $response->headers->set('Access-Control-Allow-Credentials', 'true');
+                $response->headers->set('Access-Control-Allow-Credentials', 'false');
                 $response->headers->set('Access-Control-Max-Age', '86400');
                 
                 if ($response->statusCode == 204) {
