@@ -5,6 +5,7 @@ namespace app\controllers;
 use yii\rest\ActiveController;
 use yii\data\ActiveDataProvider;
 use yii\filters\Cors;
+use Exception;
 
 use app\components\HttpTokenAuth;
 use app\traits\Filterable;

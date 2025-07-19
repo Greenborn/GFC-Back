@@ -4,6 +4,7 @@ namespace app\controllers;
 
 use yii\rest\ActiveController;
 use yii\filters\Cors;
+use Exception;
 use app\utils\LogManager;
 
 class LoginController extends ActiveController {
