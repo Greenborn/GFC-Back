@@ -7,7 +7,7 @@ use Exception;
 
 class FotoclubController extends BaseController {
 
-    protected bool $autenticator = false;
+    protected $autenticator = false;
     //TODO: solo no necesita autentificacion para get, para lo demas si, modificar¿? en footer tambien
     public $modelClass = 'app\models\Fotoclub';
 
@@ -31,20 +31,6 @@ class FotoclubController extends BaseController {
                 'pagination' => [
                     'pageSize' => 500
                 ]
-            ]);
-        }
-    }
-
-    public function actionIndex()
-    {
-        try {
-            return parent::actionIndex();
-        } catch (Exception $e) {
-            error_log("Error en FotoclubController::actionIndex: " . $e->getMessage());
-            return $this->asJson([
-                'success' => false,
-                'message' => 'Error interno del servidor',
-                'error' => YII_DEBUG ? $e->getMessage() : null
             ]);
         }
     }
