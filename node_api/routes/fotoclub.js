@@ -17,14 +17,28 @@ router.get('/get_all', authMiddleware, async (req, res) => {
     }
 })
 
-router.put('/edit', writeProtection, async (req, res) => {
+router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
   try {
+    // Solo admin puede editar
+    if (!req.user || req.user.role_id != '1') {
+      return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden editar fotoclubs' });
+    }
     const { id, name, description, facebook, instagram, email } = req.body;
 
     // Validar que el campo name esté presente
     if (!name) {
       return res.json({ stat: false, text: 'El nombre es obligatorio' });
     }
+
+    // Obtener el valor anterior antes de actualizar
+    const oldFotoclub = await global.knex('fotoclub').where('id', id).first();
+    const newFotoclub = {
+      name,
+      description,
+      facebook,
+      instagram,
+      email
+    };
 
     // Actualizar el registro en la base de datos
     const result = await global.knex('fotoclub')
@@ -37,7 +51,15 @@ router.put('/edit', writeProtection, async (req, res) => {
         email
       })
 
-    await LogOperacion(req.session.user.id, 'Modificación de Fotoclub - ' + req.session.user.username, null, new Date()) 
+    await LogOperacion(
+      req.user.id,
+      'Modificación de Fotoclub - ' + req.user.username,
+      {
+        old: oldFotoclub,
+        new: newFotoclub
+      },
+      new Date()
+    );
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
