@@ -727,4 +727,125 @@ Authorization: Bearer <token>
 
 ---
 
+## 10. Fotoclub
+
+### 10.1 Obtener todos los fotoclubes
+**GET** `/fotoclub/get_all`
+
+Obtiene la lista completa de clubes fotográficos registrados en el sistema.
+
+#### Headers
+```
+Authorization: Bearer <token>
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "El Portal De Tandil",
+      "description": "Club de Tandil",
+      "facebook": "facebook.com/portal",
+      "instagram": "@portal",
+      "email": "contacto@portal.com"
+    },
+    {
+      "id": 2,
+      "name": "Juarez Fotoclub",
+      "description": "Club de Juarez",
+      "facebook": "facebook.com/juarez",
+      "instagram": "@juarez",
+      "email": "contacto@juarez.com"
+    }
+  ]
+}
+```
+
+#### Respuesta de Error (401)
+```json
+{
+  "message": "No autenticado"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "message": "Error al obtener registros"
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Requerida (cualquier usuario autenticado)
+- **Permisos**: No requiere permisos especiales
+- **Validación**: Ninguna
+- **Rate Limiting**: Según configuración global
+
+---
+
+### 10.2 Editar un fotoclub
+**PUT** `/fotoclub/edit`
+
+Edita los datos de un club fotográfico existente.
+
+#### Headers
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+#### Body de Request (ejemplo)
+```json
+{
+  "id": 1,
+  "name": "Nuevo Nombre",
+  "description": "Descripción actualizada",
+  "facebook": "facebook.com/nuevo",
+  "instagram": "@nuevo",
+  "email": "nuevo@club.com"
+}
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "stat": true,
+  "text": "Registro actualizado correctamente"
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "stat": false,
+  "text": "El nombre es obligatorio"
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "stat": false,
+  "text": "No se encontró el registro para actualizar"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "stat": false,
+  "text": "Ocurrió un error interno, contacte con soporte."
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Requerida (usuario autenticado)
+- **Permisos**: Requiere permisos de edición (writeProtection)
+- **Validación**: El campo 'name' es obligatorio
+- **Rate Limiting**: Según configuración global
+
+---
+
 **Navegación**: [README](README.md) | [Arquitectura](arquitectura.md) | [Definición Técnica](definicion_tecnica.md) | [Volver al README Principal](../../README.md) 
