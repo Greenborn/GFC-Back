@@ -133,7 +133,7 @@ router.post('/recalcular-ranking', authMiddleware, async (req, res) => {
     
     // Ejecutar el comando PHP para actualizar el ranking
     const comando = 'php8.1 yii actualizar-ranking/index';
-    const directorio = '/var/www/gfc.prod-api.greenborn.com.ar';
+    const directorio = '/var/www/GFC-Back-PRD/php_api/';
     
     console.log(`Ejecutando comando: ${comando} en directorio: ${directorio}`);
     
