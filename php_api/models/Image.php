@@ -118,7 +118,9 @@ class Image extends \yii\db\ActiveRecord
             $extension = 'jpg';
             //Este nombre es temporal, luego la proxima peticion que asigna la imagen al concurso, sera la que se encargara de catalogarla en 
             //su correspondiente estructura de directorio
-            $this->url = 'images/'.$date->getTimestamp().  '.' . $extension;  
+            $basePath = Yii::$app->params['imageBasePath'];
+            if (substr($basePath, -1) !== '/') $basePath .= '/';
+            $this->url = $basePath . $date->getTimestamp() . '.' . $extension;
             
             $this->base64_to_file($params['photo_base64']['file'], $this->url);
         }
@@ -135,27 +137,29 @@ class Image extends \yii\db\ActiveRecord
 
                 $this->code = rand(1000,9999).'_'.$date.'_'.$contest_result->contest_id.'_'.$seccion->name.'_'.$this->id;
                 
-                $directory = 'images';
+                $directory = Yii::$app->params['imageBasePath'];
+                if (substr($directory, -1) !== '/') $directory .= '/';
+                $directory = rtrim($directory, '/');
                 //si ya hay categoria definida, nos aseguramos que exista su correspondiente directorio
                 $profile_contest = ProfileContest::find()->where(['profile_id' => $this->profile_id])->one();
                 $category = Category::find()->where(['id' => $profile_contest->category_id])->one();
                 $this->category = $category->name;
                 
                 if ($this->category != NULL){
-                    $directory .= '/'.$this->category;
+                    $directory .= '/' . $this->category;
                     if (!file_exists($directory)){
-                        mkdir($directory);
+                        mkdir($directory, 0777, true);
                     }
                 }
 
                 //nos aseguramos de que exista el directorio de la seccion, esto se usa para catalogar las imagenes
-                $directory .= '/'.$seccion->name;
+                $directory .= '/' . $seccion->name;
                 if (!file_exists($directory)){
-                    mkdir($directory);
+                    mkdir($directory, 0777, true);
                 }
                 //nos aseguramos de mantener consistencia entre nombres de archivo y codigo
                 if (!empty($this->url) && file_exists($antValue->url)) {
-                    $full_path = $directory.'/'. $this->code .  '.jpg';
+                    $full_path = $directory . '/' . $this->code . '.jpg';
                     rename($antValue->url, $full_path);
                     $this->url = $full_path;
                 }
@@ -169,8 +173,12 @@ class Image extends \yii\db\ActiveRecord
 
         //Generaciòn de miniaturas
         if (isset($params['photo_base64'])) {
-            $img_name     = $this->url;
-            $this->generateThumbnails('', $img_name, 'images/thumbnails/');
+            $img_name = $this->url;
+            $thumbBase = Yii::$app->params['imageBasePath'] . '/thumbnails/';
+            if (!file_exists($thumbBase)) {
+                mkdir($thumbBase, 0777, true);
+            }
+            $this->generateThumbnails('', $img_name, $thumbBase);
         }
         return parent::afterSave($insert, $changedAttributes);
     }
