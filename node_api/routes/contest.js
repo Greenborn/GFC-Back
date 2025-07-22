@@ -63,10 +63,11 @@ router.get('/participants', authMiddleware, async (req, res) => {
                 'p.name',
                 'p.last_name',
                 'p.dni',
-                'p.email',
+                'u.email',
                 'c.name as category_name'
             )
             .join('profile as p', 'pc.profile_id', 'p.id')
+            .join('user as u', 'u.profile_id', 'p.id')
             .leftJoin('category as c', 'pc.category_id', 'c.id')
             .where('pc.contest_id', contestId)
             .orderBy('p.last_name', 'asc')
