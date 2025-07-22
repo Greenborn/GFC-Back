@@ -1,233 +1,118 @@
-<p align="center">
-    <a href="https://github.com/yiisoft" target="_blank">
-        <img src="https://avatars0.githubusercontent.com/u/993323" height="100px">
-    </a>
-    <h1 align="center">Yii 2 Basic Project Template</h1>
-    <br>
-</p>
+# GFC-Back - Sistema de Gestión de Concursos Fotográficos
 
-Yii 2 Basic Project Template is a skeleton [Yii 2](http://www.yiiframework.com/) application best for
-rapidly creating small projects.
+## Descripción General
 
-The template contains the basic features including user login/logout and a contact page.
-It includes all commonly used configurations that would allow you to focus on adding new
-features to your application.
+GFC-Back es un sistema backend completo para la gestión de concursos fotográficos, desarrollado con arquitectura de microservicios que incluye dos APIs principales:
 
-[![Latest Stable Version](https://img.shields.io/packagist/v/yiisoft/yii2-app-basic.svg)](https://packagist.org/packages/yiisoft/yii2-app-basic)
-[![Total Downloads](https://img.shields.io/packagist/dt/yiisoft/yii2-app-basic.svg)](https://packagist.org/packages/yiisoft/yii2-app-basic)
-[![build](https://github.com/yiisoft/yii2-app-basic/workflows/build/badge.svg)](https://github.com/yiisoft/yii2-app-basic/actions?query=workflow%3Abuild)
+- **PHP API** (Yii2 Framework): API principal para gestión de concursos, usuarios y resultados
+- **Node.js API** (Express.js): API complementaria para operaciones específicas y WebSockets
 
-DIRECTORY STRUCTURE
--------------------
-
-      assets/             contains assets definition
-      commands/           contains console commands (controllers)
-      config/             contains application configurations
-      controllers/        contains Web controller classes
-      mail/               contains view files for e-mails
-      models/             contains model classes
-      runtime/            contains files generated during runtime
-      tests/              contains various tests for the basic application
-      vendor/             contains dependent 3rd-party packages
-      views/              contains view files for the Web application
-      web/                contains the entry script and Web resources
-
-
-
-REQUIREMENTS
-------------
-
-The minimum requirement by this project template that your Web server supports PHP 5.6.0.
-
-
-INSTALLATION
-------------
-
-### Install via Composer
-
-If you do not have [Composer](http://getcomposer.org/), you may install it by following the instructions
-at [getcomposer.org](http://getcomposer.org/doc/00-intro.md#installation-nix).
-
-You can then install this project template using the following command:
-
-~~~
-composer create-project --prefer-dist yiisoft/yii2-app-basic basic
-~~~
-
-Now you should be able to access the application through the following URL, assuming `basic` is the directory
-directly under the Web root.
-
-~~~
-http://localhost/basic/web/
-~~~
-
-### Install from an Archive File
-
-Extract the archive file downloaded from [yiiframework.com](http://www.yiiframework.com/download/) to
-a directory named `basic` that is directly under the Web root.
-
-Set cookie validation key in `config/web.php` file to some random secret string:
-
-```php
-'request' => [
-    // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
-    'cookieValidationKey' => '<secret random string goes here>',
-],
-```
-
-You can then access the application through the following URL:
-
-~~~
-http://localhost/basic/web/
-~~~
-
-
-### Install with Docker
-
-Update your vendor packages
-
-    docker-compose run --rm php composer update --prefer-dist
-    
-Run the installation triggers (creating cookie validation code)
-
-    docker-compose run --rm php composer install    
-    
-Start the container
-
-    docker-compose up -d
-    
-You can then access the application through the following URL:
-
-    http://127.0.0.1:8000
-
-**NOTES:** 
-- Minimum required Docker engine version `17.04` for development (see [Performance tuning for volume mounts](https://docs.docker.com/docker-for-mac/osxfs-caching/))
-- The default configuration uses a host-volume in your home directory `.docker-composer` for composer caches
-
-
-CONFIGURATION
--------------
-
-### Database
-
-Edit the file `config/db.php` with real data, for example:
-
-```php
-return [
-    'class' => 'yii\db\Connection',
-    'dsn' => 'mysql:host=localhost;dbname=yii2basic',
-    'username' => 'root',
-    'password' => '1234',
-    'charset' => 'utf8',
-];
-```
-
-**NOTES:**
-- Yii won't create the database for you, this has to be done manually before you can access it.
-- Check and edit the other files in the `config/` directory to customize your application as required.
-- Refer to the README in the `tests` directory for information specific to basic application tests.
-
-
-TESTING
--------
-
-Tests are located in `tests` directory. They are developed with [Codeception PHP Testing Framework](http://codeception.com/).
-By default there are 3 test suites:
-
-- `unit`
-- `functional`
-- `acceptance`
-
-Tests can be executed by running
+## Estructura del Proyecto
 
 ```
-vendor/bin/codecept run
+GFC-Back/
+├── documentacion/           # Documentación completa del proyecto
+│   ├── php_api/            # Documentación de la API PHP
+│   └── node_api/           # Documentación de la API Node.js
+├── php_api/                # API principal en Yii2 Framework
+├── node_api/               # API complementaria en Node.js/Express
+└── README.md               # Este archivo
 ```
 
-The command above will execute unit and functional tests. Unit tests are testing the system components, while functional
-tests are for testing user interaction. Acceptance tests are disabled by default as they require additional setup since
-they perform testing in real browser. 
+## Características Principales
 
+- **Gestión de Concursos**: Creación, administración y evaluación de concursos fotográficos
+- **Sistema de Usuarios**: Registro, autenticación y perfiles de fotógrafos
+- **Categorías y Secciones**: Organización flexible de concursos por categorías
+- **Sistema de Puntuación**: Evaluación y ranking de fotografías
+- **WebSockets**: Comunicación en tiempo real
+- **Gestión de Archivos**: Subida y procesamiento de imágenes
 
-### Running  acceptance tests
+## Tecnologías Utilizadas
 
-To execute acceptance tests do the following:  
+### PHP API (Yii2)
+- **Framework**: Yii2
+- **Base de Datos**: PostgreSQL
+- **Autenticación**: JWT Tokens
+- **Testing**: Codeception
 
-1. Rename `tests/acceptance.suite.yml.example` to `tests/acceptance.suite.yml` to enable suite configuration
+### Node.js API (Express)
+- **Framework**: Express.js
+- **Base de Datos**: PostgreSQL (Knex.js)
+- **WebSockets**: Socket.io
+- **Testing**: Jest/Mocha
 
-2. Replace `codeception/base` package in `composer.json` with `codeception/codeception` to install full featured
-   version of Codeception
+## Documentación
 
-3. Update dependencies with Composer 
+La documentación completa del proyecto se encuentra organizada en el directorio `documentacion/`:
 
-    ```
-    composer update  
-    ```
+- **[Documentación PHP API](documentacion/php_api/README.md)** - Especificaciones completas de la API principal
+- **[Documentación Node.js API](documentacion/node_api/README.md)** - Especificaciones de la API complementaria
 
-4. Download [Selenium Server](http://www.seleniumhq.org/download/) and launch it:
+## Instalación y Configuración
 
-    ```
-    java -jar ~/selenium-server-standalone-x.xx.x.jar
-    ```
+### Requisitos Previos
+- PHP 7.4+ con extensiones requeridas
+- Node.js 14+
+- PostgreSQL 12+
+- Composer
+- npm
 
-    In case of using Selenium Server 3.0 with Firefox browser since v48 or Google Chrome since v53 you must download [GeckoDriver](https://github.com/mozilla/geckodriver/releases) or [ChromeDriver](https://sites.google.com/a/chromium.org/chromedriver/downloads) and launch Selenium with it:
+### Configuración Rápida
 
-    ```
-    # for Firefox
-    java -jar -Dwebdriver.gecko.driver=~/geckodriver ~/selenium-server-standalone-3.xx.x.jar
-    
-    # for Google Chrome
-    java -jar -Dwebdriver.chrome.driver=~/chromedriver ~/selenium-server-standalone-3.xx.x.jar
-    ``` 
-    
-    As an alternative way you can use already configured Docker container with older versions of Selenium and Firefox:
-    
-    ```
-    docker run --net=host selenium/standalone-firefox:2.53.0
-    ```
-
-5. (Optional) Create `yii2basic_test` database and update it by applying migrations if you have them.
-
-   ```
-   tests/bin/yii migrate
+1. **Clonar el repositorio**
+   ```bash
+   git clone [URL_DEL_REPOSITORIO]
+   cd GFC-Back
    ```
 
-   The database configuration can be found at `config/test_db.php`.
-
-
-6. Start web server:
-
-    ```
-    tests/bin/yii serve
-    ```
-
-7. Now you can run all available tests
-
-   ```
-   # run all available tests
-   vendor/bin/codecept run
-
-   # run acceptance tests
-   vendor/bin/codecept run acceptance
-
-   # run only unit and functional tests
-   vendor/bin/codecept run unit,functional
+2. **Configurar PHP API**
+   ```bash
+   cd php_api
+   composer install
+   cp config/db.php.example config/db.php
+   # Configurar base de datos en config/db.php
+   php yii migrate
    ```
 
-### Code coverage support
+3. **Configurar Node.js API**
+   ```bash
+   cd ../node_api
+   npm install
+   cp .env.example .env
+   # Configurar variables de entorno
+   npm run migrate
+   ```
 
-By default, code coverage is disabled in `codeception.yml` configuration file, you should uncomment needed rows to be able
-to collect code coverage. You can run your tests and collect coverage with the following command:
+## Desarrollo
 
-```
-#collect coverage for all tests
-vendor/bin/codecept run --coverage --coverage-html --coverage-xml
+### Estructura de Desarrollo
+- Cada API mantiene su propia estructura y convenciones
+- Las APIs se comunican mediante HTTP y WebSockets
+- Base de datos compartida con esquemas separados por API
 
-#collect coverage only for unit tests
-vendor/bin/codecept run unit --coverage --coverage-html --coverage-xml
+### Convenciones de Código
+- Seguir las convenciones específicas de cada tecnología
+- Documentar todos los endpoints y métodos públicos
+- Mantener cobertura de tests
+- Usar commits descriptivos
 
-#collect coverage for unit and functional tests
-vendor/bin/codecept run functional,unit --coverage --coverage-html --coverage-xml
-```
+## Contribución
 
-You can see code coverage output under the `tests/_output` directory.
+1. Crear una rama para tu feature
+2. Seguir las convenciones de código establecidas
+3. Documentar cambios en la documentación correspondiente
+4. Ejecutar tests antes de hacer commit
+5. Crear un Pull Request con descripción detallada
+
+## Licencia
+
+Este proyecto está bajo la licencia especificada en el archivo LICENSE.md
+
+## Contacto
+
+Para consultas técnicas o soporte, contactar al equipo de desarrollo.
+
+---
+
+**Nota**: Para información técnica detallada, consultar la documentación específica de cada subproyecto en el directorio `documentacion/`. 

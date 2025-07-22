@@ -1,10 +1,12 @@
 const express      = require('express');
 const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
+const writeProtection = require('../middleware/writeProtection.js');
+const authMiddleware = require('../middleware/authMiddleware');
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.session.user.id, 'Consulta de Fotoclubes - ' + req.session.user.username, null, new Date()) 
+      await LogOperacion(req.user.id, 'Consulta de Fotoclubes - ' + req.user.username, null, new Date()) 
 
       res.json({ 
         items: await global.knex('fotoclub'),
@@ -15,7 +17,7 @@ router.get('/get_all', async (req, res) => {
     }
 })
 
-router.put('/edit', async (req, res) => {
+router.put('/edit', writeProtection, async (req, res) => {
   try {
     const { id, name, description, facebook, instagram, email } = req.body;
 

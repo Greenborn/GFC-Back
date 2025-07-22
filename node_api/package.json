@@ -1,23 +1,27 @@
 {
-  "name": "chat_publico_back",
-  "version": "1.0.0",
-  "description": "",
+  "name": "gfc-node-api",
+  "version": "1.13.11",
+  "description": "API Node.js complementaria para el sistema GFC-Back - WebSockets, procesamiento de archivos y operaciones auxiliares",
   "main": "server.js",
   "scripts": {
+    "start": "nodemon --ignore ./sessions server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "migrate": "knex migrate:latest"
+    "migrate": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "migrate:status": "knex migrate:status"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Greenborn/chat_publico_back.git"
+    "url": "git+https://github.com/Greenborn/GFC-Back.git"
   },
-  "author": "",
+  "author": "Greenborn",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Greenborn/chat_publico_back/issues"
+    "url": "https://github.com/Greenborn/GFC-Back/issues"
   },
-  "homepage": "https://github.com/Greenborn/chat_publico_back#readme",
+  "homepage": "https://github.com/Greenborn/GFC-Back#readme",
   "dependencies": {
+    "axios": "^1.10.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
@@ -29,6 +33,7 @@
     "http": "^0.0.1-security",
     "knex": "^3.1.0",
     "mysql": "^2.18.1",
+    "pg": "^8.11.3",
     "session-file-store": "^1.5.0",
     "uuid": "^8.3.2"
   }
