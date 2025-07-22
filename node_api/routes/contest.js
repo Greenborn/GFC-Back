@@ -25,7 +25,7 @@ router.get('/get_all', async (req, res) => {
 // Endpoint público para obtener participantes de un concurso
 router.get('/participants', authMiddleware, async (req, res) => {
     // Solo admin (rol == '1') o delegado (rol == '2') pueden acceder
-    if (!(req.user && (req.user.rol == '1' || req.user.rol == '2'))) {
+    if (!(req?.user?.rol == '1' || req?.user?.rol == '2')) {
         return res.status(403).json({
             success: false,
             message: 'No tiene permisos para acceder a este recurso'
