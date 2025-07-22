@@ -734,11 +734,6 @@ Authorization: Bearer <token>
 
 Obtiene la lista completa de clubes fotográficos registrados en el sistema.
 
-#### Headers
-```
-Authorization: Bearer <token>
-```
-
 #### Respuesta Exitosa (200)
 ```json
 {
@@ -763,13 +758,6 @@ Authorization: Bearer <token>
 }
 ```
 
-#### Respuesta de Error (401)
-```json
-{
-  "message": "No autenticado"
-}
-```
-
 #### Respuesta de Error (500)
 ```json
 {
@@ -778,7 +766,7 @@ Authorization: Bearer <token>
 ```
 
 #### Características del Endpoint
-- **Autenticación**: Requerida (cualquier usuario autenticado)
+- **Autenticación**: No requerida (público)
 - **Permisos**: No requiere permisos especiales
 - **Validación**: Ninguna
 - **Rate Limiting**: Según configuración global

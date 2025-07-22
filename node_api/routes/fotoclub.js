@@ -4,9 +4,11 @@ const LogOperacion = require('../controllers/log_operaciones.js');
 const writeProtection = require('../middleware/writeProtection.js');
 const authMiddleware = require('../middleware/authMiddleware');
 
-router.get('/get_all', authMiddleware, async (req, res) => {
+router.get('/get_all', async (req, res) => {
     try {
-      await LogOperacion(req.user.id, 'Consulta de Fotoclubes - ' + req.user.username, null, new Date()) 
+      if (req?.user?.role_id == '1') {
+        await LogOperacion(req.user.id, 'Consulta de Fotoclubes - ' + req.user.username, null, new Date()) 
+      }
 
       res.json({ 
         items: await global.knex('fotoclub'),
