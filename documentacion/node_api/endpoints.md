@@ -867,3 +867,174 @@ Content-Type: application/json
 ---
 
 **Navegación**: [README](README.md) | [Arquitectura](arquitectura.md) | [Definición Técnica](definicion_tecnica.md) | [Volver al README Principal](../../README.md) 
+
+---
+
+## 11. Recuperación de Contraseña
+
+### 11.1 Solicitar recuperación de contraseña
+**POST** `/auth/recupera_pass`
+
+Solicita el envío de un código de verificación al correo electrónico del usuario para recuperar la contraseña.
+
+#### Headers
+```
+Content-Type: application/json
+```
+
+#### Body de Request (ejemplo)
+```json
+{
+  "email": "usuario@dominio.com"
+}
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "r": true
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "r": false,
+  "error": "Falta email"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "r": false,
+  "error": "Error interno del servidor"
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: No requerida
+- **Permisos**: Público
+- **Validación**: Email válido y registrado
+- **Transaccional**: Sí (actualiza token y fecha en BD)
+- **Rate Limiting**: Según configuración global
+
+---
+
+### 11.2 Confirmar código de recuperación
+**POST** `/auth/recupera_pass_confirm_code`
+
+Verifica que el código de recuperación enviado al correo sea válido y no haya expirado.
+
+#### Headers
+```
+Content-Type: application/json
+```
+
+#### Body de Request (ejemplo)
+```json
+{
+  "email": "usuario@dominio.com",
+  "code": "ABC123"
+}
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "r": true
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "r": false,
+  "error": "Falta de credenciales"
+}
+```
+
+#### Respuesta de Error (200) - Código inválido o expirado
+```json
+{
+  "r": false
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "r": false,
+  "error": "Error interno del servidor"
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: No requerida
+- **Permisos**: Público
+- **Validación**: Email y código válidos, código no expirado
+- **Transaccional**: No
+- **Rate Limiting**: Según configuración global
+
+---
+
+### 11.3 Establecer nueva contraseña
+**POST** `/auth/recupera_pass_new_pass`
+
+Permite establecer una nueva contraseña usando el código de recuperación recibido por email.
+
+#### Headers
+```
+Content-Type: application/json
+```
+
+#### Body de Request (ejemplo)
+```json
+{
+  "email": "usuario@dominio.com",
+  "code": "ABC123",
+  "pass_0": "nuevaPassword",
+  "pass_1": "nuevaPassword"
+}
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "r": true
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "r": false,
+  "error": "Falta de credenciales"
+}
+```
+
+#### Respuesta de Error (200) - Contraseñas no coinciden, código inválido o expirado
+```json
+{
+  "r": false
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "r": false,
+  "error": "Error interno del servidor"
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: No requerida
+- **Permisos**: Público
+- **Validación**: Email, código y contraseñas válidas, código no expirado
+- **Transaccional**: Sí (actualiza contraseña y limpia token)
+- **Rate Limiting**: Según configuración global
+
+---
+
+[Navegación: Volver al inicio](#endpoints---nodejs-api) 
