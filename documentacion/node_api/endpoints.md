@@ -261,7 +261,13 @@ Obtiene los detalles completos de un concurso.
 ### 3.3 Obtener Participantes de un Concurso
 **GET** `/contest/participants`
 
-Obtiene el listado básico de participantes de un concurso específico. Endpoint público que no requiere autenticación. Devuelve solo información esencial: nombre, apellido, DNI y categoría.
+Obtiene el listado básico de participantes de un concurso específico. Solo pueden acceder usuarios autenticados con rol **admin** (`rol == "1"`) o **delegado** (`rol == "2"`). Se registra un log de operación cada vez que se consulta este endpoint.
+
+#### Headers
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
 
 #### Query Parameters
 - `id` (int, requerido): ID del concurso
@@ -283,6 +289,7 @@ Obtiene el listado básico de participantes de un concurso específico. Endpoint
       "name": "Juan",
       "last_name": "Pérez",
       "dni": "12345678",
+      "email": "juan.perez@email.com",
       "category_name": "Aficionado"
     }
   ],
@@ -296,6 +303,22 @@ Obtiene el listado básico de participantes de un concurso específico. Endpoint
 {
   "success": false,
   "message": "ID de concurso inválido"
+}
+```
+
+#### Respuesta de Error (401)
+```json
+{
+  "success": false,
+  "message": "No autenticado"
+}
+```
+
+#### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "No tiene permisos para acceder a este recurso"
 }
 ```
 
@@ -314,6 +337,13 @@ Obtiene el listado básico de participantes de un concurso específico. Endpoint
   "message": "Error interno del servidor al obtener participantes"
 }
 ```
+
+#### Características del Endpoint
+- **Autenticación**: Requerida (Bearer Token)
+- **Permisos**: Solo admin (`rol == "1"`) o delegado (`rol == "2"`)
+- **Validación**: ID de concurso válido
+- **Logging**: Se registra la consulta en la tabla de logs de operaciones
+- **Rate Limiting**: Según configuración global
 
 ---
 

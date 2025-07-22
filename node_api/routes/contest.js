@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
+const authMiddleware = require('../middleware/authMiddleware');
 
 router.get('/get_all', async (req, res) => {
     try {
@@ -22,7 +23,21 @@ router.get('/get_all', async (req, res) => {
 })
 
 // Endpoint público para obtener participantes de un concurso
-router.get('/participants', async (req, res) => {
+router.get('/participants', authMiddleware, async (req, res) => {
+    // Solo admin (rol == '1') o delegado (rol == '2') pueden acceder
+    if (!(req?.user?.role_id == '1' || req?.user?.role_id == '2')) {
+        return res.status(403).json({
+            success: false,
+            message: 'No tiene permisos para acceder a este recurso'
+        });
+    }
+    // Registrar log de operación
+    await LogOperacion(
+        req.user.id,
+        `Consulta de participantes del concurso (id: ${req.query.id}) - ${req.user.username}`,
+        null,
+        new Date()
+    );
     try {
         const contestId = parseInt(req.query.id);
         
@@ -48,9 +63,11 @@ router.get('/participants', async (req, res) => {
                 'p.name',
                 'p.last_name',
                 'p.dni',
+                'u.email',
                 'c.name as category_name'
             )
             .join('profile as p', 'pc.profile_id', 'p.id')
+            .join('user as u', 'u.profile_id', 'p.id')
             .leftJoin('category as c', 'pc.category_id', 'c.id')
             .where('pc.contest_id', contestId)
             .orderBy('p.last_name', 'asc')
