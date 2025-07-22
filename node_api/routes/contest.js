@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
+const authMiddleware = require('../middleware/authMiddleware');
 
 router.get('/get_all', async (req, res) => {
     try {
@@ -22,7 +23,21 @@ router.get('/get_all', async (req, res) => {
 })
 
 // Endpoint público para obtener participantes de un concurso
-router.get('/participants', async (req, res) => {
+router.get('/participants', authMiddleware, async (req, res) => {
+    // Solo admin (rol == '1') o delegado (rol == '2') pueden acceder
+    if (!(req.user && (req.user.rol == '1' || req.user.rol == '2'))) {
+        return res.status(403).json({
+            success: false,
+            message: 'No tiene permisos para acceder a este recurso'
+        });
+    }
+    // Registrar log de operación
+    await LogOperacion(
+        req.user.id,
+        `Consulta de participantes del concurso (id: ${req.query.id}) - ${req.user.username}`,
+        null,
+        new Date()
+    );
     try {
         const contestId = parseInt(req.query.id);
         
