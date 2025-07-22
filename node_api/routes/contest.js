@@ -63,6 +63,7 @@ router.get('/participants', authMiddleware, async (req, res) => {
                 'p.name',
                 'p.last_name',
                 'p.dni',
+                'p.email',
                 'c.name as category_name'
             )
             .join('profile as p', 'pc.profile_id', 'p.id')

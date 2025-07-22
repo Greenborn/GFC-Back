@@ -289,6 +289,7 @@ Content-Type: application/json
       "name": "Juan",
       "last_name": "Pérez",
       "dni": "12345678",
+      "email": "juan.perez@email.com",
       "category_name": "Aficionado"
     }
   ],
