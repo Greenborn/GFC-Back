@@ -1500,19 +1500,43 @@ Content-Type: application/json
 - `200` - OK: Operación exitosa
 - `201` - Created: Recurso creado exitosamente
 - `400` - Bad Request: Datos inválidos
-- `401` - Unauthorized: No autenticado
+- `401` - Unauthorized: No autenticado o token inválido
 - `403` - Forbidden: No autorizado
 - `404` - Not Found: Recurso no encontrado
 - `422` - Unprocessable Entity: Validación fallida
 - `500` - Internal Server Error: Error del servidor
 
-### 7.2 Códigos de Error Específicos
+### 7.2 Manejo de Errores de Autenticación
+
+La API maneja de forma robusta los errores de autenticación, asegurando que siempre se retornen códigos 401 apropiados en lugar de errores 5xx:
+
+#### Casos de Error 401:
+- **Header Authorization ausente**: No se proporciona el header `Authorization`
+- **Header Authorization vacío**: El header está presente pero vacío
+- **Formato incorrecto**: No sigue el patrón `Bearer <token>`
+- **Token inválido**: El token no existe en la base de datos
+- **Token expirado**: El token ha expirado (si se implementa expiración)
+
+#### Ejemplos de Respuestas 401:
+```json
+{
+  "name": "Unauthorized",
+  "message": "Your request was made with invalid credentials.",
+  "code": 0,
+  "status": 401,
+  "type": "yii\\web\\UnauthorizedHttpException"
+}
+```
+
+### 7.3 Códigos de Error Específicos
 ```json
 {
   "VALIDATION_ERROR": "Datos de entrada inválidos",
   "INVALID_CREDENTIALS": "Credenciales incorrectas",
   "TOKEN_EXPIRED": "Token expirado",
   "INVALID_TOKEN": "Token inválido",
+  "MISSING_AUTHORIZATION_HEADER": "Header Authorization requerido",
+  "INVALID_AUTHORIZATION_FORMAT": "Formato de Authorization inválido",
   "USER_NOT_FOUND": "Usuario no encontrado",
   "CONTEST_NOT_FOUND": "Concurso no encontrado",
   "CATEGORY_NOT_FOUND": "Categoría no encontrada",
@@ -1526,6 +1550,38 @@ Content-Type: application/json
   "EMAIL_ALREADY_EXISTS": "Email ya registrado",
   "USERNAME_ALREADY_EXISTS": "Nombre de usuario ya existe"
 }
+```
+
+### 7.4 Ejemplos de Pruebas de Autenticación
+
+#### Sin header Authorization:
+```bash
+curl -X GET http://localhost/api/users
+# Respuesta: 401 Unauthorized
+```
+
+#### Header Authorization vacío:
+```bash
+curl -X GET http://localhost/api/users -H "Authorization:"
+# Respuesta: 401 Unauthorized
+```
+
+#### Formato incorrecto:
+```bash
+curl -X GET http://localhost/api/users -H "Authorization: InvalidFormat"
+# Respuesta: 401 Unauthorized
+```
+
+#### Token inválido:
+```bash
+curl -X GET http://localhost/api/users -H "Authorization: Bearer invalid_token"
+# Respuesta: 401 Unauthorized
+```
+
+#### Token válido:
+```bash
+curl -X GET http://localhost/api/users -H "Authorization: Bearer valid_token"
+# Respuesta: 200 OK con datos
 ```
 
 ## 8. Ejemplos de Uso

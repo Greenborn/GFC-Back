@@ -8,10 +8,21 @@ class HttpTokenAuth extends HttpBearerAuth{
 
   public static function getToken(){
     $auth = Yii::$app->request->headers->get('Authorization');
-    $auth = explode(" ", trim($auth));
-
-    return $auth[1];
-
+    
+    // Si no hay header Authorization, retornar null
+    if (empty($auth)) {
+      return null;
+    }
+    
+    // Verificar que el header tenga el formato correcto "Bearer <token>"
+    $parts = explode(" ", trim($auth));
+    
+    // Si no hay suficientes partes o no es Bearer, retornar null
+    if (count($parts) !== 2 || strtolower($parts[0]) !== 'bearer') {
+      return null;
+    }
+    
+    return $parts[1];
   }
 
 }

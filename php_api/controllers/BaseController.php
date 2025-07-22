@@ -5,6 +5,7 @@ namespace app\controllers;
 use yii\rest\ActiveController;
 use yii\data\ActiveDataProvider;
 use yii\filters\Cors;
+use Exception;
 
 use app\components\HttpTokenAuth;
 use app\traits\Filterable;
@@ -46,9 +47,9 @@ class BaseController extends ActiveController {
                  'Origin' => ['*'],
                  'Access-Control-Request-Method' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
                  'Access-Control-Request-Headers' => ['*'],
-                 'Access-Control-Allow-Credentials' => null,
-                 'Access-Control-Max-Age' => 0,
-                 'Access-Control-Expose-Headers' => [],
+                 'Access-Control-Allow-Credentials' => false,
+                 'Access-Control-Max-Age' => 86400,
+                 'Access-Control-Expose-Headers' => ['Content-Length', 'Content-Range'],
              ]
         ];
         return $behaviors;
@@ -56,9 +57,17 @@ class BaseController extends ActiveController {
 
     public function beforeAction($event)
     {
+        // Leer el body de forma segura
+        $bodyData = '';
+        try {
+            $bodyData = file_get_contents('php://input');
+        } catch (Exception $e) {
+            $bodyData = 'Error reading body: ' . $e->getMessage();
+        }
+        
         LogManager::toLog([
           'POST_DATA'    => $_POST,
-          'BODY_DATA'    => file_get_contents('php://input'),
+          'BODY_DATA'    => $bodyData,
           'GET_DATA'     => $_GET,
           'REQUEST_DATA' => $_REQUEST,
           'SERVER_DATA'  => $_SERVER,

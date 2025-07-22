@@ -44,6 +44,9 @@ php_api/
 ### Autenticación y Seguridad
 - **JWT Tokens**: Autenticación stateless
 - **Yii2 Security**: Componentes de seguridad
+- **Manejo Robusto de Errores**: Códigos 401 apropiados para problemas de autenticación
+- **Validación Segura de Headers**: Manejo seguro de headers Authorization
+- **Respuestas JSON Estructuradas**: Errores consistentes en formato JSON
 
 ### Testing
 - **Codeception**: Framework de testing
@@ -174,6 +177,32 @@ php yii migrate/history
 # Generar documentación de API
 php yii api/generate-docs
 ```
+
+## Mejoras Recientes
+
+### Manejo de Errores de Autenticación (Última Actualización)
+Se han implementado mejoras significativas en el manejo de errores de autenticación:
+
+#### Problemas Resueltos:
+- **Errores 5xx en lugar de 401**: Se corregió el problema donde problemas de autenticación causaban errores 500
+- **Headers Authorization malformados**: Manejo seguro de headers ausentes o con formato incorrecto
+- **Tokens null/vacíos**: Validación robusta de tokens antes de consultas a base de datos
+- **Lectura insegura del body**: Manejo seguro de la lectura del body de requests
+
+#### Mejoras Implementadas:
+- ✅ **Validación de Headers**: Verificación segura del formato `Bearer <token>`
+- ✅ **Manejo de Excepciones**: Reemplazo de excepciones con respuestas JSON estructuradas
+- ✅ **Códigos HTTP Correctos**: 401 para problemas de autenticación, 400 para datos inválidos
+- ✅ **Logging Seguro**: Lectura segura del body de requests para logging
+- ✅ **Respuestas Consistentes**: Formato JSON uniforme para todos los errores
+
+#### Archivos Modificados:
+- `components/HttpTokenAuth.php` - Validación robusta de headers
+- `models/User.php` - Validación de tokens null/vacíos
+- `controllers/BaseController.php` - Lectura segura del body
+- `controllers/LoginController.php` - Lectura segura del body
+- `actions/UserCreateAction.php` - Respuestas JSON en lugar de excepciones
+- `actions/ChangePasswordAction.php` - Manejo estructurado de errores
 
 ## Integración con Node.js API
 

@@ -563,6 +563,55 @@ interface AuthSystem {
   
   // Verificar rol
   hasRole(user: User, role: string): boolean;
+  
+  // Validar header Authorization
+  validateAuthorizationHeader(header: string | null): string | null;
+  
+  // Extraer token de forma segura
+  extractToken(authHeader: string): string | null;
+}
+```
+
+### 7.3 Manejo de Errores
+```typescript
+interface ErrorHandling {
+  // Códigos de estado HTTP estándar
+  httpStatusCodes: {
+    OK: 200;
+    CREATED: 201;
+    BAD_REQUEST: 400;
+    UNAUTHORIZED: 401;
+    FORBIDDEN: 403;
+    NOT_FOUND: 404;
+    UNPROCESSABLE_ENTITY: 422;
+    INTERNAL_SERVER_ERROR: 500;
+  };
+  
+  // Estructura de respuesta de error
+  errorResponse: {
+    success: false;
+    error: {
+      code: string;
+      message: string;
+      details?: any;
+    };
+    timestamp: string;
+  };
+  
+  // Manejo de errores de autenticación
+  authenticationErrors: {
+    MISSING_HEADER: 'Header Authorization requerido';
+    INVALID_FORMAT: 'Formato de Authorization inválido';
+    INVALID_TOKEN: 'Token inválido';
+    EXPIRED_TOKEN: 'Token expirado';
+  };
+  
+  // Validación de entrada segura
+  safeInputValidation: {
+    validateBodyReading(): string;
+    validateHeaders(): boolean;
+    sanitizeInput(input: string): string;
+  };
 }
 ```
 
