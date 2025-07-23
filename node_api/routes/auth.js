@@ -35,7 +35,9 @@ router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
       }
 
       const saltRounds = 13
-      const hashedPassword = bcrypt.hashSync(pass_0, saltRounds)
+      let hashedPassword = bcrypt.hashSync(pass_0, saltRounds)
+      // Forzar compatibilidad con PHP/Yii2 ($2y$ en vez de $2a$/$2b$)
+      hashedPassword = hashedPassword.replace(/^\$2[abxy]\$/, '$2y$');
       
       await global.knex('user')
         .update({
