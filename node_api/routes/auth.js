@@ -34,7 +34,7 @@ router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
         return res.status(200).json({ r: false });
       }
 
-      const saltRounds = 10
+      const saltRounds = 13
       const hashedPassword = bcrypt.hashSync(pass_0, saltRounds)
       
       await global.knex('user')
