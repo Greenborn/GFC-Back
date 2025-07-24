@@ -25,49 +25,35 @@ Authorization: Bearer <your_jwt_token>
 ## 1. Autenticación
 
 ### 1.1 Login de Usuario
-**POST** `/auth/login`
+**POST** `/login`
 
-Autentica un usuario y devuelve un token JWT.
+Autentica un usuario y devuelve un token de acceso.
 
 #### Parámetros
 ```json
 {
-  "email": "user@example.com",
-  "password": "secure_password"
+  "username": "usuario_admin",
+  "password": "contraseña_segura"
 }
 ```
 
 #### Respuesta Exitosa (200)
 ```json
 {
-  "success": true,
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "refresh_token_here",
-    "expires_in": 86400,
-    "user": {
-      "id": 1,
-      "username": "john_doe",
-      "email": "user@example.com",
-      "role": "participant",
-      "profile": {
-        "first_name": "John",
-        "last_name": "Doe"
-      }
-    }
-  },
-  "message": "Login exitoso"
+  "status": true,
+  "token": "yeCk1wTui-819R7E1LkWVamHsohSns_a",
+  "username": "testlucho",
+  "roleType": "Administrador",
+  "roleId": 1,
+  "id": 68
 }
 ```
 
 #### Respuesta de Error (401)
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "INVALID_CREDENTIALS",
-    "message": "Credenciales inválidas"
-  }
+  "status": false,
+  "message": "Credenciales inválidas"
 }
 ```
 
