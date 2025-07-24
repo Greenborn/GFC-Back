@@ -96,30 +96,43 @@ async function eliminarConcurso(token, id) {
 }
 
 (async () => {
+  let report = [];
+  let error = null;
+  let token = null, id = null;
   try {
     console.log('Iniciando test de concursos PHP API...');
-    const token = await login();
-    console.log('Login exitoso. Token obtenido.');
-    const id = await crearConcurso(token);
-    console.log('Concurso creado con ID:', id);
+    token = await login();
+    report.push('✔️ Login exitoso');
+    id = await crearConcurso(token);
+    report.push('✔️ Concurso creado con ID: ' + id);
     await editarConcurso(token, id);
-    console.log('Concurso editado exitosamente.');
+    report.push('✔️ Concurso editado exitosamente');
     await eliminarConcurso(token, id);
-    console.log('Concurso eliminado exitosamente.');
-    console.log('Test completado con éxito.');
+    report.push('✔️ Concurso eliminado exitosamente');
+    report.push('✅ Test completado con éxito.');
   } catch (err) {
-    let serverMsg = '';
+    error = err;
+    if (err.response && err.response.data && typeof err.response.data.message === 'string') {
+      if (err.response.data.message.includes('Permission denied')) {
+        report.push('❌ Error de permisos al guardar archivo: ' + err.response.data.message);
+      } else {
+        report.push('❌ Error en la petición: ' + err.response.data.message);
+      }
+    } else {
+      report.push('❌ Error inesperado: ' + err.message);
+    }
     if (err.response) {
-      serverMsg += `\n--- RESPUESTA DE LA PETICIÓN ---`;
-      serverMsg += `\nCódigo de estado: ${err.response.status}`;
-      serverMsg += `\nHeaders: ${JSON.stringify(err.response.headers, null, 2)}`;
-      serverMsg += `\nCuerpo: ${JSON.stringify(err.response.data, null, 2)}`;
-      serverMsg += `\n------------------------------`;
+      report.push('--- RESPUESTA DE LA PETICIÓN ---');
+      report.push('Código de estado: ' + err.response.status);
+      report.push('Headers: ' + JSON.stringify(err.response.headers, null, 2));
+      report.push('Cuerpo: ' + JSON.stringify(err.response.data, null, 2));
+      report.push('------------------------------');
+    } else {
+      report.push('Objeto de error completo: ' + JSON.stringify(err));
     }
-    console.error('Error en el test:', err.message, serverMsg);
-    if (!err.response) {
-      console.error('Objeto de error completo:', err);
-    }
-    process.exit(1);
   }
+  console.log('\n===== INFORME DEL TEST =====');
+  report.forEach(line => console.log(line));
+  console.log('============================\n');
+  if (error) process.exit(1);
 })();
