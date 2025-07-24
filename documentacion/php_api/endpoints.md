@@ -537,81 +537,81 @@ Obtiene los detalles completos de un concurso.
 ```
 
 ### 3.3 Crear Concurso
-**POST** `/contests`
+**POST** `/contest`
 
 Crea un nuevo concurso.
 
-#### Parámetros
-```json
-{
-  "title": "Nuevo Concurso de Fotografía",
-  "subtitle": "Tema libre",
-  "description": "Descripción del concurso...",
-  "start_date": "2024-02-01",
-  "end_date": "2024-04-30",
-  "registration_deadline": "2024-03-15",
-  "max_photos_per_user": 10,
-  "max_photos_per_section": 3,
-  "is_public": true,
-  "rules": "Reglas del concurso...",
-  "prizes": "Premios disponibles..."
-}
-```
+#### Parámetros (multipart/form-data)
+- `name` (string): Nombre del concurso
+- `sub_title` (string): Subtítulo
+- `description` (string): Descripción
+- `max_img_section` (int): Máximo de imágenes por sección
+- `start_date` (string): Fecha de inicio (ISO)
+- `end_date` (string): Fecha de fin (ISO)
+- `image_file` (file): Imagen del concurso (opcional)
 
 #### Headers
 ```
 Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+```
+
+#### Ejemplo curl
+```bash
+curl 'https://gfc.prod-api.greenborn.com.ar/contest' \
+  -X POST \
+  -H 'Authorization: Bearer <token>' \
+  -F 'name=Concurso Test' \
+  -F 'sub_title=Subtítulo' \
+  -F 'description=Descripción' \
+  -F 'max_img_section=3' \
+  -F 'start_date=2025-02-01T01:02:00.000Z' \
+  -F 'end_date=2025-02-02T00:00:00.000Z' \
+  -F 'image_file=@/ruta/a/imagen.jpg'
 ```
 
 #### Respuesta Exitosa (201)
 ```json
 {
-  "success": true,
-  "data": {
-    "id": 2,
-    "title": "Nuevo Concurso de Fotografía",
-    "status": "draft",
-    "created_at": "2024-01-15T10:30:00Z"
-  },
+  "status": true,
+  "id": 123,
   "message": "Concurso creado exitosamente"
 }
 ```
 
 ### 3.4 Actualizar Concurso
-**PUT** `/contests/{id}`
+**PUT** `/contest/{id}`
 
 Actualiza los datos de un concurso.
 
-#### Parámetros
-```json
-{
-  "title": "Concurso Actualizado",
-  "description": "Nueva descripción...",
-  "end_date": "2024-05-31",
-  "status": "active"
-}
-```
+#### Parámetros (multipart/form-data)
+- Igual que en la creación. Solo enviar los campos a modificar.
 
 #### Headers
 ```
 Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+```
+
+#### Ejemplo curl
+```bash
+curl 'https://gfc.prod-api.greenborn.com.ar/contest/123' \
+  -X PUT \
+  -H 'Authorization: Bearer <token>' \
+  -F 'name=Concurso Editado' \
+  -F 'image_file=@/ruta/a/imagen.jpg'
 ```
 
 #### Respuesta Exitosa (200)
 ```json
 {
-  "success": true,
-  "data": {
-    "id": 1,
-    "title": "Concurso Actualizado",
-    "status": "active"
-  },
+  "status": true,
   "message": "Concurso actualizado exitosamente"
 }
 ```
 
 ### 3.5 Eliminar Concurso
-**DELETE** `/contests/{id}`
+**DELETE** `/contest/{id}`
 
 Elimina un concurso.
 
@@ -620,10 +620,17 @@ Elimina un concurso.
 Authorization: Bearer <admin_token>
 ```
 
+#### Ejemplo curl
+```bash
+curl 'https://gfc.prod-api.greenborn.com.ar/contest/123' \
+  -X DELETE \
+  -H 'Authorization: Bearer <token>'
+```
+
 #### Respuesta Exitosa (200)
 ```json
 {
-  "success": true,
+  "status": true,
   "message": "Concurso eliminado exitosamente"
 }
 ```
@@ -1616,7 +1623,7 @@ curl -X GET http://localhost/api/users -H "Authorization: Bearer valid_token"
 
 2. **Crear concurso**
    ```bash
-   POST /contests
+   POST /contest
    ```
 
 3. **Crear categorías**

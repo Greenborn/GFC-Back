@@ -77,52 +77,57 @@ class Contest extends \yii\db\ActiveRecord
 
         if (isset($image)) {
             // cargar img y sobrescribir la url
-            // $tipo   = $image->type;
-            // $tamano = $image->size;
-            // $temp   = $image->tempName;
-            // validar img
             $date     = new \DateTime();
             $img_name = 'contest_title_' . $date->getTimestamp();
-            $full_path = 'images/' . $img_name .  '.' . $image->extension;
+            $basePath = Yii::$app->params['imageBasePath'];
+            if (!is_dir($basePath)) {
+                mkdir($basePath, 0775, true);
+            }
+            $full_path = $basePath . '/images/' . $img_name .  '.' . $image->extension;
+            $relative_path = 'images/' . $img_name .  '.' . $image->extension;
+
+            $dir = dirname($full_path);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
 
             if (!$insert) {
-                if (!empty($this->img_url) && file_exists($this->img_url)) {
-                    unlink($this->img_url);
+                if (!empty($this->img_url) && file_exists($basePath . '/' . $this->img_url)) {
+                    unlink($basePath . '/' . $this->img_url);
                     $this->img_url = '';
-                    // echo 'se elimnó la img';
-                } else {
-                    // echo 'no se elimnó la img';
                 }
             }
 
             $image->saveAs($full_path);
-            $this->img_url = $full_path;
+            $this->img_url = $relative_path;
 
         } else {
             // no se cargó la imagen
         }
         if (isset($rules)) {
-            // cargar img y sobrescribir la url
-            // $tipo   = $rules->type;
-            // $tamano = $rules->size;
-            // $temp   = $rules->tempName;
-            // validar pdf
             $date     = new \DateTime();
             $rules_name = 'rules-' . $date->getTimestamp();
-            $full_path = 'images/' . $rules_name .  '.' . $rules->extension;
+            $basePath = Yii::$app->params['imageBasePath'];
+            if (!is_dir($basePath)) {
+                mkdir($basePath, 0775, true);
+            }
+            $full_path = $basePath . '/images/' . $rules_name .  '.' . $rules->extension;
+            $relative_path = 'images/' . $rules_name .  '.' . $rules->extension;
+
+            $dir = dirname($full_path);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
 
             if (!$insert) {
-                if (!empty($this->rules_url) && file_exists($this->rules_url)) {
-                    unlink($this->rules_url);
+                if (!empty($this->rules_url) && file_exists($basePath . '/' . $this->rules_url)) {
+                    unlink($basePath . '/' . $this->rules_url);
                     $this->rules_url = '';
-                    // echo 'se elimnó la img';
-                } else {
-                    // echo 'no se elimnó la img';
                 }
             }
 
             $rules->saveAs($full_path);
-            $this->rules_url = $full_path;
+            $this->rules_url = $relative_path;
 
         } else {
             // no se cargó el pdf
