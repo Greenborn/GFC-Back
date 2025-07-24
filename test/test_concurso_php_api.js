@@ -46,8 +46,9 @@ async function crearConcurso(token) {
     Authorization: `Bearer ${token}`
   };
   const res = await axios.post(url, form, { headers });
-  if (res.data && res.data.status) {
-    return res.data.id || res.data.data?.id || true;
+  // Interpretar éxito si hay id y img_url
+  if (res.data && typeof res.data.id === 'number' && typeof res.data.img_url === 'string') {
+    return res.data;
   } else {
     throw new Error('Creación fallida: ' + (res.data.message || JSON.stringify(res.data)));
   }
@@ -75,10 +76,11 @@ async function editarConcurso(token, id) {
     Authorization: `Bearer ${token}`
   };
   const res = await axios.put(url, form, { headers });
-  if (res.data && res.data.status) {
-    return true;
+  // Interpretar éxito si la respuesta contiene id y name
+  if (res.data && typeof res.data.id === 'number' && typeof res.data.name === 'string') {
+    return res.data;
   } else {
-    throw new Error('Edición fallida: ' + (res.data.message || JSON.stringify(res.data)));
+    throw new Error('Edición fallida: ' + JSON.stringify(res.data));
   }
 }
 
@@ -88,26 +90,59 @@ async function eliminarConcurso(token, id) {
   const res = await axios.delete(url, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  if (res.data && res.data.status) {
+  // Considerar éxito si status HTTP es 200 o 204, aunque el body sea vacío
+  if ((res.status === 200 || res.status === 204) || (res.data && res.data.status)) {
     return true;
   } else {
-    throw new Error('Eliminación fallida: ' + (res.data.message || JSON.stringify(res.data)));
+    throw new Error('Eliminación fallida: ' + (res.data?.message || JSON.stringify(res.data)));
   }
 }
 
 (async () => {
   let report = [];
   let error = null;
-  let token = null, id = null;
+  let token = null, concurso = null;
   try {
     console.log('Iniciando test de concursos PHP API...');
     token = await login();
     report.push('✔️ Login exitoso');
-    id = await crearConcurso(token);
-    report.push('✔️ Concurso creado con ID: ' + id);
-    await editarConcurso(token, id);
-    report.push('✔️ Concurso editado exitosamente');
-    await eliminarConcurso(token, id);
+    concurso = await crearConcurso(token);
+    if (concurso && typeof concurso.id === 'number' && typeof concurso.img_url === 'string') {
+      report.push({
+        paso: 'Creación de concurso',
+        estado: 'OK',
+        detalle: `Concurso creado correctamente. ID: ${concurso.id}, Imagen: ${concurso.img_url}`,
+        objeto: concurso
+      });
+      console.log('\x1b[32m%s\x1b[0m', '✔ Concurso creado exitosamente:', concurso);
+    } else {
+      report.push({
+        paso: 'Creación de concurso',
+        estado: 'ERROR',
+        detalle: 'La respuesta no contiene los datos esperados.',
+        objeto: concurso
+      });
+      console.log('\x1b[31m%s\x1b[0m', '✖ Error: La respuesta no contiene los datos esperados:', concurso);
+    }
+    const editado = await editarConcurso(token, concurso.id);
+    if (editado && typeof editado.id === 'number' && typeof editado.name === 'string') {
+      report.push({
+        paso: 'Edición de concurso',
+        estado: 'OK',
+        detalle: `Concurso editado correctamente. ID: ${editado.id}, Nombre: ${editado.name}`,
+        objeto: editado
+      });
+      console.log('\x1b[32m%s\x1b[0m', '✔ Concurso editado exitosamente:', editado);
+    } else {
+      report.push({
+        paso: 'Edición de concurso',
+        estado: 'ERROR',
+        detalle: 'La respuesta de edición no contiene los datos esperados.',
+        objeto: editado
+      });
+      console.log('\x1b[31m%s\x1b[0m', '✖ Error: La respuesta de edición no contiene los datos esperados:', editado);
+    }
+    await eliminarConcurso(token, concurso.id);
     report.push('✔️ Concurso eliminado exitosamente');
     report.push('✅ Test completado con éxito.');
   } catch (err) {
