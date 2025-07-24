@@ -110,12 +110,16 @@ async function eliminarConcurso(token, id) {
   } catch (err) {
     let serverMsg = '';
     if (err.response) {
+      serverMsg += `\n--- RESPUESTA DE LA PETICIÓN ---`;
       serverMsg += `\nCódigo de estado: ${err.response.status}`;
-      serverMsg += `\nHeaders: ${JSON.stringify(err.response.headers)}`;
-      serverMsg += `\nCuerpo: ${JSON.stringify(err.response.data)}`;
+      serverMsg += `\nHeaders: ${JSON.stringify(err.response.headers, null, 2)}`;
+      serverMsg += `\nCuerpo: ${JSON.stringify(err.response.data, null, 2)}`;
+      serverMsg += `\n------------------------------`;
     }
     console.error('Error en el test:', err.message, serverMsg);
-    console.error('Objeto de error completo:', err);
+    if (!err.response) {
+      console.error('Objeto de error completo:', err);
+    }
     process.exit(1);
   }
 })();
