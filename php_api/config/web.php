@@ -167,6 +167,7 @@ $config = [
         ],
     ],
     // 'params' eliminado, ahora la ruta base de imágenes se define en params.php como 'imageBasePath'
+    'params' => $params,
 ];
 
 if (YII_ENV_DEV) {

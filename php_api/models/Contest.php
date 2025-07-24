@@ -72,8 +72,6 @@ class Contest extends \yii\db\ActiveRecord
 
     public function beforeSave($insert) {
         
-        var_dump(\Yii::$app->params);
-        exit;
         $image = UploadedFile::getInstanceByName('image_file');
         $rules = UploadedFile::getInstanceByName('rules_file');
 
