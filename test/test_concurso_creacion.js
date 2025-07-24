@@ -50,6 +50,18 @@ async function crearConcurso(token) {
     const token = await login();
     const concurso = await crearConcurso(token);
     console.log('\x1b[32m%s\x1b[0m', '✔ Concurso creado exitosamente:', concurso);
+    // Guardar el id en runtime.json
+    const runtimePath = path.join(__dirname, 'runtime.json');
+    let runtime = {};
+    if (fs.existsSync(runtimePath)) {
+      try {
+        runtime = JSON.parse(fs.readFileSync(runtimePath, 'utf8'));
+      } catch (e) {
+        runtime = {};
+      }
+    }
+    runtime['test_concurso_creacion'] = { id: concurso.id };
+    fs.writeFileSync(runtimePath, JSON.stringify(runtime, null, 2));
     process.exit(0);
   } catch (err) {
     console.error('❌ Error:', err.message);

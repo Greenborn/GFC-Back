@@ -49,14 +49,28 @@ async function eliminarConcurso(token, id) {
     const concursoIdArg = process.argv[2];
     console.log('Iniciando test de borrado de concurso...');
     const token = await login();
-    let id;
+    let id = null;
     if (concursoIdArg) {
       id = concursoIdArg;
       console.log(`Usando id proporcionado: ${id}`);
     } else {
-      const concurso = await crearConcurso(token);
-      id = concurso.id;
-      console.log(`Concurso creado para borrado. ID: ${id}`);
+      // Leer id de runtime.json
+      const fs = require('fs');
+      const path = require('path');
+      const runtimePath = path.join(__dirname, 'runtime.json');
+      if (fs.existsSync(runtimePath)) {
+        try {
+          const runtime = JSON.parse(fs.readFileSync(runtimePath, 'utf8'));
+          if (runtime['test_concurso_creacion'] && runtime['test_concurso_creacion'].id) {
+            id = runtime['test_concurso_creacion'].id;
+            console.log(`Id obtenido de runtime.json: ${id}`);
+          }
+        } catch (e) {}
+      }
+    }
+    if (!id) {
+      console.log('No se encontró id de concurso para borrar. No se realiza eliminación.');
+      process.exit(0);
     }
     await eliminarConcurso(token, id);
     console.log('\x1b[32m%s\x1b[0m', '✔ Concurso eliminado exitosamente. ID:', id);

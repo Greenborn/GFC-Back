@@ -73,8 +73,23 @@ async function editarConcurso(token, id) {
   try {
     console.log('Iniciando test de edición de concurso...');
     const token = await login();
-    const concurso = await crearConcurso(token);
-    const editado = await editarConcurso(token, concurso.id);
+    const fs = require('fs');
+    const path = require('path');
+    const runtimePath = path.join(__dirname, 'runtime.json');
+    let id = null;
+    if (fs.existsSync(runtimePath)) {
+      try {
+        const runtime = JSON.parse(fs.readFileSync(runtimePath, 'utf8'));
+        if (runtime['test_concurso_creacion'] && runtime['test_concurso_creacion'].id) {
+          id = runtime['test_concurso_creacion'].id;
+        }
+      } catch (e) {}
+    }
+    if (!id) {
+      console.log('No se encontró id de concurso en runtime.json. No se realiza edición.');
+      process.exit(0);
+    }
+    const editado = await editarConcurso(token, id);
     console.log('\x1b[32m%s\x1b[0m', '✔ Concurso editado exitosamente:', editado);
     process.exit(0);
   } catch (err) {
