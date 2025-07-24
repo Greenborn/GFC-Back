@@ -1,5 +1,7 @@
 require('dotenv').config();
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 const BASE_URL = process.env.API_BASE_URL;
 const USERNAME = process.env.ADMIN_USERNAME;
@@ -74,13 +76,49 @@ async function eliminarConcurso(token, id) {
     }
     await eliminarConcurso(token, id);
     console.log('\x1b[32m%s\x1b[0m', '✔ Concurso eliminado exitosamente. ID:', id);
+    // Guardar resultado en resultado.json
+    const resultadoPath = path.join(__dirname, 'resultado.json');
+    let resultado = {};
+    if (fs.existsSync(resultadoPath)) {
+      try {
+        resultado = JSON.parse(fs.readFileSync(resultadoPath, 'utf8'));
+      } catch (e) {
+        resultado = {};
+      }
+    }
+    const resumen = {
+      exito: true,
+      mensaje: `Concurso eliminado exitosamente. ID: ${id}`,
+      id: id,
+      fecha: new Date().toISOString()
+    };
+    if (!resultado['test_concurso_borrado']) resultado['test_concurso_borrado'] = [];
+    resultado['test_concurso_borrado'].push(resumen);
+    fs.writeFileSync(resultadoPath, JSON.stringify(resultado, null, 2));
     process.exit(0);
   } catch (err) {
     console.error('❌ Error:', err.message);
-    if (err.response) {
-      console.error('Código de estado:', err.response.status);
-      console.error('Cuerpo:', JSON.stringify(err.response.data, null, 2));
+    let resultado = {};
+    const resultadoPath = path.join(__dirname, 'resultado.json');
+    if (fs.existsSync(resultadoPath)) {
+      try {
+        resultado = JSON.parse(fs.readFileSync(resultadoPath, 'utf8'));
+      } catch (e) {
+        resultado = {};
+      }
     }
+    const resumen = {
+      exito: false,
+      mensaje: err.message,
+      fecha: new Date().toISOString()
+    };
+    if (err.response) {
+      resumen.codigo_estado = err.response.status;
+      resumen.cuerpo = err.response.data;
+    }
+    if (!resultado['test_concurso_borrado']) resultado['test_concurso_borrado'] = [];
+    resultado['test_concurso_borrado'].push(resumen);
+    fs.writeFileSync(resultadoPath, JSON.stringify(resultado, null, 2));
     process.exit(1);
   }
 })();

@@ -91,13 +91,49 @@ async function editarConcurso(token, id) {
     }
     const editado = await editarConcurso(token, id);
     console.log('\x1b[32m%s\x1b[0m', '✔ Concurso editado exitosamente:', editado);
+    // Guardar resultado en resultado.json
+    const resultadoPath = path.join(__dirname, 'resultado.json');
+    let resultado = {};
+    if (fs.existsSync(resultadoPath)) {
+      try {
+        resultado = JSON.parse(fs.readFileSync(resultadoPath, 'utf8'));
+      } catch (e) {
+        resultado = {};
+      }
+    }
+    const resumen = {
+      exito: true,
+      mensaje: `Concurso editado exitosamente. ID: ${editado.id}`,
+      id: editado.id,
+      fecha: new Date().toISOString()
+    };
+    if (!resultado['test_concurso_edicion']) resultado['test_concurso_edicion'] = [];
+    resultado['test_concurso_edicion'].push(resumen);
+    fs.writeFileSync(resultadoPath, JSON.stringify(resultado, null, 2));
     process.exit(0);
   } catch (err) {
     console.error('❌ Error:', err.message);
-    if (err.response) {
-      console.error('Código de estado:', err.response.status);
-      console.error('Cuerpo:', JSON.stringify(err.response.data, null, 2));
+    let resultado = {};
+    const resultadoPath = require('path').join(__dirname, 'resultado.json');
+    if (require('fs').existsSync(resultadoPath)) {
+      try {
+        resultado = JSON.parse(require('fs').readFileSync(resultadoPath, 'utf8'));
+      } catch (e) {
+        resultado = {};
+      }
     }
+    const resumen = {
+      exito: false,
+      mensaje: err.message,
+      fecha: new Date().toISOString()
+    };
+    if (err.response) {
+      resumen.codigo_estado = err.response.status;
+      resumen.cuerpo = err.response.data;
+    }
+    if (!resultado['test_concurso_edicion']) resultado['test_concurso_edicion'] = [];
+    resultado['test_concurso_edicion'].push(resumen);
+    require('fs').writeFileSync(resultadoPath, JSON.stringify(resultado, null, 2));
     process.exit(1);
   }
 })();

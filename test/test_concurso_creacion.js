@@ -62,13 +62,49 @@ async function crearConcurso(token) {
     }
     runtime['test_concurso_creacion'] = { id: concurso.id };
     fs.writeFileSync(runtimePath, JSON.stringify(runtime, null, 2));
+    // Guardar resultado en resultado.json
+    const resultadoPath = path.join(__dirname, 'resultado.json');
+    let resultado = {};
+    if (fs.existsSync(resultadoPath)) {
+      try {
+        resultado = JSON.parse(fs.readFileSync(resultadoPath, 'utf8'));
+      } catch (e) {
+        resultado = {};
+      }
+    }
+    const resumen = {
+      exito: true,
+      mensaje: `Concurso creado exitosamente. ID: ${concurso.id}`,
+      id: concurso.id,
+      fecha: new Date().toISOString()
+    };
+    if (!resultado['test_concurso_creacion']) resultado['test_concurso_creacion'] = [];
+    resultado['test_concurso_creacion'].push(resumen);
+    fs.writeFileSync(resultadoPath, JSON.stringify(resultado, null, 2));
     process.exit(0);
   } catch (err) {
     console.error('❌ Error:', err.message);
-    if (err.response) {
-      console.error('Código de estado:', err.response.status);
-      console.error('Cuerpo:', JSON.stringify(err.response.data, null, 2));
+    let resultado = {};
+    const resultadoPath = require('path').join(__dirname, 'resultado.json');
+    if (require('fs').existsSync(resultadoPath)) {
+      try {
+        resultado = JSON.parse(require('fs').readFileSync(resultadoPath, 'utf8'));
+      } catch (e) {
+        resultado = {};
+      }
     }
+    const resumen = {
+      exito: false,
+      mensaje: err.message,
+      fecha: new Date().toISOString()
+    };
+    if (err.response) {
+      resumen.codigo_estado = err.response.status;
+      resumen.cuerpo = err.response.data;
+    }
+    if (!resultado['test_concurso_creacion']) resultado['test_concurso_creacion'] = [];
+    resultado['test_concurso_creacion'].push(resumen);
+    require('fs').writeFileSync(resultadoPath, JSON.stringify(resultado, null, 2));
     process.exit(1);
   }
 })();
