@@ -24,6 +24,11 @@ Para facilitar la comprensión de este informe, se incluye un glosario con los t
 - **Subdominio**: Parte de una dirección web que precede al dominio principal (ej: api.ejemplo.com).
 - **Script**: Programa o conjunto de instrucciones que automatiza tareas específicas.
 - **Dependencias**: Librerías o módulos externos que requiere una aplicación para funcionar correctamente.
+- **Angular**: Framework de desarrollo web desarrollado por Google para crear aplicaciones de una sola página.
+- **Vue3**: Framework progresivo de JavaScript para construir interfaces de usuario.
+- **IA (Inteligencia Artificial)**: Tecnología que permite a las máquinas realizar tareas que normalmente requieren inteligencia humana.
+- **Hosting**: Servicio que permite almacenar y hacer accesible un sitio web en internet.
+- **Cotización**: Precio o valor de referencia de una moneda extranjera.
 
 ---
 
@@ -53,4 +58,29 @@ Para facilitar la comprensión de este informe, se incluye un glosario con los t
 - Sección de Organizaciones, ya usa nueva API NodeJS.
 - En sección de herramientas, planilla de inscriptos ahora tiene campo email.
 - Funcionalidad de recuperación de contraseña implementada.
+- Se solucionaron errores que provocaban que la sesión se cerrara de forma inesperada.
 
+---
+
+## Tareas de Soporte
+- Carga de resultados de concursos y actualización de Ranking (aunque a partir del siguiente concurso ya las debería poder realizar ingresando al sitio como Administrador)
+- Recuperación de contraseña (Ya se debería poder utilizar la nueva funcionalidad para tal fin)
+- Unificación de cuenta de usuario Autor.
+- Corrección en la inscripción de un Autor, de Primera a Estímulo.
+
+---
+
+## Tareas Adicionales
+- Se continúa trabajando en la actualización de las Tecnologías empleadas en el servidor, se avanzó en un 20% la idea es a corto plazo hacer una migración total (se pasa de PHP a NodeJS).
+- Se está trabajando en una versión nueva del sitio apuntando al uso de nuevas tecnologías (Se pasa de Angular 12 a Vue3).
+- Se comienza una nueva etapa de Desarrollo Asistido por IA, lo que permitirá avanzar más rápido en las tareas de desarrollo y mantenimiento general del sistema.
+
+---
+
+## Pago correspondiente al trabajo realizado
+- Se considera el acuerdo establecido de 50 dólares por concurso.
+- Se considera que el conjunto de tareas realizadas más el hosting están comprendidos dentro de dicho monto.
+
+Por lo que teniendo en cuenta la cotización oficial del Banco Central (https://www.bcra.gob.ar/PublicacionesEstadisticas/Tipo_de_cambio_minorista.asp) del día 25/07/2025 de $1.255,14
+
+### Se estima el monto a pagar en: $62.757
