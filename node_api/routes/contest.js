@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const authMiddleware = require('../middleware/authMiddleware');
+const { cacheInvalidator } = require('../middleware/cacheInvalidator');
 
 // Endpoint para listar concursos con expansión de categorías y secciones (compatible con API PHP)
 router.get('/', authMiddleware, async (req, res) => {

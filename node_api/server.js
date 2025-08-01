@@ -11,6 +11,8 @@ const SessionFileStore = require('session-file-store')(Session)
 const bodyParser = require("body-parser")
 require('./knexfile.js'); // Esto inicializa global.knex
 const LogOperacion = require('./controllers/log_operaciones.js');
+const { cacheMiddleware, cache } = require('./middleware/cacheMiddleware.js');
+const app_internal = require('./internalServer.js');
 
 // Configuración de CORS
 const cors_origin = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(' ')
@@ -36,6 +38,13 @@ app_admin.use(Session({
         rolling: true
     }
 }))
+
+// Middleware de caché para endpoints GET
+app_admin.use(cacheMiddleware({
+    ttl: 5 * 60 * 1000, // 5 minutos
+    skipPaths: ['/health', '/auth/logout', '/api/auth/logout'],
+    skipQuery: ['nocache', 'refresh']
+}));
 
 // Health check endpoint
 app_admin.get('/health', async (req, res) => {
@@ -103,11 +112,19 @@ app_admin.use((err, req, res, next) => {
 
 // Puerto del servidor
 const port = process.env.SERVICE_PORT_ADMIN || 3000;
+const internalPort = process.env.SERVICE_PORT_INTERNAL || 3001;
 
 server_admin.listen(port, () => {
     console.log(`Servidor API Admin escuchando en puerto ${port}`);
     console.log(`Base de datos configurada: ${process.env.DB_CLIENT || 'postgresql'}`);
     console.log(`Health check disponible en: http://localhost:${port}/health`);
+});
+
+// Inicializar servidor interno
+app_internal.listen(internalPort, '127.0.0.1', () => {
+    console.log(`Servidor interno de gestión escuchando en puerto ${internalPort}`);
+    console.log(`Gestión de caché disponible en: http://localhost:${internalPort}/cache/stats`);
+    console.log(`Solo accesible desde localhost por seguridad`);
 });
 
 // Log de inicio del servidor

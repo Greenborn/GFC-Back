@@ -2,6 +2,7 @@ const express      = require('express');
 const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
 const writeProtection = require('../middleware/writeProtection.js');
+const { invalidateCache } = require('../middleware/cacheInvalidator.js');
 
 router.get('/get_all', async (req, res) => {
     try {
@@ -42,6 +43,9 @@ router.put('/edit', writeProtection, async (req, res) => {
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
+      // Invalidar caché relacionado con categorías
+      invalidateCache.categories();
+      
       return res.json({ stat: true, text: 'Registro actualizado correctamente' });
     } else {
       return res.json({ stat: false, text: 'No se encontró el registro para actualizar' });
