@@ -1,13 +1,11 @@
 # Informe de Avances
 
-<div align="center">
-  <img src="https://avatars.githubusercontent.com/u/90219548?s=200&v=4" alt="Greenborn Logo" width="100" height="100">
-  <h2>Greenborn - Software en Crecimiento</h2>
-</div>
+| <img src="https://avatars.githubusercontent.com/u/90219548?s=200&v=4" alt="Greenborn Logo" height="100"> | **Greenborn - Software en Crecimiento** |
+|:--|:--|
 
 **Fecha:** 2025-07-25
 
-Este informe detalla los avances realizados en el proyecto GFC-Back desde el 5 de febrero de 2025 hasta la fecha actual.
+Este informe detalla los avances realizados en el **Sistema de Gestión de Concursos** hasta el dìa de hoy.
 
 ---
 
@@ -26,9 +24,7 @@ Para facilitar la comprensión de este informe, se incluye un glosario con los t
 - **Dependencias**: Librerías o módulos externos que requiere una aplicación para funcionar correctamente.
 - **Angular**: Framework de desarrollo web desarrollado por Google para crear aplicaciones de una sola página.
 - **Vue3**: Framework progresivo de JavaScript para construir interfaces de usuario.
-- **IA (Inteligencia Artificial)**: Tecnología que permite a las máquinas realizar tareas que normalmente requieren inteligencia humana.
 - **Hosting**: Servicio que permite almacenar y hacer accesible un sitio web en internet.
-- **Cotización**: Precio o valor de referencia de una moneda extranjera.
 
 ---
 
@@ -60,6 +56,12 @@ Para facilitar la comprensión de este informe, se incluye un glosario con los t
 - Funcionalidad de recuperación de contraseña implementada.
 - Se solucionaron errores que provocaban que la sesión se cerrara de forma inesperada.
 
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
 ---
 
 ## Tareas de Soporte
@@ -83,4 +85,4 @@ Para facilitar la comprensión de este informe, se incluye un glosario con los t
 
 Por lo que teniendo en cuenta la cotización oficial del Banco Central (https://www.bcra.gob.ar/PublicacionesEstadisticas/Tipo_de_cambio_minorista.asp) del día 25/07/2025 de $1.255,14
 
-### Se estima el monto a pagar en: $62.757
+### Se estima el monto a pagar en: **$62.757**
