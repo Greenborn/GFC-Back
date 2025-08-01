@@ -4,6 +4,129 @@ const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const authMiddleware = require('../middleware/authMiddleware');
 
+// Endpoint para listar concursos con expansión de categorías y secciones (compatible con API PHP)
+router.get('/', authMiddleware, async (req, res) => {
+    try {
+        // Log de operación para usuarios autenticados
+        await LogOperacion(
+            req.user.id,
+            `Consulta de listado de concursos - ${req.user.username}`,
+            null,
+            new Date()
+        );
+
+        // Parámetros de consulta
+        const { expand, sort, page = 1, 'per-page': perPage = 20 } = req.query;
+        const currentPage = parseInt(page);
+        const itemsPerPage = parseInt(perPage);
+        const offset = (currentPage - 1) * itemsPerPage;
+        
+        // Construir query base para contests
+        let contestQuery = global.knex('contest').select('*');
+        
+        // Aplicar ordenamiento
+        if (sort) {
+            if (sort === '-id') {
+                contestQuery = contestQuery.orderBy('id', 'desc');
+            } else if (sort === 'id') {
+                contestQuery = contestQuery.orderBy('id', 'asc');
+            } else {
+                // Manejar otros tipos de ordenamiento si es necesario
+                const sortField = sort.startsWith('-') ? sort.substring(1) : sort;
+                const sortDirection = sort.startsWith('-') ? 'desc' : 'asc';
+                contestQuery = contestQuery.orderBy(sortField, sortDirection);
+            }
+        }
+        
+        // Obtener total de registros para paginación
+        const totalCountResult = await global.knex('contest').count('id as count').first();
+        const totalCount = parseInt(totalCountResult.count);
+        const pageCount = Math.ceil(totalCount / itemsPerPage);
+        
+        // Aplicar paginación
+        contestQuery = contestQuery.limit(itemsPerPage).offset(offset);
+        
+        // Ejecutar query de contests
+        const contests = await contestQuery;
+        
+        // Procesar expansiones si se solicitan
+        if (expand) {
+            const expansions = expand.split(',');
+            
+            for (let contest of contests) {
+                // Agregar campo active (determinar lógica según reglas de negocio)
+                // Por ahora, consideramos activo si la fecha de fin es posterior a hoy
+                const now = new Date();
+                const endDate = new Date(contest.end_date);
+                contest.active = endDate > now;
+                
+                // Expandir categorías
+                if (expansions.includes('categories')) {
+                    const categories = await global.knex('category as c')
+                        .select('c.id', 'c.name', 'c.mostrar_en_ranking')
+                        .join('contest_category as cc', 'c.id', 'cc.category_id')
+                        .where('cc.contest_id', contest.id);
+                    contest.categories = categories;
+                }
+                
+                // Expandir secciones  
+                if (expansions.includes('sections')) {
+                    const sections = await global.knex('section as s')
+                        .select('s.id', 's.name')
+                        .join('contest_section as cs', 's.id', 'cs.section_id')
+                        .where('cs.contest_id', contest.id);
+                    contest.sections = sections;
+                }
+            }
+        }
+        
+        // Construir respuesta con formato compatible con API PHP
+        const baseUrl = `${req.protocol}://${req.get('host')}${req.originalUrl.split('?')[0]}`;
+        const response = {
+            items: contests,
+            _links: {
+                self: {
+                    href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: currentPage }).toString()}`
+                },
+                first: {
+                    href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: 1 }).toString()}`
+                },
+                last: {
+                    href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: pageCount }).toString()}`
+                }
+            },
+            _meta: {
+                totalCount: totalCount,
+                pageCount: pageCount,
+                currentPage: currentPage,
+                perPage: itemsPerPage
+            }
+        };
+        
+        // Agregar enlaces next/prev si corresponde
+        if (currentPage < pageCount) {
+            response._links.next = {
+                href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: currentPage + 1 }).toString()}`
+            };
+        }
+        
+        if (currentPage > 1) {
+            response._links.prev = {
+                href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: currentPage - 1 }).toString()}`
+            };
+        }
+        
+        res.json(response);
+        
+    } catch (error) {
+        console.error('Error al obtener concursos:', error);
+        res.status(500).json({ 
+            message: 'Error interno del servidor al obtener concursos',
+            error: error.message 
+        });
+    }
+});
+
 router.get('/get_all', async (req, res) => {
     try {
       await LogOperacion(req.session.user.id, 'Consulta de Concursos - ' + req.session.user.username, null, new Date()) 

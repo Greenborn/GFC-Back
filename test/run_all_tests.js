@@ -3,7 +3,9 @@ const { execSync } = require('child_process');
 const scripts = [
   'test_concurso_creacion.js',
   'test_concurso_edicion.js',
-  'test_concurso_borrado.js'
+  'test_concurso_borrado.js',
+  'test_contest_list_simple.js',
+  'test_contest_list.js'
 ];
 
 console.log('Ejecutando todos los tests de concursos...');
