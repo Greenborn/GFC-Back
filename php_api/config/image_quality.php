@@ -50,8 +50,9 @@ return [
     // Configuración de directorios
     'directories' => [
         'temp_prefix' => 'temp_',      // Prefijo para archivos temporales
+        'main_image_subdir' => 'uploads/', // Subdirectorio para imágenes principales (relativo a imageBasePath)
         'thumbnail_subdir' => 'thumbnails/', // Subdirectorio para miniaturas (relativo a imageBasePath)
-        'organize_by_year' => true,    // Organizar thumbnails por año (thumbnails/2025/, thumbnails/2024/, etc.)
+        'organize_by_year' => true,    // Organizar imágenes y thumbnails por año (uploads/2025/, thumbnails/2025/, etc.)
         'year_format' => 'Y',          // Formato del año (Y para 2025, y para 25)
     ],
     

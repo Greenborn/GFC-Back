@@ -148,8 +148,13 @@ class Image extends \yii\db\ActiveRecord
                 throw new \yii\web\BadRequestHttpException($validation['error']);
             }
             
-            // Procesar imagen con máxima calidad y redimensionar a 1920px
-            $finalPath = $basePath . $date->getTimestamp() . '.jpg';
+            // Procesar imagen con máxima calidad y redimensionar a 1920px  
+            $mainImagePath = $this->getMainImageBasePath();
+            if (!file_exists($mainImagePath)) {
+                mkdir($mainImagePath, 0777, true);
+            }
+            
+            $finalPath = $mainImagePath . $date->getTimestamp() . '.jpg';
             
             try {
                 $processInfo = $this->processMainImage($tempPath, $finalPath);
@@ -463,6 +468,28 @@ class Image extends \yii\db\ActiveRecord
     }
     
     /**
+     * Obtiene la ruta base para imágenes principales según la configuración
+     */
+    public function getMainImageBasePath() {
+        $config = $this->getImageQualityConfig();
+        $dirConfig = $config['directories'];
+        
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (substr($basePath, -1) !== '/') $basePath .= '/';
+        
+        $imagePath = $basePath . $dirConfig['main_image_subdir'];
+        
+        // Organizar por año si está habilitado
+        if ($dirConfig['organize_by_year']) {
+            $yearFormat = $dirConfig['year_format'] ?? 'Y';
+            $year = date($yearFormat);
+            $imagePath .= $year . '/';
+        }
+        
+        return $imagePath;
+    }
+    
+    /**
      * Obtiene la ruta base para thumbnails según la configuración
      */
     public function getThumbnailBasePath() {
@@ -482,6 +509,28 @@ class Image extends \yii\db\ActiveRecord
         }
         
         return $thumbPath;
+    }
+    
+    /**
+     * Versión estática para obtener ruta de imágenes principales sin instancia
+     */
+    public static function getStaticMainImageBasePath() {
+        $config = require(Yii::getAlias('@app/config/image_quality.php'));
+        $dirConfig = $config['directories'];
+        
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (substr($basePath, -1) !== '/') $basePath .= '/';
+        
+        $imagePath = $basePath . $dirConfig['main_image_subdir'];
+        
+        // Organizar por año si está habilitado
+        if ($dirConfig['organize_by_year']) {
+            $yearFormat = $dirConfig['year_format'] ?? 'Y';
+            $year = date($yearFormat);
+            $imagePath .= $year . '/';
+        }
+        
+        return $imagePath;
     }
     
     /**
@@ -531,6 +580,32 @@ class Image extends \yii\db\ActiveRecord
         if (strpos($relativePath, $basePath) === 0) {
             // Extraer solo la parte relativa
             $relativePath = substr($relativePath, strlen($basePath));
+        }
+        
+        // Si es solo un nombre de archivo (sistema viejo), construir la ruta usando configuración
+        if (strpos($relativePath, '/') === false && strpos($relativePath, '\\') === false) {
+            $config = $this->getImageQualityConfig();
+            $dirConfig = $config['directories'];
+            
+            $imagePath = $dirConfig['main_image_subdir'];
+            
+            // Si está organizado por año, inferir el año desde el timestamp del archivo
+            if ($dirConfig['organize_by_year']) {
+                // Intentar extraer timestamp del nombre del archivo
+                if (preg_match('/^(\d{10})\./', $relativePath, $matches)) {
+                    $timestamp = (int)$matches[1];
+                    $yearFormat = $dirConfig['year_format'] ?? 'Y';
+                    $year = date($yearFormat, $timestamp);
+                    $imagePath .= $year . '/';
+                } else {
+                    // Si no se puede determinar el año, usar el año actual
+                    $yearFormat = $dirConfig['year_format'] ?? 'Y';
+                    $year = date($yearFormat);
+                    $imagePath .= $year . '/';
+                }
+            }
+            
+            $relativePath = $imagePath . $relativePath;
         }
         
         // Limpiar barra inicial si existe
