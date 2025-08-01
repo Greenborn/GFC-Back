@@ -389,6 +389,23 @@ class Image extends \yii\db\ActiveRecord
         $fields['imageUrl'] = function($model) {
             return $model->getImageUrl();
         };
+        // Debug temporal para identificar problema con thumbnails
+        $fields['thumbnailDebug'] = function($model) {
+            $thumbnail = $model->getThumbnail()->one();
+            if (!$thumbnail) {
+                return [
+                    'hasThumb' => false,
+                    'imageId' => $model->id,
+                    'suggestion' => 'Image needs thumbnail generation'
+                ];
+            }
+            return [
+                'hasThumb' => true,
+                'thumbId' => $thumbnail->id,
+                'thumbUrl' => $thumbnail->url,
+                'thumbType' => $thumbnail->thumbnail_type
+            ];
+        };
         return $fields;
     }
 
@@ -465,6 +482,74 @@ class Image extends \yii\db\ActiveRecord
             $config = require(Yii::getAlias('@app/config/image_quality.php'));
         }
         return $config;
+    }
+    
+    /**
+     * Regenera thumbnails para imágenes existentes que no los tienen
+     */
+    public function regenerateThumbnailsIfMissing() {
+        // Verificar si ya tiene thumbnails
+        $existingThumbnail = $this->getThumbnail()->one();
+        if ($existingThumbnail) {
+            return false; // Ya tiene thumbnails
+        }
+        
+        // Construir path completo de la imagen
+        $imageUrl = $this->getImageUrl();
+        if (!$imageUrl) {
+            return false; // No se puede determinar la URL
+        }
+        
+        // Intentar regenerar desde la URL de la imagen
+        // Primero, construir el path del archivo local
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (substr($basePath, -1) !== '/') $basePath .= '/';
+        
+        $relativePath = $this->url;
+        
+        // Si contiene path absoluto, extraer relativo
+        if (strpos($relativePath, $basePath) === 0) {
+            $relativePath = substr($relativePath, strlen($basePath));
+        }
+        
+        // Si es solo nombre de archivo, construir path completo
+        if (strpos($relativePath, '/') === false) {
+            $config = $this->getImageQualityConfig();
+            $dirConfig = $config['directories'];
+            
+            $imagePath = $dirConfig['main_image_subdir'];
+            
+            if ($dirConfig['organize_by_year']) {
+                // Intentar inferir año del timestamp
+                if (preg_match('/^(\d{10})\./', $relativePath, $matches)) {
+                    $timestamp = (int)$matches[1];
+                    $year = date('Y', $timestamp);
+                    $imagePath .= $year . '/';
+                } else {
+                    // Usar año actual como fallback
+                    $imagePath .= date('Y') . '/';
+                }
+            }
+            
+            $relativePath = $imagePath . $relativePath;
+        }
+        
+        $fullImagePath = $basePath . $relativePath;
+        
+        // Verificar que el archivo existe
+        if (!file_exists($fullImagePath)) {
+            error_log("No se puede regenerar thumbnail - archivo no encontrado: " . $fullImagePath);
+            return false;
+        }
+        
+        // Regenerar thumbnails
+        try {
+            $this->generateThumbnails('', basename($fullImagePath), $this->getThumbnailBasePath());
+            return true;
+        } catch (\Exception $e) {
+            error_log("Error regenerando thumbnails para imagen {$this->id}: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
@@ -621,6 +706,16 @@ class Image extends \yii\db\ActiveRecord
      */
     public function getThumbnailUrl($thumbnailType = null) {
         $thumbnail = $this->getThumbnail()->one();
+        
+        // Si no hay thumbnail, intentar regenerarlo
+        if (!$thumbnail) {
+            $regenerated = $this->regenerateThumbnailsIfMissing();
+            if ($regenerated) {
+                // Recargar thumbnail después de regeneración
+                $thumbnail = $this->getThumbnail()->one();
+            }
+        }
+        
         if (!$thumbnail) {
             return null;
         }
