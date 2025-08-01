@@ -46,7 +46,6 @@ class ContestResult extends \yii\db\ActiveRecord
             [['image_id'], 'exist', 'skipOnError' => true, 'targetClass' => Image::class, 'targetAttribute' => ['image_id' => 'id']],
             [['metric_id'], 'exist', 'skipOnError' => true, 'targetClass' => Metric::class, 'targetAttribute' => ['metric_id' => 'id']],
             [['section_id'], 'exist', 'skipOnError' => true, 'targetClass' => Section::class, 'targetAttribute' => ['section_id' => 'id']],
-            [['profile_id'], 'exist', 'skipOnError' => true, 'targetClass' => Image::class, 'targetAttribute' => ['profile_id' => 'profile_id']],
         ];
     }
 
