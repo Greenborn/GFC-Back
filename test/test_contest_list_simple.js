@@ -4,14 +4,42 @@ const axios = require('axios');
 
 // Configuración
 const NODE_API_BASE_URL = process.env.NODE_API_BASE_URL || 'http://localhost:7779';
+const USERNAME = process.env.ADMIN_USERNAME;
+const PASSWORD = process.env.ADMIN_PASSWORD;
 
-// Función para probar el endpoint sin autenticación
+// Función para obtener token de autorización de la API Node.js
+async function loginNodeApi() {
+    try {
+        const url = `${NODE_API_BASE_URL}/api/auth/login`;
+        console.log(`[LOGIN NODE] ${url}`);
+        const res = await axios.post(url, {
+            username: USERNAME,
+            password: PASSWORD
+        });
+        
+        if (res.data && res.data.success === true && res.data.token) {
+            console.log('✅ Login exitoso en API Node.js');
+            return res.data.token;
+        } else {
+            throw new Error('Login fallido: ' + (res.data.message || JSON.stringify(res.data)));
+        }
+    } catch (error) {
+        console.error('❌ Error en login Node.js API:', error.message);
+        throw error;
+    }
+}
+
+// Función para probar el endpoint con autenticación
 async function testContestListSimple() {
     try {
+        // Primero hacer login para obtener token
+        const token = await loginNodeApi();
+        
         const url = `${NODE_API_BASE_URL}/contest?expand=categories,sections&sort=-id&page=1&per-page=5`;
         console.log(`\n[TEST SIMPLE] ${url}`);
         
         const headers = {
+            'Authorization': `Bearer ${token}`,
             'Accept': 'application/json',
             'User-Agent': 'Mozilla/5.0 (Test Script)'
         };
@@ -86,6 +114,9 @@ async function testContestListSimple() {
 async function testQueryParameters() {
     console.log('\n🧪 PROBANDO DIFERENTES PARÁMETROS...');
     
+    // Obtener token para autenticación
+    const token = await loginNodeApi();
+    
     const tests = [
         {
             name: 'Sin parámetros',
@@ -122,7 +153,10 @@ async function testQueryParameters() {
             console.log(`\n🔍 Test: ${test.name}`);
             const url = `${NODE_API_BASE_URL}/contest${test.params}`;
             const res = await axios.get(url, { 
-                headers: { 'Accept': 'application/json' },
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 timeout: 5000 
             });
             
@@ -140,6 +174,65 @@ async function testQueryParameters() {
     }
 }
 
+// Función para probar que la autenticación es requerida
+async function testAuthenticationRequired() {
+    console.log('\n🔒 PROBANDO QUE LA AUTENTICACIÓN ES REQUERIDA...');
+    
+    try {
+        const url = `${NODE_API_BASE_URL}/contest`;
+        console.log(`[TEST AUTH] ${url}`);
+        
+        // Intentar acceso sin token
+        const res = await axios.get(url, { 
+            headers: { 'Accept': 'application/json' },
+            timeout: 5000,
+            validateStatus: () => true // Aceptar cualquier status code
+        });
+        
+        if (res.status === 401) {
+            console.log('✅ Autenticación requerida correctamente (401 Unauthorized)');
+            console.log(`📋 Mensaje: ${res.data.message || 'No message'}`);
+            return { success: true, authenticated: false };
+        } else {
+            console.log(`❌ Se esperaba 401, pero se recibió ${res.status}`);
+            return { success: false, error: `Status incorrecto: ${res.status}` };
+        }
+    } catch (error) {
+        console.log(`❌ Error inesperado: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+}
+
+// Función para probar acceso con token inválido
+async function testInvalidToken() {
+    console.log('\n🚫 PROBANDO TOKEN INVÁLIDO...');
+    
+    try {
+        const url = `${NODE_API_BASE_URL}/contest`;
+        console.log(`[TEST INVALID TOKEN] ${url}`);
+        
+        const res = await axios.get(url, { 
+            headers: { 
+                'Accept': 'application/json',
+                'Authorization': 'Bearer token_invalido_123'
+            },
+            timeout: 5000,
+            validateStatus: () => true // Aceptar cualquier status code
+        });
+        
+        if (res.status === 401) {
+            console.log('✅ Token inválido rechazado correctamente (401 Unauthorized)');
+            console.log(`📋 Mensaje: ${res.data.message || 'No message'}`);
+            return { success: true, tokenInvalid: true };
+        } else {
+            console.log(`❌ Se esperaba 401, pero se recibió ${res.status}`);
+            return { success: false, error: `Status incorrecto: ${res.status}` };
+        }
+    } catch (error) {
+        console.log(`❌ Error inesperado: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+
 // Función principal
 async function runSimpleTests() {
     console.log('🚀 TESTS SIMPLES DE LISTADO DE CONCURSOS - NODE.JS API');
@@ -149,8 +242,13 @@ async function runSimpleTests() {
     const startTime = Date.now();
     
     try {
-        // Test básico
-        console.log('\n🧪 PROBANDO FUNCIONALIDAD BÁSICA...');
+        // Test de autenticación requerida
+        console.log('\n🧪 PROBANDO SEGURIDAD DE AUTENTICACIÓN...');
+        const authTest = await testAuthenticationRequired();
+        const invalidTokenTest = await testInvalidToken();
+        
+        // Test básico con autenticación válida
+        console.log('\n🧪 PROBANDO FUNCIONALIDAD BÁSICA CON AUTENTICACIÓN...');
         const result = await testContestListSimple();
         
         if (result.success) {
@@ -163,11 +261,19 @@ async function runSimpleTests() {
         
         console.log(`\n⏱️ Tiempo total de ejecución: ${duration}ms`);
         
-        if (result.success) {
+        // Resumen de resultados
+        const allTestsPassed = authTest.success && invalidTokenTest.success && result.success;
+        
+        if (allTestsPassed) {
             console.log('✅ TODOS LOS TESTS SIMPLES EXITOSOS');
+            console.log('🔒 Autenticación funcionando correctamente');
+            console.log('📊 Endpoint de listado funcionando correctamente');
             process.exit(0);
         } else {
-            console.log('❌ TESTS FALLARON');
+            console.log('❌ ALGUNOS TESTS FALLARON');
+            if (!authTest.success) console.log('   - Fallo en test de autenticación requerida');
+            if (!invalidTokenTest.success) console.log('   - Fallo en test de token inválido');
+            if (!result.success) console.log('   - Fallo en test de funcionalidad básica');
             process.exit(1);
         }
         
@@ -185,5 +291,8 @@ if (require.main === module) {
 module.exports = {
     runSimpleTests,
     testContestListSimple,
-    testQueryParameters
+    testQueryParameters,
+    testAuthenticationRequired,
+    testInvalidToken,
+    loginNodeApi
 };

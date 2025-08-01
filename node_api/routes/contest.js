@@ -5,8 +5,16 @@ const LogOperacion = require('../controllers/log_operaciones.js')
 const authMiddleware = require('../middleware/authMiddleware');
 
 // Endpoint para listar concursos con expansión de categorías y secciones (compatible con API PHP)
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
     try {
+        // Log de operación para usuarios autenticados
+        await LogOperacion(
+            req.user.id,
+            `Consulta de listado de concursos - ${req.user.username}`,
+            null,
+            new Date()
+        );
+
         // Parámetros de consulta
         const { expand, sort, page = 1, 'per-page': perPage = 20 } = req.query;
         const currentPage = parseInt(page);

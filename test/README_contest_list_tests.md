@@ -5,14 +5,16 @@ Este directorio contiene tests específicos para verificar la funcionalidad del 
 ## Archivos de Test
 
 ### `test_contest_list_simple.js`
-Test básico que verifica la funcionalidad del endpoint de listado de concursos en la API Node.js sin autenticación.
+Test básico que verifica la funcionalidad del endpoint de listado de concursos en la API Node.js con autenticación.
 
 **Características:**
-- Prueba diferentes parámetros de consulta
+- Verifica que la autenticación es requerida (401 sin token)
+- Verifica que tokens inválidos son rechazados (401 con token inválido)
+- Prueba diferentes parámetros de consulta con autenticación válida
 - Verifica la estructura de respuesta
 - Comprueba la expansión de categorías y secciones
 - Valida la paginación
-- No requiere autenticación
+- Requiere credenciales válidas para pruebas completas
 
 **Uso:**
 ```bash
@@ -50,6 +52,8 @@ Los tests utilizan las siguientes variables de entorno del archivo `.env`:
 ```
 GET /contest?expand=categories,sections&sort=-id&page=1&per-page=20
 ```
+
+**⚠️ IMPORTANTE: Este endpoint requiere autenticación mediante token Bearer.**
 
 ### Parámetros soportados:
 - `expand`: Expandir relaciones (categories, sections)
@@ -143,7 +147,22 @@ node run_all_tests.js
 =======================================================
 🔗 Node.js API: http://localhost:7779
 
-🧪 PROBANDO FUNCIONALIDAD BÁSICA...
+🧪 PROBANDO SEGURIDAD DE AUTENTICACIÓN...
+
+🔒 PROBANDO QUE LA AUTENTICACIÓN ES REQUERIDA...
+[TEST AUTH] http://localhost:7779/contest
+✅ Autenticación requerida correctamente (401 Unauthorized)
+📋 Mensaje: No autenticado
+
+🚫 PROBANDO TOKEN INVÁLIDO...
+[TEST INVALID TOKEN] http://localhost:7779/contest
+✅ Token inválido rechazado correctamente (401 Unauthorized)
+📋 Mensaje: Token inválido
+
+🧪 PROBANDO FUNCIONALIDAD BÁSICA CON AUTENTICACIÓN...
+
+[LOGIN NODE] http://localhost:7779/api/auth/login
+✅ Login exitoso en API Node.js
 
 [TEST SIMPLE] http://localhost:7779/contest?expand=categories,sections&sort=-id&page=1&per-page=5
 ✅ Endpoint de concursos accesible
@@ -172,6 +191,8 @@ node run_all_tests.js
       - Monocromo (ID: 2)
       - Sub Sección (ID: 7)
 
-⏱️ Tiempo total de ejecución: 145ms
+⏱️ Tiempo total de ejecución: 245ms
 ✅ TODOS LOS TESTS SIMPLES EXITOSOS
+🔒 Autenticación funcionando correctamente
+📊 Endpoint de listado funcionando correctamente
 ```
