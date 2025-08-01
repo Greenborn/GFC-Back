@@ -107,9 +107,17 @@ class Image extends \yii\db\ActiveRecord
         echo "Regenerar thumbnail ".$this->id." \n";
         
         // Usar URL base configurada para imágenes
-        $imageBaseUrl = Yii::$app->params['imageBaseUrl'];
-        if (substr($imageBaseUrl, -1) !== '/') $imageBaseUrl .= '/';
-        $img_name = $imageBaseUrl . $this->url;
+        // Construir path completo del archivo para generar thumbnails
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (substr($basePath, -1) !== '/') $basePath .= '/';
+        
+        $relativePath = $this->url;
+        if (substr($relativePath, 0, 1) === '/') {
+            $relativePath = substr($relativePath, 1);
+        }
+        
+        $fullImagePath = $basePath . $relativePath;
+        $img_name = basename($fullImagePath);
         
         // Obtener ruta de thumbnails según configuración
         $thumbBase = $this->getThumbnailBasePath();
@@ -118,7 +126,14 @@ class Image extends \yii\db\ActiveRecord
             mkdir($thumbBase, 0777, true);
         }
         
-        $this->generateThumbnails('', $img_name, $thumbBase);
+        // Verificar que el archivo de imagen existe
+        if (!file_exists($fullImagePath)) {
+            error_log("Error: No se puede generar thumbnail - imagen no encontrada: " . $fullImagePath);
+            return;
+        }
+        
+        $imageDir = dirname($fullImagePath) . '/';
+        $this->generateThumbnails($imageDir, $img_name, $thumbBase);
     }
 
     public function beforeSave($insert) {
@@ -261,7 +276,17 @@ class Image extends \yii\db\ActiveRecord
 
         //Generación de miniaturas
         if (isset($params['photo_base64'])) {
-            $img_name = $this->url;
+            // Construir path completo del archivo para generar thumbnails
+            $basePath = Yii::$app->params['imageBasePath'];
+            if (substr($basePath, -1) !== '/') $basePath .= '/';
+            
+            $relativePath = $this->url;
+            if (substr($relativePath, 0, 1) === '/') {
+                $relativePath = substr($relativePath, 1);
+            }
+            
+            $fullImagePath = $basePath . $relativePath;
+            $img_name = basename($fullImagePath);
             
             // Obtener ruta de thumbnails según configuración
             $thumbBase = $this->getThumbnailBasePath();
@@ -269,7 +294,15 @@ class Image extends \yii\db\ActiveRecord
             if (!file_exists($thumbBase)) {
                 mkdir($thumbBase, 0777, true);
             }
-            $this->generateThumbnails('', $img_name, $thumbBase);
+            
+            // Verificar que el archivo de imagen existe
+            if (!file_exists($fullImagePath)) {
+                error_log("Error afterSave: No se puede generar thumbnail - imagen no encontrada: " . $fullImagePath);
+                return parent::afterSave($insert, $changedAttributes);
+            }
+            
+            $imageDir = dirname($fullImagePath) . '/';
+            $this->generateThumbnails($imageDir, $img_name, $thumbBase);
         }
         return parent::afterSave($insert, $changedAttributes);
     }
@@ -388,23 +421,6 @@ class Image extends \yii\db\ActiveRecord
         };
         $fields['imageUrl'] = function($model) {
             return $model->getImageUrl();
-        };
-        // Debug temporal para identificar problema con thumbnails
-        $fields['thumbnailDebug'] = function($model) {
-            $thumbnail = $model->getThumbnail()->one();
-            if (!$thumbnail) {
-                return [
-                    'hasThumb' => false,
-                    'imageId' => $model->id,
-                    'suggestion' => 'Image needs thumbnail generation'
-                ];
-            }
-            return [
-                'hasThumb' => true,
-                'thumbId' => $thumbnail->id,
-                'thumbUrl' => $thumbnail->url,
-                'thumbType' => $thumbnail->thumbnail_type
-            ];
         };
         return $fields;
     }
@@ -544,7 +560,8 @@ class Image extends \yii\db\ActiveRecord
         
         // Regenerar thumbnails
         try {
-            $this->generateThumbnails('', basename($fullImagePath), $this->getThumbnailBasePath());
+            $imageDir = dirname($fullImagePath) . '/';
+            $this->generateThumbnails($imageDir, basename($fullImagePath), $this->getThumbnailBasePath());
             return true;
         } catch (\Exception $e) {
             error_log("Error regenerando thumbnails para imagen {$this->id}: " . $e->getMessage());
