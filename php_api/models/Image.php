@@ -376,6 +376,17 @@ class Image extends \yii\db\ActiveRecord
         return $this->hasOne(Thumbnail::className(), ['image_id' => 'id']);
     }
 
+    public function fields() {
+        $fields = parent::fields();
+        $fields['thumbnailUrl'] = function($model) {
+            return $model->getThumbnailUrl();
+        };
+        $fields['imageUrl'] = function($model) {
+            return $model->getImageUrl();
+        };
+        return $fields;
+    }
+
     public function extraFields() {
         return [ 'profile', 'thumbnail' ];
     }
@@ -506,12 +517,25 @@ class Image extends \yii\db\ActiveRecord
         $imageBaseUrl = Yii::$app->params['imageBaseUrl'];
         if (substr($imageBaseUrl, -1) !== '/') $imageBaseUrl .= '/';
         
-        // Si la URL ya contiene el path completo, extraer solo la parte relativa
         $relativePath = $this->url;
+        
+        // Verificar si la URL ya es absoluta (imágenes existentes)
+        if (strpos($relativePath, 'http') === 0) {
+            return $relativePath; // Ya es una URL completa
+        }
+        
+        // Verificar si contiene el path completo del servidor (imágenes existentes)
         $basePath = Yii::$app->params['imageBasePath'];
+        if (substr($basePath, -1) !== '/') $basePath .= '/';
+        
         if (strpos($relativePath, $basePath) === 0) {
+            // Extraer solo la parte relativa
             $relativePath = substr($relativePath, strlen($basePath));
-            if (substr($relativePath, 0, 1) === '/') $relativePath = substr($relativePath, 1);
+        }
+        
+        // Limpiar barra inicial si existe
+        if (substr($relativePath, 0, 1) === '/') {
+            $relativePath = substr($relativePath, 1);
         }
         
         return $imageBaseUrl . $relativePath;
@@ -529,8 +553,23 @@ class Image extends \yii\db\ActiveRecord
         $imageBaseUrl = Yii::$app->params['imageBaseUrl'];
         if (substr($imageBaseUrl, -1) !== '/') $imageBaseUrl .= '/';
         
-        // La URL del thumbnail ya es relativa (solo contiene thumbnails/2025/archivo.jpg)
         $relativePath = $thumbnail->url;
+        
+        // Verificar si la URL ya es absoluta (imágenes existentes)
+        if (strpos($relativePath, 'http') === 0) {
+            return $relativePath; // Ya es una URL completa
+        }
+        
+        // Verificar si contiene el path completo del servidor (imágenes existentes)
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (substr($basePath, -1) !== '/') $basePath .= '/';
+        
+        if (strpos($relativePath, $basePath) === 0) {
+            // Extraer solo la parte relativa
+            $relativePath = substr($relativePath, strlen($basePath));
+        }
+        
+        // Limpiar barra inicial si existe
         if (substr($relativePath, 0, 1) === '/') {
             $relativePath = substr($relativePath, 1);
         }
