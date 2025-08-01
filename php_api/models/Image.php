@@ -166,7 +166,17 @@ class Image extends \yii\db\ActiveRecord
                     error_log("CONCURSO_IMAGE_PROCESSED: " . json_encode($logData));
                 }
                 
-                $this->url = $finalPath;
+                // Guardar solo el path relativo (sin imageBasePath)
+                $basePath = Yii::$app->params['imageBasePath'];
+                if (substr($basePath, -1) !== '/') $basePath .= '/';
+                
+                if (strpos($finalPath, $basePath) === 0) {
+                    $relativePath = substr($finalPath, strlen($basePath));
+                } else {
+                    $relativePath = $finalPath;
+                }
+                
+                $this->url = $relativePath;
                 
                 // Eliminar archivo temporal
                 if (file_exists($tempPath)) {
@@ -223,7 +233,18 @@ class Image extends \yii\db\ActiveRecord
                 if (!empty($this->url) && file_exists($antValue->url)) {
                     $full_path = $directory . '/' . $this->code . '.jpg';
                     rename($antValue->url, $full_path);
-                    $this->url = $full_path;
+                    
+                    // Guardar solo el path relativo (sin imageBasePath)
+                    $basePath = Yii::$app->params['imageBasePath'];
+                    if (substr($basePath, -1) !== '/') $basePath .= '/';
+                    
+                    if (strpos($full_path, $basePath) === 0) {
+                        $relativePath = substr($full_path, strlen($basePath));
+                    } else {
+                        $relativePath = $full_path;
+                    }
+                    
+                    $this->url = $relativePath;
                 }
             }
         }
@@ -297,7 +318,18 @@ class Image extends \yii\db\ActiveRecord
                     // Registrar thumbnail en base de datos
                     $thumb_reg = new Thumbnail();
                     $thumb_reg->image_id = $this->id;
-                    $thumb_reg->url = $thumbnailPath;
+                    
+                    // Guardar solo el path relativo (sin imageBasePath)
+                    $basePath = Yii::$app->params['imageBasePath'];
+                    if (substr($basePath, -1) !== '/') $basePath .= '/';
+                    
+                    if (strpos($thumbnailPath, $basePath) === 0) {
+                        $relativePath = substr($thumbnailPath, strlen($basePath));
+                    } else {
+                        $relativePath = $thumbnailPath;
+                    }
+                    
+                    $thumb_reg->url = $relativePath;
                     $thumb_reg->thumbnail_type = $thumbTypes[$c]->id;
                     $thumb_reg->save(false);
                     
@@ -497,12 +529,10 @@ class Image extends \yii\db\ActiveRecord
         $imageBaseUrl = Yii::$app->params['imageBaseUrl'];
         if (substr($imageBaseUrl, -1) !== '/') $imageBaseUrl .= '/';
         
-        // Si la URL del thumbnail contiene el path completo, extraer solo la parte relativa
+        // La URL del thumbnail ya es relativa (solo contiene thumbnails/2025/archivo.jpg)
         $relativePath = $thumbnail->url;
-        $basePath = Yii::$app->params['imageBasePath'];
-        if (strpos($relativePath, $basePath) === 0) {
-            $relativePath = substr($relativePath, strlen($basePath));
-            if (substr($relativePath, 0, 1) === '/') $relativePath = substr($relativePath, 1);
+        if (substr($relativePath, 0, 1) === '/') {
+            $relativePath = substr($relativePath, 1);
         }
         
         return $imageBaseUrl . $relativePath;
