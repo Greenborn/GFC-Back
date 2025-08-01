@@ -105,24 +105,86 @@ class Image extends \yii\db\ActiveRecord
         }
 
         echo "Regenerar thumbnail ".$this->id." \n";
-        $img_name = "https://gfc.prod-api.greenborn.com.ar/".$this->url;
-        $this->generateThumbnails('', $img_name, 'images/thumbnails/');
+        
+        // Usar URL base configurada para imágenes
+        $imageBaseUrl = Yii::$app->params['imageBaseUrl'];
+        if (substr($imageBaseUrl, -1) !== '/') $imageBaseUrl .= '/';
+        $img_name = $imageBaseUrl . $this->url;
+        
+        // Obtener ruta de thumbnails según configuración
+        $thumbBase = $this->getThumbnailBasePath();
+        
+        if (!file_exists($thumbBase)) {
+            mkdir($thumbBase, 0777, true);
+        }
+        
+        $this->generateThumbnails('', $img_name, $thumbBase);
     }
 
     public function beforeSave($insert) {
         $params = Yii::$app->getRequest()->getBodyParams();
         
         if (isset($params['photo_base64'])) {
-            $date   = new \DateTime();
-
-            $extension = 'jpg';
-            //Este nombre es temporal, luego la proxima peticion que asigna la imagen al concurso, sera la que se encargara de catalogarla en 
-            //su correspondiente estructura de directorio
+            $date = new \DateTime();
+            $extension = 'jpg'; // Forzar JPG para máxima calidad en concursos
+            
+            // Crear nombre temporal para procesamiento
             $basePath = Yii::$app->params['imageBasePath'];
             if (substr($basePath, -1) !== '/') $basePath .= '/';
-            $this->url = $basePath . $date->getTimestamp() . '.' . $extension;
             
-            $this->base64_to_file($params['photo_base64']['file'], $this->url);
+            // Archivo temporal antes del procesamiento
+            $tempPath = $basePath . 'temp_' . $date->getTimestamp() . '.jpg';
+            
+            // Guardar imagen base64 temporalmente
+            $this->base64_to_file($params['photo_base64']['file'], $tempPath);
+            
+            // Validar imagen para concurso
+            $validation = $this->validateImageForContest($tempPath);
+            if (!$validation['valid']) {
+                // Limpiar archivo temporal
+                if (file_exists($tempPath)) {
+                    unlink($tempPath);
+                }
+                throw new \yii\web\BadRequestHttpException($validation['error']);
+            }
+            
+            // Procesar imagen con máxima calidad y redimensionar a 1920px
+            $finalPath = $basePath . $date->getTimestamp() . '.jpg';
+            
+            try {
+                $processInfo = $this->processMainImage($tempPath, $finalPath);
+                
+                // Log detallado del procesamiento para concursos
+                $config = $this->getImageQualityConfig();
+                if ($config['logging']['log_quality_metrics']) {
+                    $logData = [
+                        'file' => basename($finalPath),
+                        'original' => $validation['info'],
+                        'processed' => $processInfo,
+                        'timestamp' => $date->format('Y-m-d H:i:s')
+                    ];
+                    error_log("CONCURSO_IMAGE_PROCESSED: " . json_encode($logData));
+                }
+                
+                $this->url = $finalPath;
+                
+                // Eliminar archivo temporal
+                if (file_exists($tempPath)) {
+                    unlink($tempPath);
+                }
+                
+            } catch (\Exception $e) {
+                // Limpiar archivos en caso de error
+                if (file_exists($tempPath)) {
+                    unlink($tempPath);
+                }
+                if (file_exists($finalPath)) {
+                    unlink($finalPath);
+                }
+                
+                error_log("Error procesando imagen para concurso: " . $e->getMessage());
+                throw new \yii\web\ServerErrorHttpException("Error procesando imagen: " . $e->getMessage());
+            }
         }
 
         if ($insert) { // create
@@ -171,10 +233,13 @@ class Image extends \yii\db\ActiveRecord
     public function afterSave($insert, $changedAttributes) {
         $params = Yii::$app->getRequest()->getBodyParams();
 
-        //Generaciòn de miniaturas
+        //Generación de miniaturas
         if (isset($params['photo_base64'])) {
             $img_name = $this->url;
-            $thumbBase = Yii::$app->params['imageBasePath'] . '/thumbnails/';
+            
+            // Obtener ruta de thumbnails según configuración
+            $thumbBase = $this->getThumbnailBasePath();
+            
             if (!file_exists($thumbBase)) {
                 mkdir($thumbBase, 0777, true);
             }
@@ -184,40 +249,74 @@ class Image extends \yii\db\ActiveRecord
     }
 
     protected function generateThumbnails($d_base, $img_name, $d_thumbnails){
+        $config = $this->getImageQualityConfig();
+        $thumbConfig = $config['thumbnails'];
         $thumbTypes = ThumbnailType::find()->all();
         
-        for ($c=0; $c < count($thumbTypes); $c++ ){
+        for ($c = 0; $c < count($thumbTypes); $c++) {
             $imgResult = $this->newResizedImage(
                 $img_name,
                 $d_base.$img_name,
-                $thumbTypes[$c]->width,$thumbTypes[$c]->height
+                $thumbTypes[$c]->width,
+                $thumbTypes[$c]->height
             );
 
-            if (!isset($imgResult)){
-                echo 'Error en generacion de miniatura.'.$img_name.'_';
-                return false;
-                //throw new \Exception('Error en generacion de miniatura.'.$img_name.'_');
-            } else {
-                $date   = new \DateTime();
-                $thumbnailPath = $d_thumbnails.$thumbTypes[$c]->width.'_.'.$thumbTypes[$c]->height.'_'.$this->id.'_'.$date->getTimestamp();
-                try {
-                    imagejpeg($imgResult, $thumbnailPath);
-                } catch (\Throwable $th) {
-                    try {
-                        imagejpeg($imgResult, "/var/www/gfc.prod-api.greenborn.com.ar/web/".$thumbnailPath);
-                    } catch (\Throwable $th) {
-                        echo "Error no se encuentra imagen ".$thumbnailPath.$th." \n";
-                        return false;
+            if (!isset($imgResult) || $imgResult === null) {
+                error_log('Error en generacion de miniatura: ' . $img_name);
+                continue; // Continuar con siguiente thumbnail
+            }
+            
+            $date = new \DateTime();
+            $thumbnailPath = $d_thumbnails . $thumbTypes[$c]->width . '_.' . $thumbTypes[$c]->height . '_' . $this->id . '_' . $date->getTimestamp() . '.jpg';
+            
+            try {
+                // Usar calidad configurada para thumbnails
+                $success = imagejpeg($imgResult, $thumbnailPath, $thumbConfig['quality']);
+                
+                if (!$success) {
+                    // Intentar crear el directorio si no existe
+                    $dir = dirname($thumbnailPath);
+                    if (!file_exists($dir)) {
+                        mkdir($dir, 0777, true);
+                        $success = imagejpeg($imgResult, $thumbnailPath, $thumbConfig['quality']);
+                    }
+                    
+                    // Si sigue fallando, intentar ruta alternativa usando imageBasePath
+                    if (!$success) {
+                        $basePath = Yii::$app->params['imageBasePath'];
+                        if (substr($basePath, -1) !== '/') $basePath .= '/';
+                        $altPath = $basePath . 'web/' . basename($thumbnailPath);
+                        $success = imagejpeg($imgResult, $altPath, $thumbConfig['quality']);
+                        if ($success) {
+                            $thumbnailPath = $altPath;
+                        }
                     }
                 }
                 
-                $thumb_reg                 = new Thumbnail();
-                $thumb_reg->image_id       = $this->id;
-                $thumb_reg->url            = $thumbnailPath;
-                $thumb_reg->thumbnail_type = $thumbTypes[$c]->id;
-                $thumb_reg->save(false);
+                if ($success) {
+                    // Registrar thumbnail en base de datos
+                    $thumb_reg = new Thumbnail();
+                    $thumb_reg->image_id = $this->id;
+                    $thumb_reg->url = $thumbnailPath;
+                    $thumb_reg->thumbnail_type = $thumbTypes[$c]->id;
+                    $thumb_reg->save(false);
+                    
+                    if ($config['logging']['log_processing']) {
+                        error_log("Thumbnail generado: {$thumbnailPath} ({$thumbTypes[$c]->width}x{$thumbTypes[$c]->height}) - Calidad: {$thumbConfig['quality']}%");
+                    }
+                } else {
+                    error_log("Error guardando thumbnail: " . $thumbnailPath);
+                }
+                
+            } catch (\Throwable $th) {
+                error_log("Excepción generando thumbnail: " . $th->getMessage());
+            } finally {
+                // Siempre limpiar memoria del recurso de imagen
+                imagedestroy($imgResult);
             }
         }
+        
+        return true;
     }
 
     /**
@@ -249,48 +348,326 @@ class Image extends \yii\db\ActiveRecord
         return [ 'profile', 'thumbnail' ];
     }
 
-    protected function newResizedImage($imgName, $imgPath, $xmax, $ymax){
-        $ext = explode(".", $imgName);
-        $ext = $ext[count($ext)-1];
-
-        $imagen = Null;
-        try {
-            if($ext == "jpg" || $ext == 'JPG' || $ext == "jpe" || $ext == "jpeg")
-                $imagen = imagecreatefromjpeg($imgPath);
-            elseif($ext == "png")
-                $imagen = imagecreatefrompng($imgPath);
-            elseif($ext == "gif")
-                $imagen = imagecreatefromgif($imgPath);
-            elseif ($ext == "webp")
-                $imagen = imagecreatefromwebp($imgPath);
-            
-        } catch (\Throwable $th) {
-            echo $imgPath." no encontrada ";
-            $imagen = Null;
+    /**
+     * Valida imagen antes del procesamiento
+     */
+    public function validateImageForContest($filePath) {
+        $config = $this->getImageQualityConfig();
+        $validation = $config['validation'];
+        
+        // Verificar que el archivo existe
+        if (!file_exists($filePath)) {
+            return ['valid' => false, 'error' => 'Archivo no encontrado'];
         }
         
-        if ($imagen == Null){
-          return Null;
+        // Verificar tamaño del archivo
+        $fileSize = filesize($filePath);
+        if ($fileSize > $validation['max_file_size']) {
+            $maxSizeMB = round($validation['max_file_size'] / (1024 * 1024), 1);
+            return ['valid' => false, 'error' => "Archivo muy grande. Máximo: {$maxSizeMB}MB"];
+        }
+        
+        // Verificar formato
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        if (!in_array($ext, $config['allowed_formats'])) {
+            $allowedFormats = implode(', ', $config['allowed_formats']);
+            return ['valid' => false, 'error' => "Formato no permitido. Permitidos: {$allowedFormats}"];
+        }
+        
+        // Verificar dimensiones
+        $imageInfo = getimagesize($filePath);
+        if ($imageInfo === false) {
+            return ['valid' => false, 'error' => 'No es una imagen válida'];
+        }
+        
+        list($width, $height) = $imageInfo;
+        
+        if ($width < $validation['min_width'] || $height < $validation['min_height']) {
+            return [
+                'valid' => false, 
+                'error' => "Imagen muy pequeña. Mínimo: {$validation['min_width']}x{$validation['min_height']}px. Actual: {$width}x{$height}px"
+            ];
+        }
+        
+        if ($width > $validation['max_width_original'] || $height > $validation['max_height_original']) {
+            return [
+                'valid' => false, 
+                'error' => "Imagen muy grande. Máximo: {$validation['max_width_original']}x{$validation['max_height_original']}px"
+            ];
+        }
+        
+        return [
+            'valid' => true,
+            'info' => [
+                'width' => $width,
+                'height' => $height,
+                'size' => $fileSize,
+                'format' => $ext,
+                'mime' => $imageInfo['mime']
+            ]
+        ];
+    }
+
+    /**
+     * Configuración de calidad de imagen
+     */
+    private function getImageQualityConfig() {
+        static $config = null;
+        if ($config === null) {
+            $config = require(Yii::getAlias('@app/config/image_quality.php'));
+        }
+        return $config;
+    }
+    
+    /**
+     * Obtiene la ruta base para thumbnails según la configuración
+     */
+    public function getThumbnailBasePath() {
+        $config = $this->getImageQualityConfig();
+        $dirConfig = $config['directories'];
+        
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (substr($basePath, -1) !== '/') $basePath .= '/';
+        
+        $thumbPath = $basePath . $dirConfig['thumbnail_subdir'];
+        
+        // Organizar por año si está habilitado
+        if ($dirConfig['organize_by_year']) {
+            $yearFormat = $dirConfig['year_format'] ?? 'Y';
+            $year = date($yearFormat);
+            $thumbPath .= $year . '/';
+        }
+        
+        return $thumbPath;
+    }
+    
+    /**
+     * Versión estática para obtener ruta de thumbnails sin instancia
+     */
+    public static function getStaticThumbnailBasePath() {
+        $config = require(Yii::getAlias('@app/config/image_quality.php'));
+        $dirConfig = $config['directories'];
+        
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (substr($basePath, -1) !== '/') $basePath .= '/';
+        
+        $thumbPath = $basePath . $dirConfig['thumbnail_subdir'];
+        
+        // Organizar por año si está habilitado
+        if ($dirConfig['organize_by_year']) {
+            $yearFormat = $dirConfig['year_format'] ?? 'Y';
+            $year = date($yearFormat);
+            $thumbPath .= $year . '/';
+        }
+        
+        return $thumbPath;
+    }
+    
+    /**
+     * Obtiene la URL completa de la imagen usando la configuración
+     */
+    public function getImageUrl() {
+        if (empty($this->url)) {
+            return null;
+        }
+        
+        $imageBaseUrl = Yii::$app->params['imageBaseUrl'];
+        if (substr($imageBaseUrl, -1) !== '/') $imageBaseUrl .= '/';
+        
+        // Si la URL ya contiene el path completo, extraer solo la parte relativa
+        $relativePath = $this->url;
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (strpos($relativePath, $basePath) === 0) {
+            $relativePath = substr($relativePath, strlen($basePath));
+            if (substr($relativePath, 0, 1) === '/') $relativePath = substr($relativePath, 1);
+        }
+        
+        return $imageBaseUrl . $relativePath;
+    }
+    
+    /**
+     * Obtiene la URL completa de un thumbnail específico
+     */
+    public function getThumbnailUrl($thumbnailType = null) {
+        $thumbnail = $this->getThumbnail()->one();
+        if (!$thumbnail) {
+            return null;
+        }
+        
+        $imageBaseUrl = Yii::$app->params['imageBaseUrl'];
+        if (substr($imageBaseUrl, -1) !== '/') $imageBaseUrl .= '/';
+        
+        // Si la URL del thumbnail contiene el path completo, extraer solo la parte relativa
+        $relativePath = $thumbnail->url;
+        $basePath = Yii::$app->params['imageBasePath'];
+        if (strpos($relativePath, $basePath) === 0) {
+            $relativePath = substr($relativePath, strlen($basePath));
+            if (substr($relativePath, 0, 1) === '/') $relativePath = substr($relativePath, 1);
+        }
+        
+        return $imageBaseUrl . $relativePath;
+    }
+    
+    /**
+     * Procesa imagen principal con máxima calidad
+     * Redimensiona a máximo 1920px de ancho manteniendo relación de aspecto
+     */
+    protected function processMainImage($imgPath, $outputPath) {
+        $config = $this->getImageQualityConfig();
+        $mainConfig = $config['main_image'];
+        
+        $ext = strtolower(pathinfo($imgPath, PATHINFO_EXTENSION));
+        
+        // Validar formato
+        if (!in_array($ext, $config['allowed_formats'])) {
+            throw new \Exception("Formato de imagen no permitido: " . $ext);
+        }
+        
+        // Configurar memoria para procesamiento
+        ini_set('memory_limit', $config['memory_settings']['memory_limit']);
+        set_time_limit($config['memory_settings']['max_execution_time']);
+        
+        // Crear imagen desde archivo
+        $imagen = $this->createImageFromFile($imgPath, $ext);
+        if ($imagen === null) {
+            throw new \Exception("No se pudo cargar la imagen: " . $imgPath);
+        }
+        
+        $originalWidth = imagesx($imagen);
+        $originalHeight = imagesy($imagen);
+        
+        // Validar dimensiones mínimas para concursos
+        $validation = $config['validation'];
+        if ($originalWidth < $validation['min_width'] || $originalHeight < $validation['min_height']) {
+            imagedestroy($imagen);
+            throw new \Exception("Imagen muy pequeña. Mínimo: {$validation['min_width']}x{$validation['min_height']}px");
+        }
+        
+        // Calcular nuevas dimensiones
+        $maxWidth = $mainConfig['max_width'];
+        $quality = $mainConfig['quality'];
+        
+        if ($originalWidth > $maxWidth) {
+            $newWidth = $maxWidth;
+            $newHeight = intval(($originalHeight * $maxWidth) / $originalWidth);
+        } else {
+            // Mantener tamaño original si es menor al máximo
+            $newWidth = $originalWidth;
+            $newHeight = $originalHeight;
+        }
+        
+        // Crear imagen redimensionada con máxima calidad
+        $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
+        
+        // Configurar para mejor calidad
+        imagealphablending($resizedImage, false);
+        imagesavealpha($resizedImage, true);
+        
+        // Usar imagecopyresampled para mejor calidad que imagecopyresized
+        imagecopyresampled(
+            $resizedImage, $imagen,
+            0, 0, 0, 0,
+            $newWidth, $newHeight,
+            $originalWidth, $originalHeight
+        );
+        
+        // Guardar con máxima calidad JPEG
+        $success = imagejpeg($resizedImage, $outputPath, $quality);
+        
+        // Limpiar memoria
+        imagedestroy($imagen);
+        imagedestroy($resizedImage);
+        
+        if (!$success) {
+            throw new \Exception("Error al guardar la imagen procesada: " . $outputPath);
+        }
+        
+        // Log del procesamiento si está habilitado
+        if ($config['logging']['log_processing']) {
+            $logMessage = "Imagen concurso procesada: {$outputPath} | " .
+                         "Original: {$originalWidth}x{$originalHeight} | " .
+                         "Final: {$newWidth}x{$newHeight} | " .
+                         "Calidad: {$quality}%";
+            error_log($logMessage);
+        }
+        
+        return [
+            'width' => $newWidth,
+            'height' => $newHeight,
+            'original_width' => $originalWidth,
+            'original_height' => $originalHeight,
+            'quality' => $quality,
+            'file_size' => filesize($outputPath),
+            'format' => 'jpg'
+        ];
+    }
+    
+    /**
+     * Crea recurso de imagen desde archivo
+     */
+    private function createImageFromFile($imgPath, $ext) {
+        try {
+            switch($ext) {
+                case 'jpg':
+                case 'jpeg':
+                case 'jpe':
+                    return imagecreatefromjpeg($imgPath);
+                case 'png':
+                    return imagecreatefrompng($imgPath);
+                case 'gif':
+                    return imagecreatefromgif($imgPath);
+                case 'webp':
+                    return imagecreatefromwebp($imgPath);
+                default:
+                    return null;
+            }
+        } catch (\Throwable $th) {
+            error_log("Error cargando imagen {$imgPath}: " . $th->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Método mejorado para thumbnails con mejor calidad
+     */
+    protected function newResizedImage($imgName, $imgPath, $xmax, $ymax){
+        $ext = strtolower(pathinfo($imgName, PATHINFO_EXTENSION));
+        
+        $imagen = $this->createImageFromFile($imgPath, $ext);
+        if ($imagen === null) {
+            return null;
         }
 
         $x = imagesx($imagen);
         $y = imagesy($imagen);
 
+        // Si ya está dentro de los límites, retornar original
         if($x <= $xmax && $y <= $ymax){
             return $imagen;
         }
 
+        // Calcular nuevas dimensiones manteniendo aspecto
         if($x >= $y) {
             $nuevax = $xmax;
-            $nuevay = $nuevax * $y / $x;
-        }
-        else {
+            $nuevay = intval(($nuevax * $y) / $x);
+        } else {
             $nuevay = $ymax;
-            $nuevax = $x / $y * $nuevay;
+            $nuevax = intval(($x / $y) * $nuevay);
         }
 
+        // Crear imagen redimensionada con mejor calidad
         $img2 = imagecreatetruecolor($nuevax, $nuevay);
-        imagecopyresized($img2, $imagen, 0, 0, 0, 0, floor($nuevax), floor($nuevay), $x, $y);
+        
+        // Configurar para mejor calidad
+        imagealphablending($img2, false);
+        imagesavealpha($img2, true);
+        
+        // Usar imagecopyresampled para mejor calidad
+        imagecopyresampled($img2, $imagen, 0, 0, 0, 0, $nuevax, $nuevay, $x, $y);
+        
+        // Limpiar memoria de imagen original
+        imagedestroy($imagen);
+        
         return $img2;
     }
 }
