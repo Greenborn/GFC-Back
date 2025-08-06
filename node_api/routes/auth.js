@@ -153,7 +153,10 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const user = await global.knex('user').where('username', username).first();
+    const user = await global.knex('user')
+                  .select(['user.*', 'role.type as role_name'])
+                  .join('role', 'user.role_id', 'role.id')  
+                  .where('username', username).first();
 
     if (!user) {
       await LogOperacion(0, 'usuario no encontrado', '{"user":"'+username+'"}', new Date());
@@ -174,7 +177,23 @@ router.post('/login', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     req.session.token = token;
     req.session.profile = profile;
-    res.status(200).send({ r: true, profile: profile,  message: 'Login exitoso' });
+
+    // Guardar el token en la base de datos del usuario
+    await global.knex('user')
+      .update({ access_token: token })
+      .where({ id: user.id });
+
+    res.status(200).send({ 
+      r: true, 
+      status: true,
+      username: user.username,
+      id: user.id,
+      roleId: user.role_id,
+      roleType: user.role_name,
+      profile: profile, 
+      token: token, 
+      message: 'Login exitoso' 
+    });
     req.session.save()
     return
   } catch (error) {
