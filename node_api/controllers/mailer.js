@@ -12,8 +12,10 @@ async function sendEmail(email_data) {
     const statusCode = response.status
 
     console.log(`Email enviado con código de estado ${statusCode}`)
+    return {'status': statusCode};
   } catch (error) {
     console.error('Error al enviar email:', error);
+    return {'error': error};
   }
 }
 
