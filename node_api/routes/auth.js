@@ -126,7 +126,7 @@ router.post('/recupera_pass', writeProtection, async (req, res) => {
         `,
         text: `Hola ${user.username} \n\nA continuación se adjunta código de verificación solicitado para recuperación de contraseña: ${TOKEN_RECUPERA_PASS}`,
         to: user.email,
-        from: 'no-reply@greenborn.com.ar',
+        from: 'auth.gfc@greenborn.com.ar',
         subject: '[Grupo Fotográfico Centro] Código de verificación'
       }
       proms_arr.push( Mailer.sendEmail(email_data) )

@@ -90,6 +90,7 @@ class SignUpAction extends CreateAction {
     $headers = [
       'Content-Type: application/json'
     ];
+    $emailConfig = require(__DIR__ . '/../config/email.php');
     $data = [
       'html' => '<div class="password-reset">
               Hola '.$user->username.',<br><br>
@@ -103,7 +104,8 @@ class SignUpAction extends CreateAction {
       'text' => 'Hola '.$user->username.' Por favor ingrese el siguiente código de verificación para confirmar su registro: '.$user->sign_up_verif_code,
       'to' => $user->email,
       'from' => 'registro.gfc@greenborn.com.ar',
-      'subject' => '[Grupo Fotográfico Centro] Código de verificación'
+      'subject' => '[Grupo Fotográfico Centro] Código de verificación',
+      'token' => $emailConfig['token']
     ];
     
     $ch = curl_init();
