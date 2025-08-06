@@ -174,6 +174,12 @@ router.post('/login', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     req.session.token = token;
     req.session.profile = profile;
+
+    // Guardar el token en la base de datos del usuario
+    await global.knex('user')
+      .update({ access_token: token })
+      .where({ id: user.id });
+
     res.status(200).send({ r: true, profile: profile, token: token, message: 'Login exitoso' });
     req.session.save()
     return
