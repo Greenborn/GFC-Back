@@ -174,7 +174,7 @@ router.post('/login', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     req.session.token = token;
     req.session.profile = profile;
-    res.status(200).send({ r: true, profile: profile,  message: 'Login exitoso' });
+    res.status(200).send({ r: true, profile: profile, token: token, message: 'Login exitoso' });
     req.session.save()
     return
   } catch (error) {
