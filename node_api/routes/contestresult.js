@@ -58,7 +58,20 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     query = query.select(selectColumns);
 
-    const items = await query;
+    const itemsRaw = await query;
+
+    // Agrupar los datos de thumbnail en subclave
+    const items = itemsRaw.map(item => {
+      const { thumbnail_id, thumbnail_url, thumbnail_type, ...rest } = item;
+      return {
+        ...rest,
+        thumbnail: (thumbnail_id ? {
+          id: thumbnail_id,
+          url: thumbnail_url,
+          type: thumbnail_type
+        } : null)
+      };
+    });
 
     // Meta y links (simples, no paginación real)
     const totalCount = items.length;
