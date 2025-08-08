@@ -19,18 +19,33 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const expand = req.query.expand ? req.query.expand.split(',') : [];
 
     // Query principal: contest_result + joins
+
     // Selección explícita de columnas para evitar ambigüedad
     let selectColumns = [
       'contest_result.id as contest_result_id',
       'contest_result.contest_id',
-      'contest_result.image_id as contest_result_image_id'
+      'contest_result.image_id as contest_result_image_id',
+      'contest_result.metric_id as contest_result_metric_id',
+      'image.id as image_id',
+      'image.profile_id as image_profile_id',
+      'image.url as image_url',
+      'image.title as image_title',
+      'image.code as image_code',
+      'metric_abm.id as metric_id',
+      'metric_abm.prize as metric_prize',
+      'metric_abm.score as metric_score',
+      'metric_abm.organization_type as metric_organization_type',
+      'thumbnail.id as thumbnail_id',
+      'thumbnail.url as thumbnail_url',
+      'thumbnail.thumbnail_type as thumbnail_type'
     ];
 
     let query = global.knex('contest_result')
       .where('contest_result.contest_id', contestId)
-      .leftJoin('image', 'contest_result.image_id', 'image.id');
+      .leftJoin('image', 'contest_result.image_id', 'image.id')
+      .leftJoin('metric_abm', 'contest_result.metric_id', 'metric_abm.id')
+      .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id');
 
-    // Expansiones correctas: image -> profile -> user/fotoclub
     if (expand.includes('profile')) {
       query = query.leftJoin('profile', 'image.profile_id', 'profile.id');
       selectColumns = selectColumns.concat([
@@ -38,17 +53,6 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         'profile.name as profile_name',
         'profile.last_name as profile_last_name',
         'profile.fotoclub_id as profile_fotoclub_id'
-      ]);
-    }
-    // Eliminar joins y selects de user y fotoclub (no existen en profile)
-    if (expand.includes('image.profile') || expand.includes('image.thumbnail')) {
-      // Ya está el join a image arriba
-      selectColumns = selectColumns.concat([
-        'image.id as image_id',
-        'image.profile_id as image_profile_id',
-        'image.url as image_url',
-        'image.title as image_title',
-        'image.code as image_code'
       ]);
     }
 
