@@ -64,6 +64,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       const {
         thumbnail_id, thumbnail_url, thumbnail_type,
         metric_id, metric_prize, metric_score,
+        profile_id, profile_name, profile_last_name, profile_fotoclub_id,
         ...rest
       } = item;
       return {
@@ -77,6 +78,12 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
           id: thumbnail_id,
           url: thumbnail_url,
           type: thumbnail_type
+        } : null),
+        profile: (profile_id ? {
+          id: profile_id,
+          name: profile_name,
+          last_name: profile_last_name,
+          fotoclub_id: profile_fotoclub_id
         } : null)
       };
     });
