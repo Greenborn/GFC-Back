@@ -32,9 +32,7 @@ if (!baseUrl || !adminUser || !adminPass) {
     } catch (e) {}
 }
 
-const BASE_URL = baseUrl || 'http://localhost:3000';
-const API_LOGIN = `${BASE_URL.replace(/\/$/, '')}/api/auth/login`;
-const API_CONTEST_RESULT = `${BASE_URL.replace(/\/$/, '')}/api/contest-result`;
+// Las siguientes constantes se definen después de procesar los argumentos
 
 async function login() {
     const data = { username: adminUser, password: adminPass };
@@ -79,19 +77,38 @@ async function testContestResult(token, contestId, page, perPage) {
 
 
 // Leer argumentos de línea de comandos
+
 const args = process.argv.slice(2);
-const contestIdArg = args[0];
+let contestIdArg = null;
 let pageArg = null;
 let perPageArg = null;
-for (let i = 1; i < args.length; i++) {
+let baseUrlArg = null;
+
+for (let i = 0; i < args.length; i++) {
+    if (!contestIdArg && args[i] && !args[i].startsWith('--')) {
+        contestIdArg = args[i];
+        continue;
+    }
     if (args[i] === '--page' && args[i + 1]) {
         pageArg = args[i + 1];
         i++;
     } else if (args[i] === '--per-page' && args[i + 1]) {
         perPageArg = args[i + 1];
         i++;
+    } else if (args[i] === '--base-url' && args[i + 1]) {
+        baseUrlArg = args[i + 1];
+        i++;
     }
 }
+
+// Si se especifica --base-url, usarlo
+if (baseUrlArg) {
+    baseUrl = baseUrlArg;
+}
+
+const BASE_URL = baseUrl || 'http://localhost:3000';
+const API_LOGIN = `${BASE_URL.replace(/\/$/, '')}/api/auth/login`;
+const API_CONTEST_RESULT = `${BASE_URL.replace(/\/$/, '')}/api/contest-result`;
 
 (async () => {
     try {
