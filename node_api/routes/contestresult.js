@@ -103,7 +103,10 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
           last_name: profile_last_name,
           fotoclub_id: profile_fotoclub_id
         } : null),
-        section_id: section_id
+        section: (section_id ? {
+          section_id: section_id,
+          name: section_name
+        } : null)
       };
     });
 
