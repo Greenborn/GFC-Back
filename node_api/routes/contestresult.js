@@ -123,11 +123,14 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         };
       }
       if (thumbnail_id) {
-        grouped[contest_result_id].thumbnails.push({
-          id: thumbnail_id,
-          url: thumbnail_url,
-          type: thumbnail_type
-        });
+        // Solo agregar thumbnails únicos por id
+        if (!grouped[contest_result_id].thumbnails.some(t => t.id === thumbnail_id)) {
+          grouped[contest_result_id].thumbnails.push({
+            id: thumbnail_id,
+            url: thumbnail_url,
+            type: thumbnail_type
+          });
+        }
       }
     }
     // Paginar los elementos únicos agrupados
