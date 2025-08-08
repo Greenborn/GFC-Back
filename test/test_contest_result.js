@@ -35,24 +35,14 @@ if (!baseUrl || !adminUser || !adminPass) {
 const BASE_URL = baseUrl || 'http://localhost:3000';
 const API_LOGIN = `${BASE_URL.replace(/\/$/, '')}/api/auth/login`;
 const API_CONTEST_RESULT = `${BASE_URL.replace(/\/$/, '')}/api/contest-result`;
-    
-// ...existing code...
 
 async function login() {
     const data = { username: adminUser, password: adminPass };
     console.log(`\n[LOGIN] POST ${API_LOGIN}`);
+    console.log('Enviando:', JSON.stringify(data));
     const res = await axios.post(API_LOGIN, data, { headers: { 'Content-Type': 'application/json' } });
-    const token = res.data.token || res.data.accessToken || res.data.jwt || res.data.data?.token || res.data.profile?.access_token || res.data.user?.access_token;
-    if (token) return token;
-    throw new Error('Login fallido: No se obtuvo token. Respuesta: ' + JSON.stringify(res.data));
-const BASE_URL = baseUrl || 'http://localhost:3000';
-const API_LOGIN = `${BASE_URL.replace(/\/$/, '')}/api/auth/login`;
-const API_CONTEST_RESULT = `${BASE_URL.replace(/\/$/, '')}/api/contest-result`;
-
-async function login() {
-    const data = { username: adminUser, password: adminPass };
-    console.log(`\n[LOGIN] POST ${API_LOGIN}`);
-    const res = await axios.post(API_LOGIN, data, { headers: { 'Content-Type': 'application/json' } });
+    console.log('Respuesta:', JSON.stringify(res.data));
+    // Buscar token en posibles ubicaciones
     const token = res.data.token || res.data.accessToken || res.data.jwt || res.data.data?.token || res.data.profile?.access_token || res.data.user?.access_token;
     if (token) return token;
     throw new Error('Login fallido: No se obtuvo token. Respuesta: ' + JSON.stringify(res.data));
@@ -66,7 +56,7 @@ async function testContestResult(token, contestId, page, perPage) {
     const expand = 'profile,profile.user,profile.fotoclub,image.profile,image.thumbnail';
     let url = `${API_CONTEST_RESULT}?expand=${encodeURIComponent(expand)}&filter[contest_id]=${contestId}`;
     if (page) url += `&page=${page}`;
-    if (perPage) url += `&perPage=${perPage}`;
+    if (perPage) url += `&per-page=${perPage}`;
     console.log(`\n[GET] ${url}`);
     try {
         const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -86,7 +76,7 @@ async function testContestResult(token, contestId, page, perPage) {
         process.exit(1);
     }
 }
-}
+
 
 // Leer argumentos de línea de comandos
 const args = process.argv.slice(2);
@@ -97,7 +87,7 @@ for (let i = 1; i < args.length; i++) {
     if (args[i] === '--page' && args[i + 1]) {
         pageArg = args[i + 1];
         i++;
-    } else if (args[i] === '--perPage' && args[i + 1]) {
+    } else if (args[i] === '--per-page' && args[i + 1]) {
         perPageArg = args[i + 1];
         i++;
     }

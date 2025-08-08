@@ -20,7 +20,8 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
   // Parámetros de paginación
   const page = parseInt(req.query.page, 10) > 0 ? parseInt(req.query.page, 10) : 1;
-  const perPage = parseInt(req.query.perPage, 10) > 0 ? parseInt(req.query.perPage, 10) : 20;
+    // Solo soporta per-page
+    const perPage = parseInt(req.query['per-page'] || 20);
 
   // Query principal: contest_result + joins
 
@@ -151,11 +152,6 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         pageCount,
         currentPage,
         perPage
-      },
-      _links: {
-        self: { href: link },
-        first: { href: `${baseUrl}?${[expandStr, filterStr, 'page=1', perPageStr].filter(Boolean).join('&')}` },
-        last: { href: `${baseUrl}?${[expandStr, filterStr, `page=${pageCount}`, perPageStr].filter(Boolean).join('&')}` }
       }
     });
   } catch (error) {
