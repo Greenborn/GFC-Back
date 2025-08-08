@@ -67,9 +67,8 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       ]);
     }
 
-    query = query.select(selectColumns)
-      .limit(perPage)
-      .offset((page - 1) * perPage);
+  // Obtener todos los resultados sin paginación SQL
+  query = query.select(selectColumns);
 
     // Obtener el total de elementos sin paginación
     const totalCountQuery = global.knex('contest_result')
@@ -131,23 +130,16 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         });
       }
     }
-    const items = Object.values(grouped);
-
-    // Meta y links para paginación
-    const pageCount = Math.ceil(totalCount / perPage);
+    // Paginar los elementos únicos agrupados
+    const allItems = Object.values(grouped);
+    const pageCount = Math.ceil(allItems.length / perPage);
     const currentPage = page;
-    const baseUrl = req.protocol + '://' + req.get('host') + req.originalUrl.split('?')[0];
-    const filterStr = `filter[contest_id]=${contestId}`;
-    const expandStr = expand.length ? `expand=${expand.join(',')}` : '';
-    const pageStr = `page=${currentPage}`;
-    const perPageStr = `perPage=${perPage}`;
-    const queryStr = [expandStr, filterStr, pageStr, perPageStr].filter(Boolean).join('&');
-    const link = baseUrl + (queryStr ? '?' + queryStr : '');
+    const pagedItems = allItems.slice((page - 1) * perPage, page * perPage);
 
     res.json({
-      items,
+      items: pagedItems,
       _meta: {
-        totalCount,
+        totalCount: allItems.length,
         pageCount,
         currentPage,
         perPage
