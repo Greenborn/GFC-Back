@@ -18,19 +18,45 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     // Parse expand (no se usa en la query, pero se puede parsear para futuro)
     const expand = req.query.expand ? req.query.expand.split(',') : [];
 
-    // Query principal: contest_result + joins
-    // Selección explícita de columnas para evitar ambigüedad
-    let selectColumns = [
+  // Parámetros de paginación
+  const page = parseInt(req.query.page, 10) > 0 ? parseInt(req.query.page, 10) : 1;
+    // Solo soporta per-page
+    const perPage = parseInt(req.query['per-page'] || 20);
+
+  // Query principal: contest_result + joins
+
+  // Selección explícita de columnas para evitar ambigüedad
+  let selectColumns = [
       'contest_result.id as contest_result_id',
       'contest_result.contest_id',
-      'contest_result.image_id as contest_result_image_id'
+      'contest_result.image_id as contest_result_image_id',
+      'contest_result.metric_id as contest_result_metric_id',
+      'contest_result.section_id as contest_result_section_id',
+      'image.id as image_id',
+      'image.profile_id as image_profile_id',
+      'image.url as image_url',
+      'image.title as image_title',
+      'image.code as image_code',
+      'metric.id as metric_id',
+      'metric.prize as metric_prize',
+      'metric.score as metric_score',
+      'thumbnail.id as thumbnail_id',
+      'thumbnail.url as thumbnail_url',
+      'thumbnail.thumbnail_type as thumbnail_type',
+      'contest_section.id as contest_section_id',
+      'contest_section.section_id as contest_section_section_id',
+      'section.id as section_id',
+      'section.name as section_name'
     ];
 
     let query = global.knex('contest_result')
       .where('contest_result.contest_id', contestId)
-      .leftJoin('image', 'contest_result.image_id', 'image.id');
+      .leftJoin('image', 'contest_result.image_id', 'image.id')
+      .leftJoin('metric', 'contest_result.metric_id', 'metric.id')
+      .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id')
+      .leftJoin('contest_section', 'contest_result.section_id', 'contest_section.section_id')
+      .leftJoin('section', 'contest_result.section_id', 'section.id');
 
-    // Expansiones correctas: image -> profile -> user/fotoclub
     if (expand.includes('profile')) {
       query = query.leftJoin('profile', 'image.profile_id', 'profile.id');
       selectColumns = selectColumns.concat([
@@ -40,45 +66,86 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         'profile.fotoclub_id as profile_fotoclub_id'
       ]);
     }
-    // Eliminar joins y selects de user y fotoclub (no existen en profile)
-    if (expand.includes('image.profile') || expand.includes('image.thumbnail')) {
-      // Ya está el join a image arriba
-      selectColumns = selectColumns.concat([
-        'image.id as image_id',
-        'image.profile_id as image_profile_id',
-        'image.url as image_url',
-        'image.title as image_title',
-        'image.code as image_code'
-      ]);
+
+  // Obtener todos los resultados sin paginación SQL
+  query = query.select(selectColumns);
+
+    // Obtener el total de elementos sin paginación
+    const totalCountQuery = global.knex('contest_result')
+      .where('contest_result.contest_id', contestId)
+      .count('id as total');
+
+    const [itemsRaw, totalCountResult] = await Promise.all([
+      query,
+      totalCountQuery
+    ]);
+    const totalCount = totalCountResult[0]?.total || 0;
+
+    // Agrupar thumbnails en array por contest_result_id
+    const grouped = {};
+    for (const item of itemsRaw) {
+      const {
+        image_id, image_profile_id, image_url, image_title, image_code,
+        thumbnail_id, thumbnail_url, thumbnail_type,
+        metric_id, metric_prize, metric_score,
+        profile_id, profile_name, profile_last_name, profile_fotoclub_id,
+        section_id, section_name, section_description,
+        contest_result_id,
+        ...rest
+      } = item;
+      if (!grouped[contest_result_id]) {
+        grouped[contest_result_id] = {
+          ...rest,
+          contest_result_id,
+          image: (image_id ? {
+            id: image_id,
+            profile_id: image_profile_id,
+            url: image_url,
+            title: image_title,
+            code: image_code
+          } : null),
+          metric: (metric_id ? {
+            id: metric_id,
+            prize: metric_prize,
+            score: metric_score
+          } : null),
+          thumbnails: [],
+          profile: (profile_id ? {
+            id: profile_id,
+            name: profile_name,
+            last_name: profile_last_name,
+            fotoclub_id: profile_fotoclub_id
+          } : null),
+          section: (section_id ? {
+            section_id: section_id,
+            name: section_name
+          } : null)
+        };
+      }
+      if (thumbnail_id) {
+        // Solo agregar thumbnails únicos por id
+        if (!grouped[contest_result_id].thumbnails.some(t => t.id === thumbnail_id)) {
+          grouped[contest_result_id].thumbnails.push({
+            id: thumbnail_id,
+            url: thumbnail_url,
+            type: thumbnail_type
+          });
+        }
+      }
     }
-
-    query = query.select(selectColumns);
-
-    const items = await query;
-
-    // Meta y links (simples, no paginación real)
-    const totalCount = items.length;
-    const perPage = 1000;
-    const pageCount = 1;
-    const currentPage = 1;
-    const baseUrl = req.protocol + '://' + req.get('host') + req.originalUrl.split('?')[0];
-    const filterStr = `filter[contest_id]=${contestId}`;
-    const expandStr = expand.length ? `expand=${expand.join(',')}` : '';
-    const queryStr = [expandStr, filterStr].filter(Boolean).join('&');
-    const link = baseUrl + (queryStr ? '?' + queryStr : '');
+    // Paginar los elementos únicos agrupados
+    const allItems = Object.values(grouped);
+    const pageCount = Math.ceil(allItems.length / perPage);
+    const currentPage = page;
+    const pagedItems = allItems.slice((page - 1) * perPage, page * perPage);
 
     res.json({
-      items,
+      items: pagedItems,
       _meta: {
-        totalCount,
+        totalCount: allItems.length,
         pageCount,
         currentPage,
         perPage
-      },
-      _links: {
-        self: { href: link },
-        first: { href: link },
-        last: { href: link }
       }
     });
   } catch (error) {

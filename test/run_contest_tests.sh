@@ -121,20 +121,39 @@ check_status() {
 # Función para ejecutar test simple
 run_simple_test() {
     echo -e "${BLUE}🧪 Ejecutando test simple...${NC}"
-    node test_contest_list_simple.js
+    node test_contest_list_simple.js $PAGE_ARG $PERPAGE_ARG
 }
 
 # Función para ejecutar test completo
 run_full_test() {
     echo -e "${BLUE}🧪 Ejecutando test completo...${NC}"
-    node test_contest_list.js
+    node test_contest_list.js $PAGE_ARG $PERPAGE_ARG
 }
 
 # Función principal
 main() {
-    local action=${1:-help}
-    
-    case $action in
+        local action=${1:-help}
+        shift
+        # Parámetros opcionales de paginación
+        PAGE_ARG=""
+        PERPAGE_ARG=""
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --page)
+                    PAGE_ARG="--page $2"
+                    shift 2
+                    ;;
+                --perPage)
+                    PERPAGE_ARG="--perPage $2"
+                    shift 2
+                    ;;
+                *)
+                    shift
+                    ;;
+            esac
+        done
+
+        case $action in
         "simple")
             echo -e "${BLUE}🎯 Ejecutando test simple${NC}"
             check_status
