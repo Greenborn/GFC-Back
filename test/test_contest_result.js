@@ -61,6 +61,15 @@ async function testContestResult(token, contestId, page, perPage) {
         console.log('Respuesta:', JSON.stringify(res.data, null, 2));
         if (res.data && Array.isArray(res.data.items)) {
             console.log(`✔️  Consulta exitosa. Se recibieron ${res.data.items.length} resultados.`);
+            // Verificar que los elementos sean diferentes entre sí por contest_result_id
+            const ids = res.data.items.map(e => e.contest_result_id);
+            const uniqueIds = new Set(ids);
+            if (uniqueIds.size !== ids.length) {
+                console.error('❌ Hay elementos repetidos en contest_result_id:', ids);
+                process.exit(1);
+            } else {
+                console.log('✔️ Todos los elementos son diferentes entre sí por contest_result_id.');
+            }
         } else {
             console.error('❌ La respuesta no contiene un array items.');
             process.exit(1);
