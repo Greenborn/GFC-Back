@@ -62,6 +62,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     // Agrupar los datos de thumbnail y metric en subclaves
     const items = itemsRaw.map(item => {
       const {
+        image_id, image_profile_id, image_url, image_title, image_code,
         thumbnail_id, thumbnail_url, thumbnail_type,
         metric_id, metric_prize, metric_score,
         profile_id, profile_name, profile_last_name, profile_fotoclub_id,
@@ -69,6 +70,13 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       } = item;
       return {
         ...rest,
+        image: (image_id ? {
+          id: image_id,
+          profile_id: image_profile_id,
+          url: image_url,
+          title: image_title,
+          code: image_code
+        } : null),
         metric: (metric_id ? {
           id: metric_id,
           prize: metric_prize,
