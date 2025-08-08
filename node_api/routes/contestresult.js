@@ -26,6 +26,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       'contest_result.contest_id',
       'contest_result.image_id as contest_result_image_id',
       'contest_result.metric_id as contest_result_metric_id',
+      'contest_result.section_id as contest_result_section_id',
       'image.id as image_id',
       'image.profile_id as image_profile_id',
       'image.url as image_url',
@@ -36,14 +37,20 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       'metric.score as metric_score',
       'thumbnail.id as thumbnail_id',
       'thumbnail.url as thumbnail_url',
-      'thumbnail.thumbnail_type as thumbnail_type'
+      'thumbnail.thumbnail_type as thumbnail_type',
+      'contest_section.id as contest_section_id',
+      'contest_section.section_id as contest_section_section_id',
+      'section.id as section_id',
+      'section.name as section_name'
     ];
 
     let query = global.knex('contest_result')
       .where('contest_result.contest_id', contestId)
       .leftJoin('image', 'contest_result.image_id', 'image.id')
       .leftJoin('metric', 'contest_result.metric_id', 'metric.id')
-      .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id');
+      .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id')
+      .leftJoin('contest_section', 'contest_result.section_id', 'contest_section.section_id')
+      .leftJoin('section', 'contest_result.section_id', 'section.id');
 
     if (expand.includes('profile')) {
       query = query.leftJoin('profile', 'image.profile_id', 'profile.id');
@@ -66,6 +73,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         thumbnail_id, thumbnail_url, thumbnail_type,
         metric_id, metric_prize, metric_score,
         profile_id, profile_name, profile_last_name, profile_fotoclub_id,
+        section_id, section_name, section_description,
         ...rest
       } = item;
       return {
@@ -92,6 +100,12 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
           name: profile_name,
           last_name: profile_last_name,
           fotoclub_id: profile_fotoclub_id
+        } : null),
+        section: (section_id ? {
+          id: section_id,
+          section_id: section_id,
+          name: section_name,
+          description: section_description
         } : null)
       };
     });
