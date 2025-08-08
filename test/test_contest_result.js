@@ -31,6 +31,20 @@ if (!baseUrl || !adminUser || !adminPass) {
         }
     } catch (e) {}
 }
+
+const BASE_URL = baseUrl || 'http://localhost:3000';
+const API_LOGIN = `${BASE_URL.replace(/\/$/, '')}/api/auth/login`;
+const API_CONTEST_RESULT = `${BASE_URL.replace(/\/$/, '')}/api/contest-result`;
+    
+// ...existing code...
+
+async function login() {
+    const data = { username: adminUser, password: adminPass };
+    console.log(`\n[LOGIN] POST ${API_LOGIN}`);
+    const res = await axios.post(API_LOGIN, data, { headers: { 'Content-Type': 'application/json' } });
+    const token = res.data.token || res.data.accessToken || res.data.jwt || res.data.data?.token || res.data.profile?.access_token || res.data.user?.access_token;
+    if (token) return token;
+    throw new Error('Login fallido: No se obtuvo token. Respuesta: ' + JSON.stringify(res.data));
 const BASE_URL = baseUrl || 'http://localhost:3000';
 const API_LOGIN = `${BASE_URL.replace(/\/$/, '')}/api/auth/login`;
 const API_CONTEST_RESULT = `${BASE_URL.replace(/\/$/, '')}/api/contest-result`;
@@ -44,13 +58,15 @@ async function login() {
     throw new Error('Login fallido: No se obtuvo token. Respuesta: ' + JSON.stringify(res.data));
 }
 
-async function testContestResult(token, contestId) {
+async function testContestResult(token, contestId, page, perPage) {
     if (!contestId) {
         console.error('❌ Debes especificar el contest_id como argumento. Ejemplo: node test_contest_result.js 51');
         process.exit(1);
     }
     const expand = 'profile,profile.user,profile.fotoclub,image.profile,image.thumbnail';
-    const url = `${API_CONTEST_RESULT}?expand=${encodeURIComponent(expand)}&filter[contest_id]=${contestId}`;
+    let url = `${API_CONTEST_RESULT}?expand=${encodeURIComponent(expand)}&filter[contest_id]=${contestId}`;
+    if (page) url += `&page=${page}`;
+    if (perPage) url += `&perPage=${perPage}`;
     console.log(`\n[GET] ${url}`);
     try {
         const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -70,14 +86,27 @@ async function testContestResult(token, contestId) {
         process.exit(1);
     }
 }
+}
 
-// Leer contest_id del argumento de línea de comandos
-const contestIdArg = process.argv[2];
+// Leer argumentos de línea de comandos
+const args = process.argv.slice(2);
+const contestIdArg = args[0];
+let pageArg = null;
+let perPageArg = null;
+for (let i = 1; i < args.length; i++) {
+    if (args[i] === '--page' && args[i + 1]) {
+        pageArg = args[i + 1];
+        i++;
+    } else if (args[i] === '--perPage' && args[i + 1]) {
+        perPageArg = args[i + 1];
+        i++;
+    }
+}
 
 (async () => {
     try {
         const token = await login();
-        await testContestResult(token, contestIdArg);
+        await testContestResult(token, contestIdArg, pageArg, perPageArg);
     } catch (e) {
         console.error('❌ Error en el test:', e.message);
         process.exit(1);

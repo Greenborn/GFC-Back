@@ -18,10 +18,14 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     // Parse expand (no se usa en la query, pero se puede parsear para futuro)
     const expand = req.query.expand ? req.query.expand.split(',') : [];
 
-    // Query principal: contest_result + joins
+  // Parámetros de paginación
+  const page = parseInt(req.query.page, 10) > 0 ? parseInt(req.query.page, 10) : 1;
+  const perPage = parseInt(req.query.perPage, 10) > 0 ? parseInt(req.query.perPage, 10) : 20;
 
-    // Selección explícita de columnas para evitar ambigüedad
-    let selectColumns = [
+  // Query principal: contest_result + joins
+
+  // Selección explícita de columnas para evitar ambigüedad
+  let selectColumns = [
       'contest_result.id as contest_result_id',
       'contest_result.contest_id',
       'contest_result.image_id as contest_result_image_id',
@@ -62,9 +66,20 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       ]);
     }
 
-    query = query.select(selectColumns);
+    query = query.select(selectColumns)
+      .limit(perPage)
+      .offset((page - 1) * perPage);
 
-    const itemsRaw = await query;
+    // Obtener el total de elementos sin paginación
+    const totalCountQuery = global.knex('contest_result')
+      .where('contest_result.contest_id', contestId)
+      .count('id as total');
+
+    const [itemsRaw, totalCountResult] = await Promise.all([
+      query,
+      totalCountQuery
+    ]);
+    const totalCount = totalCountResult[0]?.total || 0;
 
     // Agrupar los datos de thumbnail y metric en subclaves
     const mappedItems = itemsRaw.map(item => {
@@ -118,15 +133,15 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       }, {})
     );
 
-    // Meta y links (simples, no paginación real)
-    const totalCount = items.length;
-    const perPage = 1000;
-    const pageCount = 1;
-    const currentPage = 1;
+    // Meta y links para paginación
+    const pageCount = Math.ceil(totalCount / perPage);
+    const currentPage = page;
     const baseUrl = req.protocol + '://' + req.get('host') + req.originalUrl.split('?')[0];
     const filterStr = `filter[contest_id]=${contestId}`;
     const expandStr = expand.length ? `expand=${expand.join(',')}` : '';
-    const queryStr = [expandStr, filterStr].filter(Boolean).join('&');
+    const pageStr = `page=${currentPage}`;
+    const perPageStr = `perPage=${perPage}`;
+    const queryStr = [expandStr, filterStr, pageStr, perPageStr].filter(Boolean).join('&');
     const link = baseUrl + (queryStr ? '?' + queryStr : '');
 
     res.json({
@@ -139,8 +154,8 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       },
       _links: {
         self: { href: link },
-        first: { href: link },
-        last: { href: link }
+        first: { href: `${baseUrl}?${[expandStr, filterStr, 'page=1', perPageStr].filter(Boolean).join('&')}` },
+        last: { href: `${baseUrl}?${[expandStr, filterStr, `page=${pageCount}`, perPageStr].filter(Boolean).join('&')}` }
       }
     });
   } catch (error) {
