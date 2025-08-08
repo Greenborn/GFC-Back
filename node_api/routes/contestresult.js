@@ -82,8 +82,9 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     ]);
     const totalCount = totalCountResult[0]?.total || 0;
 
-    // Agrupar los datos de thumbnail y metric en subclaves
-    const mappedItems = itemsRaw.map(item => {
+    // Agrupar thumbnails en array por contest_result_id
+    const grouped = {};
+    for (const item of itemsRaw) {
       const {
         image_id, image_profile_id, image_url, image_title, image_code,
         thumbnail_id, thumbnail_url, thumbnail_type,
@@ -93,41 +94,44 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         contest_result_id,
         ...rest
       } = item;
-      return {
-        ...rest,
-        contest_result_id,
-        image: (image_id ? {
-          id: image_id,
-          profile_id: image_profile_id,
-          url: image_url,
-          title: image_title,
-          code: image_code
-        } : null),
-        metric: (metric_id ? {
-          id: metric_id,
-          prize: metric_prize,
-          score: metric_score
-        } : null),
-        thumbnail: (thumbnail_id ? {
+      if (!grouped[contest_result_id]) {
+        grouped[contest_result_id] = {
+          ...rest,
+          contest_result_id,
+          image: (image_id ? {
+            id: image_id,
+            profile_id: image_profile_id,
+            url: image_url,
+            title: image_title,
+            code: image_code
+          } : null),
+          metric: (metric_id ? {
+            id: metric_id,
+            prize: metric_prize,
+            score: metric_score
+          } : null),
+          thumbnails: [],
+          profile: (profile_id ? {
+            id: profile_id,
+            name: profile_name,
+            last_name: profile_last_name,
+            fotoclub_id: profile_fotoclub_id
+          } : null),
+          section: (section_id ? {
+            section_id: section_id,
+            name: section_name
+          } : null)
+        };
+      }
+      if (thumbnail_id) {
+        grouped[contest_result_id].thumbnails.push({
           id: thumbnail_id,
           url: thumbnail_url,
           type: thumbnail_type
-        } : null),
-        profile: (profile_id ? {
-          id: profile_id,
-          name: profile_name,
-          last_name: profile_last_name,
-          fotoclub_id: profile_fotoclub_id
-        } : null),
-        section: (section_id ? {
-          section_id: section_id,
-          name: section_name
-        } : null)
-      };
-    });
-
-  // No agrupar por contest_result_id, dejar la paginación a la base de datos
-  const items = mappedItems;
+        });
+      }
+    }
+    const items = Object.values(grouped);
 
     // Meta y links para paginación
     const pageCount = Math.ceil(totalCount / perPage);
