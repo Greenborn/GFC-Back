@@ -31,10 +31,9 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       'image.url as image_url',
       'image.title as image_title',
       'image.code as image_code',
-      'metric_abm.id as metric_id',
-      'metric_abm.prize as metric_prize',
-      'metric_abm.score as metric_score',
-      'metric_abm.organization_type as metric_organization_type',
+      'metric.id as metric_id',
+      'metric.prize as metric_prize',
+      'metric.score as metric_score',
       'thumbnail.id as thumbnail_id',
       'thumbnail.url as thumbnail_url',
       'thumbnail.thumbnail_type as thumbnail_type'
@@ -43,7 +42,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     let query = global.knex('contest_result')
       .where('contest_result.contest_id', contestId)
       .leftJoin('image', 'contest_result.image_id', 'image.id')
-      .leftJoin('metric_abm', 'contest_result.metric_id', 'metric_abm.id')
+      .leftJoin('metric', 'contest_result.metric_id', 'metric.id')
       .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id');
 
     if (expand.includes('profile')) {
@@ -60,11 +59,20 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     const itemsRaw = await query;
 
-    // Agrupar los datos de thumbnail en subclave
+    // Agrupar los datos de thumbnail y metric en subclaves
     const items = itemsRaw.map(item => {
-      const { thumbnail_id, thumbnail_url, thumbnail_type, ...rest } = item;
+      const {
+        thumbnail_id, thumbnail_url, thumbnail_type,
+        metric_id, metric_prize, metric_score,
+        ...rest
+      } = item;
       return {
         ...rest,
+        metric: (metric_id ? {
+          id: metric_id,
+          prize: metric_prize,
+          score: metric_score
+        } : null),
         thumbnail: (thumbnail_id ? {
           id: thumbnail_id,
           url: thumbnail_url,
