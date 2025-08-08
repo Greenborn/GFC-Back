@@ -67,17 +67,19 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const itemsRaw = await query;
 
     // Agrupar los datos de thumbnail y metric en subclaves
-    const items = itemsRaw.map(item => {
+    const mappedItems = itemsRaw.map(item => {
       const {
         image_id, image_profile_id, image_url, image_title, image_code,
         thumbnail_id, thumbnail_url, thumbnail_type,
         metric_id, metric_prize, metric_score,
         profile_id, profile_name, profile_last_name, profile_fotoclub_id,
         section_id, section_name, section_description,
+        contest_result_id,
         ...rest
       } = item;
       return {
         ...rest,
+        contest_result_id,
         image: (image_id ? {
           id: image_id,
           profile_id: image_profile_id,
@@ -101,14 +103,17 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
           last_name: profile_last_name,
           fotoclub_id: profile_fotoclub_id
         } : null),
-        section: (section_id ? {
-          id: section_id,
-          section_id: section_id,
-          name: section_name,
-          description: section_description
-        } : null)
+        section_id: section_id
       };
     });
+
+    // Filtrar elementos duplicados por contest_result_id
+    const items = Object.values(
+      mappedItems.reduce((acc, item) => {
+        acc[item.contest_result_id] = item;
+        return acc;
+      }, {})
+    );
 
     // Meta y links (simples, no paginación real)
     const totalCount = items.length;
