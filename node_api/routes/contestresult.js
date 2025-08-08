@@ -126,13 +126,8 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       };
     });
 
-    // Filtrar elementos duplicados por contest_result_id
-    const items = Object.values(
-      mappedItems.reduce((acc, item) => {
-        acc[item.contest_result_id] = item;
-        return acc;
-      }, {})
-    );
+  // No agrupar por contest_result_id, dejar la paginación a la base de datos
+  const items = mappedItems;
 
     // Meta y links para paginación
     const pageCount = Math.ceil(totalCount / perPage);
