@@ -88,7 +88,7 @@ app_admin.use('/api/section', require('./routes/section.js'));
 app_admin.use('/api/metric', require('./routes/metrics.js'));
 app_admin.use('/api/user', require('./routes/user.js'));
 app_admin.use('/api/contests', require('./routes/contest.js'));
-app_admin.use('/contest', require('./routes/contest.js')); // Ruta compatible con API PHP
+app_admin.use('/api/contest', require('./routes/contest.js')); // Ruta compatible con API PHP
 app_admin.use('/api/images', require('./routes/images.js'));
 app_admin.use('/api/log', require('./routes/log.js'));
 app_admin.use('/api/results', require('./routes/results.js'));
