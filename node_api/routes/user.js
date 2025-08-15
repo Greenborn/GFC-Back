@@ -3,25 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const knex = require('../knexfile');
-
-// Middleware de autenticación por token Bearer
-async function authMiddleware(req, res, next) {
-  const auth = req.headers['authorization'];
-  if (!auth || !auth.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, message: 'No autenticado' });
-  }
-  const token = auth.slice(7);
-  try {
-    const user = await req.app.locals.knex('user').where({ access_token: token }).first();
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Token inválido' });
-    }
-    req.user = user;
-    next();
-  } catch (err) {
-    return res.status(500).json({ success: false, message: 'Error de servidor', error: err.message });
-  }
-}
+const authMiddleware = require('../middleware/authMiddleware');
 
 // Endpoint: GET /user/me
 router.get('/me', authMiddleware, (req, res) => {
@@ -45,5 +27,39 @@ router.get('/get_all', async (req, res) => {
       res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
+
+// GET /user/:id?expand=profile,profile.fotoclub,role
+router.get('/:id', authMiddleware, async (req, res) => {
+  const userId = req.params.id;
+  try {
+    // Obtener usuario
+    const user = await global.knex('user').where('id', userId).first();
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    // Obtener profile
+    const profile = await global.knex('profile').where('id', user.profile_id).first();
+    // Obtener fotoclub si existe
+    let fotoclub = null;
+    if (profile && profile.fotoclub_id) {
+      fotoclub = await global.knex('fotoclub').where('id', profile.fotoclub_id).first();
+    }
+    // Obtener role
+    const role = await global.knex('role').where('id', user.role_id).first();
+
+    // Armar respuesta
+    const response = {
+      ...user,
+      profile: profile ? {
+        ...profile,
+        fotoclub: fotoclub || null
+      } : null,
+      role: role || null
+    };
+    res.json(response);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al obtener usuario' });
+  }
+});
 
 module.exports = router;

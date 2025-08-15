@@ -75,4 +75,61 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
   }
 });
 
+// Crear nuevo fotoclub
+router.post('/create', authMiddleware, async (req, res) => {
+  try {
+    // Solo admin puede crear
+    if (!req.user || req.user.role_id != '1') {
+      return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden crear fotoclubs' });
+    }
+    const { name, description, facebook, instagram, email, website, phone, address, city, country, logo_path } = req.body;
+
+    if (!name) {
+      return res.json({ stat: false, text: 'El nombre es obligatorio' });
+    }
+
+    // Crear fotoclub en la base de datos
+    const [fotoclubId] = await global.knex('fotoclub').insert({
+      name,
+      description,
+      facebook,
+      instagram,
+      email,
+      website,
+      phone,
+      address,
+      city,
+      country,
+      logo_path,
+      status: 'active',
+      created_at: new Date(),
+      updated_at: new Date()
+    }).returning('id');
+
+    const newFotoclub = await global.knex('fotoclub').where('id', fotoclubId).first();
+
+    await LogOperacion(
+      req.user.id,
+      'Creación de Fotoclub - ' + req.user.username,
+      { new: newFotoclub },
+      new Date()
+    );
+
+    res.status(201).json({
+      stat: true,
+      text: 'Fotoclub creado exitosamente',
+      item: newFotoclub
+    });
+  } catch (error) {
+    console.error(error);
+    await LogOperacion(
+      req.user?.id || null,
+      'Error al crear Fotoclub',
+      { error: error.message },
+      new Date()
+    );
+    res.status(500).json({ stat: false, text: 'Ocurrió un error al crear el fotoclub.' });
+  }
+});
+
 module.exports = router;
