@@ -82,7 +82,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     if (!req.user || req.user.role_id != '1') {
       return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden crear fotoclubs' });
     }
-    const { name, description, facebook, instagram, email, website, phone, address, city, country, logo_path } = req.body;
+    const { name, description, facebook, instagram, email, photo_url, mostrar_en_ranking, organization_type } = req.body;
 
     if (!name) {
       return res.json({ stat: false, text: 'El nombre es obligatorio' });
@@ -95,15 +95,9 @@ router.post('/create', authMiddleware, async (req, res) => {
       facebook,
       instagram,
       email,
-      website,
-      phone,
-      address,
-      city,
-      country,
-      logo_path,
-      status: 'active',
-      created_at: new Date(),
-      updated_at: new Date()
+      photo_url,
+      mostrar_en_ranking,
+      organization_type
     }).returning('id');
 
     const newFotoclub = await global.knex('fotoclub').where('id', fotoclubId).first();
