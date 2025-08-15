@@ -1,4 +1,7 @@
 const express      = require('express');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
 const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
 const writeProtection = require('../middleware/writeProtection.js');
@@ -25,7 +28,7 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
     if (!req.user || req.user.role_id != '1') {
       return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden editar fotoclubs' });
     }
-    const { id, name, description, facebook, instagram, email } = req.body;
+    const { id, name, description, facebook, instagram, email, image } = req.body;
 
     // Validar que el campo name esté presente
     if (!name) {
@@ -34,24 +37,41 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
 
     // Obtener el valor anterior antes de actualizar
     const oldFotoclub = await global.knex('fotoclub').where('id', id).first();
+    let photo_url = oldFotoclub.photo_url;
+    if (image) {
+      try {
+        const uploadsBasePath = process.env.UPLOADS_BASE_PATH;
+        const year = new Date().getFullYear();
+        const dir = path.join(uploadsBasePath, year.toString());
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        // Detect extension from base64 string
+        const matches = image.match(/^data:image\/(\w+);base64,(.+)$/);
+        const ext = matches ? matches[1] : 'jpg';
+        const base64Data = matches ? matches[2] : image;
+        const filename = `foto_club_${Date.now()}.${ext}`;
+        const filepath = path.join(dir, filename);
+        fs.writeFileSync(filepath, base64Data, 'base64');
+        photo_url = path.join(year.toString(), filename);
+      } catch (err) {
+        console.error('Error guardando imagen:', err);
+        return res.status(500).json({ stat: false, text: 'Error al guardar la imagen.' });
+      }
+    }
     const newFotoclub = {
       name,
       description,
       facebook,
       instagram,
-      email
+      email,
+      photo_url
     };
 
     // Actualizar el registro en la base de datos
     const result = await global.knex('fotoclub')
       .where('id', id)
-      .update({
-        name,
-        description,
-        facebook,
-        instagram,
-        email
-      })
+      .update(newFotoclub)
 
     await LogOperacion(
       req.user.id,
@@ -72,6 +92,79 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.json({ stat: false, text: 'Ocurrió un error interno, contacte con soporte.' });
+  }
+});
+
+// Crear nuevo fotoclub
+router.post('/create', authMiddleware, async (req, res) => {
+  try {
+    // Solo admin puede crear
+    if (!req.user || req.user.role_id != '1') {
+      return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden crear fotoclubs' });
+    }
+    const { name, description, facebook, instagram, email, image, mostrar_en_ranking, organization_type } = req.body;
+    let photo_url = null;
+    if (image) {
+      try {
+        const uploadsBasePath = process.env.UPLOADS_BASE_PATH;
+        const year = new Date().getFullYear();
+        const dir = path.join(uploadsBasePath, year.toString());
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        // Detect extension from base64 string
+        const matches = image.match(/^data:image\/(\w+);base64,(.+)$/);
+        const ext = matches ? matches[1] : 'jpg';
+        const base64Data = matches ? matches[2] : image;
+        const filename = `foto_club_${Date.now()}.${ext}`;
+        const filepath = path.join(dir, filename);
+        fs.writeFileSync(filepath, base64Data, 'base64');
+        photo_url = path.join(year.toString(), filename);
+      } catch (err) {
+        console.error('Error guardando imagen:', err);
+        return res.status(500).json({ stat: false, text: 'Error al guardar la imagen.' });
+      }
+    }
+
+    if (!name) {
+      return res.json({ stat: false, text: 'El nombre es obligatorio' });
+    }
+
+    // Crear fotoclub en la base de datos
+    const [fotoclubId] = await global.knex('fotoclub').insert({
+      name,
+      description,
+      facebook,
+      instagram,
+      email,
+      photo_url,
+      mostrar_en_ranking,
+      organization_type
+    }).returning('id');
+
+    const newFotoclub = await global.knex('fotoclub').where('id', fotoclubId).first();
+
+    await LogOperacion(
+      req.user.id,
+      'Creación de Fotoclub - ' + req.user.username,
+      { new: newFotoclub },
+      new Date()
+    );
+
+    res.status(201).json({
+      stat: true,
+      text: 'Fotoclub creado exitosamente',
+      item: newFotoclub
+    });
+  } catch (error) {
+    console.error(error);
+    await LogOperacion(
+      req.user?.id || null,
+      'Error al crear Fotoclub',
+      { error: error.message },
+      new Date()
+    );
+    res.status(500).json({ stat: false, text: 'Ocurrió un error al crear el fotoclub.' });
   }
 });
 
