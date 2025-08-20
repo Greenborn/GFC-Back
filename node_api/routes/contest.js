@@ -321,7 +321,29 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             }
             imagesByProfile[img.profile_id].push(img);
         });
+
+        // Crear diccionario donde la clave es profile_id y el valor es category_id
+        const profileCategoryDict = {};
+        inscritos.forEach(item => {
+            profileCategoryDict[item.profile_id] = item.category_id;
+        });
+
+        // Crear archivos vacíos para cada imagen en el directorio correspondiente
+        images.forEach(img => {
+            const categoryId = profileCategoryDict[img.profile_id];
+            // Buscar el nombre de la categoría y sección
+            const categoryObj = contestCategories.find(cat => cat.id === categoryId);
+            const sectionObj = contestSections.find(sec => sec.id === img.section_id);
+            if (categoryObj && sectionObj) {
+                const fileDir = path.join(contestDir, categoryObj.name, sectionObj.name);
+                const filePath = path.join(fileDir, `${img.id}.txt`);
+                if (!fs.existsSync(filePath)) {
+                    fs.writeFileSync(filePath, '');
+                }
+            }
+        });
         
+
         return res.json({
             success: true,
             contest_sections: contestSections,
@@ -331,7 +353,7 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             contest_dir: contestDir,
             total_images: images.length,
             images: images,
-            images_by_profile: imagesByProfile
+            profile_category_dict: profileCategoryDict,
         });
     } catch (error) {
         console.error('Error al obtener fotos asociadas al concurso:', error);
