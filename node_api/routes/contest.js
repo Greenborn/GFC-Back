@@ -258,12 +258,31 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             .select('s.id', 's.name')
             .where('cs.contest_id', contestId);
 
+        // Crear/vaciar el subdirectorio para el concurso
+        const path = require('path');
+        const fs = require('fs');
+        const IMG_REPOSITORY_PATH = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
+        const contestDir = path.join(IMG_REPOSITORY_PATH, `concurso_${contestId}`);
+        if (fs.existsSync(contestDir)) {
+            fs.readdirSync(contestDir).forEach(file => {
+                const curPath = path.join(contestDir, file);
+                if (fs.lstatSync(curPath).isDirectory()) {
+                    fs.rmSync(curPath, { recursive: true, force: true });
+                } else {
+                    fs.unlinkSync(curPath);
+                }
+            });
+        } else {
+            fs.mkdirSync(contestDir, { recursive: true });
+        }
+
         // Las secciones quedan guardadas en contestSections
 
         return res.json({
             success: true,
             contest_sections: contestSections,
             contest_id: contestId,
+            contest_dir: contestDir,
             total_images: images.length,
             images: images
         });
