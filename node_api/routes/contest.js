@@ -329,16 +329,26 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         });
 
         // Crear archivos vacíos para cada imagen en el directorio correspondiente
+        // Copiar la imagen al directorio correspondiente
         images.forEach(img => {
             const categoryId = profileCategoryDict[img.profile_id];
-            // Buscar el nombre de la categoría y sección
             const categoryObj = contestCategories.find(cat => cat.id === categoryId);
             const sectionObj = contestSections.find(sec => sec.id === img.section_id);
-            if (categoryObj && sectionObj) {
+            if (categoryObj && sectionObj && img.url) {
                 const fileDir = path.join(contestDir, categoryObj.name, sectionObj.name);
-                const filePath = path.join(fileDir, `${img.id}.txt`);
-                if (!fs.existsSync(filePath)) {
-                    fs.writeFileSync(filePath, '');
+                // Origen de la imagen
+                const srcPath = path.join(IMG_REPOSITORY_PATH, img.url);
+                // Destino de la imagen
+                const ext = path.extname(img.url) || '.jpg';
+                const destPath = path.join(fileDir, `${img.id}${ext}`);
+                try {
+                    if (fs.existsSync(srcPath)) {
+                        fs.copyFileSync(srcPath, destPath);
+                    } else {
+                        console.warn(`No se encontró la imagen origen: ${srcPath}`);
+                    }
+                } catch (err) {
+                    console.error(`Error copiando imagen ${srcPath} a ${destPath}:`, err);
                 }
             }
         });
