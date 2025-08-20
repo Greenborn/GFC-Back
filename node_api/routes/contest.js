@@ -20,10 +20,10 @@ router.get('/', authMiddleware, async (req, res) => {
         const currentPage = parseInt(page);
         const itemsPerPage = parseInt(perPage);
         const offset = (currentPage - 1) * itemsPerPage;
-        
+
         // Construir query base para contests
         let contestQuery = global.knex('contest').select('*');
-        
+
         // Aplicar ordenamiento
         if (sort) {
             if (sort === '-id') {
@@ -37,29 +37,29 @@ router.get('/', authMiddleware, async (req, res) => {
                 contestQuery = contestQuery.orderBy(sortField, sortDirection);
             }
         }
-        
+
         // Obtener total de registros para paginación
         const totalCountResult = await global.knex('contest').count('id as count').first();
         const totalCount = parseInt(totalCountResult.count);
         const pageCount = Math.ceil(totalCount / itemsPerPage);
-        
+
         // Aplicar paginación
         contestQuery = contestQuery.limit(itemsPerPage).offset(offset);
-        
+
         // Ejecutar query de contests
         const contests = await contestQuery;
-        
+
         // Procesar expansiones si se solicitan
         if (expand) {
             const expansions = expand.split(',');
-            
+
             for (let contest of contests) {
                 // Agregar campo active (determinar lógica según reglas de negocio)
                 // Por ahora, consideramos activo si la fecha de fin es posterior a hoy
                 const now = new Date();
                 const endDate = new Date(contest.end_date);
                 contest.active = endDate > now;
-                
+
                 // Expandir categorías
                 if (expansions.includes('categories')) {
                     const categories = await global.knex('category as c')
@@ -68,7 +68,7 @@ router.get('/', authMiddleware, async (req, res) => {
                         .where('cc.contest_id', contest.id);
                     contest.categories = categories;
                 }
-                
+
                 // Expandir secciones  
                 if (expansions.includes('sections')) {
                     const sections = await global.knex('section as s')
@@ -79,7 +79,7 @@ router.get('/', authMiddleware, async (req, res) => {
                 }
             }
         }
-        
+
         // Construir respuesta con formato compatible con API PHP
         const baseUrl = `${req.protocol}://${req.get('host')}${req.originalUrl.split('?')[0]}`;
         const response = {
@@ -102,46 +102,46 @@ router.get('/', authMiddleware, async (req, res) => {
                 perPage: itemsPerPage
             }
         };
-        
+
         // Agregar enlaces next/prev si corresponde
         if (currentPage < pageCount) {
             response._links.next = {
                 href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: currentPage + 1 }).toString()}`
             };
         }
-        
+
         if (currentPage > 1) {
             response._links.prev = {
                 href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: currentPage - 1 }).toString()}`
             };
         }
-        
+
         res.json(response);
-        
+
     } catch (error) {
         console.error('Error al obtener concursos:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             message: 'Error interno del servidor al obtener concursos',
-            error: error.message 
+            error: error.message
         });
     }
 });
 
 router.get('/get_all', async (req, res) => {
     try {
-      await LogOperacion(req.session.user.id, 'Consulta de Concursos - ' + req.session.user.username, null, new Date()) 
+        await LogOperacion(req.session.user.id, 'Consulta de Concursos - ' + req.session.user.username, null, new Date())
 
-      res.json({ 
-        items: await global.knex('contest'),
-        contest_category: await global.knex('contest_category'),
-        category: await global.knex('category'),
-        //section: await global.knex('section'),
-        contests_records: await global.knex('contests_records'),
-        contest_result: await global.knex('contest_result')
-});
+        res.json({
+            items: await global.knex('contest'),
+            contest_category: await global.knex('contest_category'),
+            category: await global.knex('category'),
+            //section: await global.knex('section'),
+            contests_records: await global.knex('contests_records'),
+            contest_result: await global.knex('contest_result')
+        });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al obtener registros' });
+        console.error(error);
+        res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
 
@@ -163,20 +163,20 @@ router.get('/participants', authMiddleware, async (req, res) => {
     );
     try {
         const contestId = parseInt(req.query.id);
-        
+
         if (!contestId || isNaN(contestId)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'ID de concurso inválido o faltante. Use ?id=<contest_id>' 
+            return res.status(400).json({
+                success: false,
+                message: 'ID de concurso inválido o faltante. Use ?id=<contest_id>'
             });
         }
 
         // Verificar que el concurso existe
         const contest = await global.knex('contest').where('id', contestId).first();
         if (!contest) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Concurso no encontrado' 
+            return res.status(404).json({
+                success: false,
+                message: 'Concurso no encontrado'
             });
         }
 
@@ -219,20 +219,20 @@ router.get('/participants', authMiddleware, async (req, res) => {
 
     } catch (error) {
         console.error('Error al obtener participantes del concurso:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Error interno del servidor al obtener participantes' 
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor al obtener participantes'
         });
     }
 });
- 
+
 router.get('/compressed-photos', authMiddleware, async (req, res) => {
     // Recibe el id del concurso por req.query.id
     const contestId = parseInt(req.query.id);
     if (!contestId || isNaN(contestId)) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'ID de concurso inválido o faltante. Use ?id=<contest_id>' 
+        return res.status(400).json({
+            success: false,
+            message: 'ID de concurso inválido o faltante. Use ?id=<contest_id>'
         });
     }
 
@@ -257,7 +257,7 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             .join('section as s', 'cs.section_id', '=', 's.id')
             .select('s.id', 's.name')
             .where('cs.contest_id', contestId);
-            
+
         // Obtener las categorías asociadas al concurso
         const contestCategories = await global.knex('contest_category as cc')
             .join('category as c', 'cc.category_id', '=', 'c.id')
@@ -290,32 +290,48 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                 if (!fs.existsSync(catDir)) {
                     fs.mkdirSync(catDir, { recursive: true });
                 }
-            console.log(`Creando carpeta de categoría: ${catDir}`);
-                    // Crear subdirectorios para cada sección dentro de la categoría
-            console.log('Secciones obtenidas:', contestSections);
-                    if (Array.isArray(contestSections)) {
-                        contestSections.forEach(sec => {
-                            const secDir = path.join(catDir, sec.name);
-                console.log(`Creando carpeta de sección: ${secDir}`);
-                            if (!fs.existsSync(secDir)) {
-                                fs.mkdirSync(secDir, { recursive: true });
-                            }
-                        });
-                    }
+                console.log(`Creando carpeta de categoría: ${catDir}`);
+                // Crear subdirectorios para cada sección dentro de la categoría
+                console.log('Secciones obtenidas:', contestSections);
+                if (Array.isArray(contestSections)) {
+                    contestSections.forEach(sec => {
+                        const secDir = path.join(catDir, sec.name);
+                        console.log(`Creando carpeta de sección: ${secDir}`);
+                        if (!fs.existsSync(secDir)) {
+                            fs.mkdirSync(secDir, { recursive: true });
+                        }
+                    });
+                }
             });
         }
 
+        // Obtener el listado de inscriptos al concurso
+        const inscritos = await global.knex('profile_contest as pc')
+            .join('profile as p', 'pc.profile_id', '=', 'p.id')
+            .select('p.id as profile_id', 'p.name as profile_name', 'pc.category_id')
+            .where('pc.contest_id', contestId);
 
-        // Las secciones quedan guardadas en contestSections
 
+
+        // Crear diccionario agrupado por profile_id con array de imágenes
+        const imagesByProfile = {};
+        images.forEach(img => {
+            if (!imagesByProfile[img.profile_id]) {
+                imagesByProfile[img.profile_id] = [];
+            }
+            imagesByProfile[img.profile_id].push(img);
+        });
+        
         return res.json({
             success: true,
             contest_sections: contestSections,
             contest_categories: contestCategories,
+            inscritos: inscritos,
             contest_id: contestId,
             contest_dir: contestDir,
             total_images: images.length,
-            images: images
+            images: images,
+            images_by_profile: imagesByProfile
         });
     } catch (error) {
         console.error('Error al obtener fotos asociadas al concurso:', error);
