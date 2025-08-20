@@ -226,4 +226,46 @@ router.get('/participants', authMiddleware, async (req, res) => {
     }
 });
 
+router.get('/compressed-photos', authMiddleware, async (req, res) => {
+    // Recibe el id del concurso por req.query.id
+    const contestId = parseInt(req.query.id);
+    if (!contestId || isNaN(contestId)) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'ID de concurso inválido o faltante. Use ?id=<contest_id>' 
+        });
+    }
+
+    try {
+        // Consulta las imágenes asociadas al concurso
+        const images = await global.knex('contest_result as cr')
+            .join('image as i', 'cr.image_id', 'i.id')
+            .select(
+                'i.id',
+                'i.code',
+                'i.title',
+                'i.profile_id',
+                'i.url',
+                'cr.section_id',
+                'cr.metric_id',
+                'cr.id as contest_result_id'
+            )
+            .where('cr.contest_id', contestId);
+
+        return res.json({
+            success: true,
+            contest_id: contestId,
+            total_images: images.length,
+            images: images
+        });
+    } catch (error) {
+        console.error('Error al obtener fotos asociadas al concurso:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor al obtener fotos asociadas al concurso',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
