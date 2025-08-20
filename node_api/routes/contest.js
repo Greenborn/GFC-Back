@@ -352,6 +352,33 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                 }
             }
         });
+
+        // Comprimir el directorio del concurso en un archivo .zip
+        const archiver = require('archiver');
+        const zipFileName = `concurso_${contestId}.zip`;
+        const zipFilePath = path.join(IMG_REPOSITORY_PATH, zipFileName);
+        const createZip = () => {
+            return new Promise((resolve, reject) => {
+                const output = fs.createWriteStream(zipFilePath);
+                const archive = archiver('zip', { zlib: { level: 9 } });
+                output.on('close', () => resolve());
+                archive.on('error', err => reject(err));
+                archive.pipe(output);
+                archive.directory(contestDir, false);
+                archive.finalize();
+            });
+        };
+        try {
+            await createZip();
+        } catch (err) {
+            console.error('Error al comprimir el directorio:', err);
+        }
+
+        // Construir la URL de descarga
+        const IMG_BASE_PATH = process.env.IMG_BASE_PATH || 'https://assets.prod-gfc.greenborn.com.ar';
+        const downloadUrl = `${IMG_BASE_PATH}/${zipFileName}`;
+
+        
         
 
         return res.json({
@@ -364,6 +391,7 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             total_images: images.length,
             images: images,
             profile_category_dict: profileCategoryDict,
+            download_url: downloadUrl,
         });
     } catch (error) {
         console.error('Error al obtener fotos asociadas al concurso:', error);
