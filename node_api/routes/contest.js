@@ -225,7 +225,7 @@ router.get('/participants', authMiddleware, async (req, res) => {
         });
     }
 });
-
+ 
 router.get('/compressed-photos', authMiddleware, async (req, res) => {
     // Recibe el id del concurso por req.query.id
     const contestId = parseInt(req.query.id);
@@ -257,6 +257,12 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             .join('section as s', 'cs.section_id', '=', 's.id')
             .select('s.id', 's.name')
             .where('cs.contest_id', contestId);
+            
+        // Obtener las categorías asociadas al concurso
+        const contestCategories = await global.knex('contest_category as cc')
+            .join('category as c', 'cc.category_id', '=', 'c.id')
+            .select('c.id', 'c.name', 'c.mostrar_en_ranking')
+            .where('cc.contest_id', contestId);
 
         // Crear/vaciar el subdirectorio para el concurso
         const path = require('path');
@@ -276,11 +282,36 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             fs.mkdirSync(contestDir, { recursive: true });
         }
 
+        // Crear subdirectorios para cada categoría dentro del concurso
+        console.log('Categorias obtenidas:', contestCategories);
+        if (Array.isArray(contestCategories)) {
+            contestCategories.forEach(cat => {
+                const catDir = path.join(contestDir, cat.name);
+                if (!fs.existsSync(catDir)) {
+                    fs.mkdirSync(catDir, { recursive: true });
+                }
+            console.log(`Creando carpeta de categoría: ${catDir}`);
+                    // Crear subdirectorios para cada sección dentro de la categoría
+            console.log('Secciones obtenidas:', contestSections);
+                    if (Array.isArray(contestSections)) {
+                        contestSections.forEach(sec => {
+                            const secDir = path.join(catDir, sec.name);
+                console.log(`Creando carpeta de sección: ${secDir}`);
+                            if (!fs.existsSync(secDir)) {
+                                fs.mkdirSync(secDir, { recursive: true });
+                            }
+                        });
+                    }
+            });
+        }
+
+
         // Las secciones quedan guardadas en contestSections
 
         return res.json({
             success: true,
             contest_sections: contestSections,
+            contest_categories: contestCategories,
             contest_id: contestId,
             contest_dir: contestDir,
             total_images: images.length,
