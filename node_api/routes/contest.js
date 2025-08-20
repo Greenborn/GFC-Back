@@ -334,13 +334,13 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             const categoryId = profileCategoryDict[img.profile_id];
             const categoryObj = contestCategories.find(cat => cat.id === categoryId);
             const sectionObj = contestSections.find(sec => sec.id === img.section_id);
-            if (categoryObj && sectionObj && img.url) {
+            if (categoryObj && sectionObj && img.url && img.code) {
                 const fileDir = path.join(contestDir, categoryObj.name, sectionObj.name);
                 // Origen de la imagen
                 const srcPath = path.join(IMG_REPOSITORY_PATH, img.url);
-                // Destino de la imagen
+                // Destino de la imagen: usar el atributo code
                 const ext = path.extname(img.url) || '.jpg';
-                const destPath = path.join(fileDir, `${img.id}${ext}`);
+                const destPath = path.join(fileDir, `${img.code}${ext}`);
                 try {
                     if (fs.existsSync(srcPath)) {
                         fs.copyFileSync(srcPath, destPath);
