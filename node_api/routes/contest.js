@@ -252,8 +252,17 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             )
             .where('cr.contest_id', contestId);
 
+        // Obtener las secciones asociadas al concurso
+        const contestSections = await global.knex('contest_section as cs')
+            .join('section as s', 'cs.section_id', '=', 's.id')
+            .select('s.id', 's.name')
+            .where('cs.contest_id', contestId);
+
+        // Las secciones quedan guardadas en contestSections
+
         return res.json({
             success: true,
+            contest_sections: contestSections,
             contest_id: contestId,
             total_images: images.length,
             images: images
