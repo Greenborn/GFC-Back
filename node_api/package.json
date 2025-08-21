@@ -1,6 +1,6 @@
 {
   "name": "gfc-node-api",
-  "version": "1.15.20",
+  "version": "1.16.20",
   "description": "API Node.js complementaria para el sistema GFC-Back - WebSockets, procesamiento de archivos y operaciones auxiliares",
   "main": "server.js",
   "scripts": {
@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/Greenborn/GFC-Back#readme",
   "dependencies": {
+    "archiver": "^7.0.1",
     "axios": "^1.10.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
