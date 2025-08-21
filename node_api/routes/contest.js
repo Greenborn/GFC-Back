@@ -236,7 +236,39 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         });
     }
 
+    const path = require('path');
+    const fs = require('fs');
+    const IMG_REPOSITORY_PATH = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
+    const archiver = require('archiver');
+    const zipFileName = `concurso_${contestId}.zip`;
+    const zipFilePath = path.join(IMG_REPOSITORY_PATH, zipFileName);
+    const IMG_BASE_PATH = process.env.IMG_BASE_PATH || 'https://assets.prod-gfc.greenborn.com.ar';
+
     try {
+        // Verificar si el concurso está finalizado
+        const contest = await global.knex('contest').where('id', contestId).first();
+        if (!contest) {
+            return res.status(404).json({
+                success: false,
+                message: 'Concurso no encontrado'
+            });
+        }
+        const now = new Date();
+        const endDate = new Date(contest.end_date);
+        const zipExists = fs.existsSync(zipFilePath);
+
+        // Si el concurso está finalizado y el zip ya existe, solo enviar el zip
+        if (endDate < now && zipExists) {
+            return res.json({
+                success: true,
+                contest_id: contestId,
+                download_url: `${IMG_BASE_PATH}/${zipFileName}`,
+                message: 'El concurso está finalizado y el archivo comprimido ya existe. Solo se envía el .zip.'
+            });
+        }
+
+        // ...existing code...
+        // (Resto del procesamiento original)
         // Consulta las imágenes asociadas al concurso
         const images = await global.knex('contest_result as cr')
             .join('image as i', 'cr.image_id', 'i.id')
@@ -265,9 +297,6 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             .where('cc.contest_id', contestId);
 
         // Crear/vaciar el subdirectorio para el concurso
-        const path = require('path');
-        const fs = require('fs');
-        const IMG_REPOSITORY_PATH = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
         const contestDir = path.join(IMG_REPOSITORY_PATH, `concurso_${contestId}`);
         if (fs.existsSync(contestDir)) {
             fs.readdirSync(contestDir).forEach(file => {
@@ -283,20 +312,15 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         }
 
         // Crear subdirectorios para cada categoría dentro del concurso
-        console.log('Categorias obtenidas:', contestCategories);
         if (Array.isArray(contestCategories)) {
             contestCategories.forEach(cat => {
                 const catDir = path.join(contestDir, cat.name);
                 if (!fs.existsSync(catDir)) {
                     fs.mkdirSync(catDir, { recursive: true });
                 }
-                console.log(`Creando carpeta de categoría: ${catDir}`);
-                // Crear subdirectorios para cada sección dentro de la categoría
-                console.log('Secciones obtenidas:', contestSections);
                 if (Array.isArray(contestSections)) {
                     contestSections.forEach(sec => {
                         const secDir = path.join(catDir, sec.name);
-                        console.log(`Creando carpeta de sección: ${secDir}`);
                         if (!fs.existsSync(secDir)) {
                             fs.mkdirSync(secDir, { recursive: true });
                         }
@@ -310,8 +334,6 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             .join('profile as p', 'pc.profile_id', '=', 'p.id')
             .select('p.id as profile_id', 'p.name as profile_name', 'pc.category_id')
             .where('pc.contest_id', contestId);
-
-
 
         // Crear diccionario agrupado por profile_id con array de imágenes
         const imagesByProfile = {};
@@ -328,7 +350,6 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             profileCategoryDict[item.profile_id] = item.category_id;
         });
 
-        // Crear archivos vacíos para cada imagen en el directorio correspondiente
         // Copiar la imagen al directorio correspondiente
         images.forEach(img => {
             const categoryId = profileCategoryDict[img.profile_id];
@@ -336,16 +357,12 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             const sectionObj = contestSections.find(sec => sec.id === img.section_id);
             if (categoryObj && sectionObj && img.url && img.code) {
                 const fileDir = path.join(contestDir, categoryObj.name, sectionObj.name);
-                // Origen de la imagen
                 const srcPath = path.join(IMG_REPOSITORY_PATH, img.url);
-                // Destino de la imagen: usar el atributo code
                 const ext = path.extname(img.url) || '.jpg';
                 const destPath = path.join(fileDir, `${img.code}${ext}`);
                 try {
                     if (fs.existsSync(srcPath)) {
                         fs.copyFileSync(srcPath, destPath);
-                    } else {
-                        console.warn(`No se encontró la imagen origen: ${srcPath}`);
                     }
                 } catch (err) {
                     console.error(`Error copiando imagen ${srcPath} a ${destPath}:`, err);
@@ -354,9 +371,6 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         });
 
         // Comprimir el directorio del concurso en un archivo .zip
-        const archiver = require('archiver');
-        const zipFileName = `concurso_${contestId}.zip`;
-        const zipFilePath = path.join(IMG_REPOSITORY_PATH, zipFileName);
         const createZip = () => {
             return new Promise((resolve, reject) => {
                 const output = fs.createWriteStream(zipFilePath);
@@ -375,11 +389,7 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         }
 
         // Construir la URL de descarga
-        const IMG_BASE_PATH = process.env.IMG_BASE_PATH || 'https://assets.prod-gfc.greenborn.com.ar';
         const downloadUrl = `${IMG_BASE_PATH}/${zipFileName}`;
-
-        
-        
 
         return res.json({
             success: true,

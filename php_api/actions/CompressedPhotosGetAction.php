@@ -13,7 +13,7 @@ use app\utils\LogManager;
 class CompressedPhotosGetAction extends ViewAction {
 
     private $basePath;
-    private $runtimeDir  = 'runtime/';
+    private $runtimeDir  = '/runtime/';
     private $tempDir     = 'tmp/';
     private $exportDir   = 'exportacion/';
     private $webDir      = 'web/';
@@ -71,7 +71,8 @@ class CompressedPhotosGetAction extends ViewAction {
         $tempPath = $this->getTempPath();
         $exportDir = $this->exportDir;
         $webPath = $this->getWebPath();
-
+        
+        $this->createDirIfnotExists($tempPath);
         chdir($tempPath);
         if (file_exists($exportDir)){
             $this->execCmd('rm -rf '.$exportDir);
