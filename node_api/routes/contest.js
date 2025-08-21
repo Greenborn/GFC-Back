@@ -313,6 +313,11 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
 
         // Crear subdirectorios para cada categoría dentro del concurso
         if (Array.isArray(contestCategories)) {
+            // Obtener los premios (prize) de metric_abm con organization_type = 'INTERNO'
+            const premios = await global.knex('metric_abm')
+                .select('prize')
+                .where('organization_type', 'INTERNO');
+
             contestCategories.forEach(cat => {
                 const catDir = path.join(contestDir, cat.name);
                 if (!fs.existsSync(catDir)) {
@@ -323,6 +328,17 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                         const secDir = path.join(catDir, sec.name);
                         if (!fs.existsSync(secDir)) {
                             fs.mkdirSync(secDir, { recursive: true });
+                        }
+                        // Crear subdirectorios de premios vacíos junto a las fotos
+                        if (Array.isArray(premios)) {
+                            premios.forEach(premio => {
+                                if (premio.prize) {
+                                    const premioDir = path.join(secDir, premio.prize);
+                                    if (!fs.existsSync(premioDir)) {
+                                        fs.mkdirSync(premioDir, { recursive: true });
+                                    }
+                                }
+                            });
                         }
                     });
                 }
