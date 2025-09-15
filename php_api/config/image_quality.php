@@ -34,8 +34,8 @@ return [
     // Validaciones de archivo
     'validation' => [
         'max_file_size' => 50 * 1024 * 1024,  // 50MB máximo
-        'min_width' => 800,                     // Ancho mínimo para concursos
-        'min_height' => 600,                    // Alto mínimo para concursos
+        'min_width' => 80,                     // Ancho mínimo para concursos
+        'min_height' => 60,                    // Alto mínimo para concursos
         'max_width_original' => 8000,           // Ancho máximo de entrada
         'max_height_original' => 8000,          // Alto máximo de entrada
     ],
