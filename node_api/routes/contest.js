@@ -187,9 +187,11 @@ router.get('/participants', authMiddleware, async (req, res) => {
                 'p.last_name',
                 'u.dni',
                 'u.email',
-                'c.name as category_name'
+                'c.name as category_name',
+                'fc.name as fotoclub_name',
             )
             .join('profile as p', 'pc.profile_id', 'p.id')
+            .join('fotoclub as fc', 'fc.id', 'p.fotoclub_id')
             .join('user as u', 'u.profile_id', 'p.id')
             .leftJoin('category as c', 'pc.category_id', 'c.id')
             .where('pc.contest_id', contestId)
