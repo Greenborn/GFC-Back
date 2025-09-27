@@ -185,7 +185,7 @@ router.get('/participants', authMiddleware, async (req, res) => {
             .select(
                 'p.name',
                 'p.last_name',
-                'p.dni',
+                'u.dni',
                 'u.email',
                 'c.name as category_name'
             )

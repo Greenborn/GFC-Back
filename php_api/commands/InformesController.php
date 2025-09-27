@@ -61,7 +61,7 @@ class InformesController extends Controller
             $informe["cant_total_obras"] ++;
             
             //ORGANIZACIONES
-            $organizacion = $resultado_->image->profile->fotoclub->name;
+            $organizacion = isset($resultado_->image->profile->fotoclub->name) ? $resultado_->image->profile->fotoclub->name : "";
             if ( !isset($informe["organizaciones"][$organizacion]) ) {
                 $informe["organizaciones"][$organizacion] = [
                     "cant_total_obras" => 0,
