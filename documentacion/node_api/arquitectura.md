@@ -169,6 +169,13 @@ Cliente → Socket.io → Event Handler → Controller → Service → Database 
 Upload → Multer → Sharp Processing → File Storage → Database Update → Notification
 ```
 
+### 4. Contest Photos Compression Flow
+```
+Request → Validate Contest → Get Images/Categories/Sections → 
+Create Directory Structure → Copy Images → Create Empty Prize Folders → 
+Generate ZIP → Return Download URL
+```
+
 ## Componentes Clave
 
 ### 1. Express Server (server.js)
@@ -178,6 +185,7 @@ Upload → Multer → Sharp Processing → File Storage → Database Update → 
   - Route registration
   - Error handling
   - CORS configuration
+  - Health check endpoint
 
 ### 2. WebSocket Server (gfc_web_sockets.js)
 - **Propósito**: Servidor de comunicación en tiempo real
@@ -197,6 +205,31 @@ Upload → Multer → Sharp Processing → File Storage → Database Update → 
 ### 4. Controllers
 - **log_operaciones.js**: Gestión de logs del sistema
 - **mailer.js**: Envío de emails y notificaciones
+
+### 5. Routes
+- **auth.js**: Autenticación y recuperación de contraseñas
+- **contest.js**: Gestión de concursos y compresión de fotos
+- **fotoclub.js**: Gestión de clubes fotográficos (CRUD)
+- **images.js**: Búsqueda y consulta de imágenes
+- **results.js**: Carga de resultados y recálculo de rankings
+- **user.js**: Gestión de usuarios
+- **category.js**: Gestión de categorías
+- **section.js**: Gestión de secciones
+- **metrics.js**: Métricas del sistema
+- **log.js**: Consulta de logs
+
+### 6. File Processing System
+- **Propósito**: Procesamiento y organización de archivos fotográficos
+- **Funcionalidades**:
+  - Creación de estructura de directorios por concurso
+  - Organización por categoría y sección
+  - Generación de subdirectorios de premios
+  - Copia de imágenes al directorio temporal
+  - Compresión en formato ZIP
+  - Optimización para concursos finalizados (caché de ZIP)
+
+### 5. Utils
+- **contestDir.js**: Utilidades para gestión de directorios de concursos y compresión de archivos
 
 ## Arquitectura de WebSockets
 

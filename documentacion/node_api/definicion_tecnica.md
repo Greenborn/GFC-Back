@@ -126,7 +126,24 @@ interface Fotoclub {
   city: string;
   country: string;
   logo_path: string;
+  photo_url: string; // URL de la imagen del fotoclub
+  facebook: string;
+  instagram: string;
+  mostrar_en_ranking: number; // 0 o 1
+  organization_type: 'INTERNO' | 'EXTERNO';
   status: 'active' | 'inactive';
+  created_at: timestamp;
+  updated_at: timestamp;
+}
+```
+
+#### Métrica ABM (MetricAbm)
+```typescript
+interface MetricAbm {
+  id: number;
+  prize: string;
+  score: number;
+  organization_type: 'INTERNO' | 'EXTERNO';
   created_at: timestamp;
   updated_at: timestamp;
 }
@@ -537,7 +554,59 @@ interface Thumbnail {
 }
 ```
 
-### 6.2 Sistema de Logging
+### 6.2 Sistema de Compresión de Concursos
+```typescript
+interface ContestCompressionSystem {
+  // Generar estructura de directorios para un concurso
+  generateContestStructure(contestId: number): Promise<ContestStructure>;
+  
+  // Copiar imágenes al directorio del concurso
+  copyContestImages(contestId: number, structure: ContestStructure): Promise<void>;
+  
+  // Crear subdirectorios de premios vacíos
+  createPrizeFolders(structure: ContestStructure, prizes: MetricAbm[]): Promise<void>;
+  
+  // Comprimir directorio en ZIP
+  compressContestDirectory(contestDir: string, outputPath: string): Promise<string>;
+  
+  // Verificar si existe ZIP de concurso finalizado
+  checkExistingZip(contestId: number): Promise<boolean>;
+  
+  // Limpiar directorio temporal
+  cleanupTempDirectory(contestDir: string): Promise<void>;
+}
+
+interface ContestStructure {
+  contestId: number;
+  contestDir: string;
+  categories: CategoryFolder[];
+  images: ImageMapping[];
+}
+
+interface CategoryFolder {
+  categoryId: number;
+  categoryName: string;
+  sections: SectionFolder[];
+}
+
+interface SectionFolder {
+  sectionId: number;
+  sectionName: string;
+  prizeFolders: string[]; // Nombres de premios
+}
+
+interface ImageMapping {
+  imageId: number;
+  code: string;
+  sourcePath: string;
+  destinationPath: string;
+  categoryId: number;
+  sectionId: number;
+  profileId: number;
+}
+```
+
+### 6.3 Sistema de Logging
 ```typescript
 interface LoggingSystem {
   // Registrar operación
@@ -569,7 +638,42 @@ interface LogParams {
 }
 ```
 
-### 6.3 Sincronización de Datos
+### 6.4 Sistema de Gestión de Fotoclubes
+```typescript
+interface FotoclubManagement {
+  // Crear nuevo fotoclub
+  createFotoclub(data: FotoclubCreateData): Promise<Fotoclub>;
+  
+  // Actualizar fotoclub existente
+  updateFotoclub(id: number, data: FotoclubUpdateData): Promise<Fotoclub>;
+  
+  // Obtener todos los fotoclubes
+  getAllFotoclubes(): Promise<Fotoclub[]>;
+  
+  // Procesar imagen del fotoclub
+  processFotoclubImage(imageData: string): Promise<string>;
+  
+  // Eliminar imagen anterior del fotoclub
+  deleteOldFotoclubImage(photoUrl: string): Promise<void>;
+}
+
+interface FotoclubCreateData {
+  name: string;
+  description?: string;
+  facebook?: string;
+  instagram?: string;
+  email?: string;
+  image?: string; // Base64 data URI
+  mostrar_en_ranking?: number;
+  organization_type?: 'INTERNO' | 'EXTERNO';
+}
+
+interface FotoclubUpdateData extends FotoclubCreateData {
+  id: number;
+}
+```
+
+### 6.5 Sincronización de Datos
 ```typescript
 interface DataSynchronization {
   // Sincronizar cambios con PHP API
@@ -605,6 +709,7 @@ DB_PORT=5432
 DB_NAME=gfc_database
 DB_USER=gfc_user
 DB_PASSWORD=secure_password
+DB_CLIENT=postgresql
 
 # JWT
 JWT_SECRET=your_jwt_secret_key
@@ -622,6 +727,11 @@ IMAGE_ALLOWED_TYPES=jpg,jpeg,png,tiff
 IMAGE_THUMBNAIL_SIZES=150,300,600
 IMAGE_QUALITY=85
 
+# Directorios y Assets
+IMG_REPOSITORY_PATH=/var/www/GFC-PUBLIC-ASSETS
+IMG_BASE_PATH=https://assets.prod-gfc.greenborn.com.ar
+UPLOADS_BASE_PATH=/var/www/GFC-PUBLIC-ASSETS/uploads
+
 # Logging
 LOG_LEVEL=info
 LOG_RETENTION_DAYS=90
@@ -636,8 +746,16 @@ SMTP_PASSWORD=your_app_password
 # Aplicación
 NODE_ENV=production
 PORT=3000
+SERVICE_PORT_ADMIN=3000
 API_URL=https://api.gfc-back.com
 PHP_API_URL=https://php-api.gfc-back.com
+CORS_ORIGIN=https://frontend.gfc-back.com https://admin.gfc-back.com
+
+# Modo de Escritura
+MODO_ESCRITURA=READ_WRITE # O READ_ONLY para modo solo lectura
+
+# Verificación de Código (Recuperación de Contraseña)
+verify_code_time=900000 # 15 minutos en milisegundos
 ```
 
 ### 7.2 Configuración de WebSocket

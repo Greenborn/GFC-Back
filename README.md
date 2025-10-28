@@ -1,11 +1,13 @@
 # GFC-Back - Sistema de Gestión de Concursos Fotográficos
 
+**Última actualización:** 28 de octubre de 2025
+
 ## Descripción General
 
 GFC-Back es un sistema backend completo para la gestión de concursos fotográficos, desarrollado con arquitectura de microservicios que incluye dos APIs principales:
 
 - **PHP API** (Yii2 Framework): API principal para gestión de concursos, usuarios y resultados
-- **Node.js API** (Express.js): API complementaria para operaciones específicas y WebSockets
+- **Node.js API** (Express.js): API complementaria para operaciones específicas, WebSockets y procesamiento de archivos
 
 ## Estructura del Proyecto
 
@@ -27,6 +29,11 @@ GFC-Back/
 - **Sistema de Puntuación**: Evaluación y ranking de fotografías
 - **WebSockets**: Comunicación en tiempo real
 - **Gestión de Archivos**: Subida y procesamiento de imágenes
+- **Compresión de Concursos**: Generación automática de archivos ZIP con estructura organizada
+- **Gestión de Fotoclubes**: CRUD completo de clubes fotográficos con imágenes
+- **Recuperación de Contraseñas**: Sistema completo de recuperación mediante códigos
+- **Carga de Resultados**: Sistema automatizado para carga de resultados de jurado
+- **Health Checks**: Endpoints de verificación de estado del sistema
 
 ## Tecnologías Utilizadas
 
@@ -38,9 +45,13 @@ GFC-Back/
 
 ### Node.js API (Express)
 - **Framework**: Express.js
-- **Base de Datos**: PostgreSQL (Knex.js)
+- **Base de Datos**: PostgreSQL/MySQL (Knex.js)
 - **WebSockets**: Socket.io
 - **Testing**: Jest/Mocha
+- **Compresión**: Archiver (ZIP)
+- **Procesamiento de Imágenes**: Sharp
+- **Autenticación**: Sessions + JWT
+- **Versión Actual**: 1.16.20
 
 ## Documentación
 
@@ -48,6 +59,30 @@ La documentación completa del proyecto se encuentra organizada en el directorio
 
 - **[Documentación PHP API](documentacion/php_api/README.md)** - Especificaciones completas de la API principal
 - **[Documentación Node.js API](documentacion/node_api/README.md)** - Especificaciones de la API complementaria
+- **[Informe de Avances](documentacion/informe_avances_2025-07-25.md)** - Informe detallado de progreso del proyecto
+
+## Actualizaciones Recientes (Octubre 2025)
+
+### Node.js API
+- ✅ **Compresión de Fotos de Concursos**: Endpoint `/contest/compressed-photos` que genera estructura organizada de carpetas (categoría/sección/premio) y archivo ZIP descargable
+- ✅ **Gestión de Fotoclubes**: 
+  - Endpoint POST `/fotoclub/create` para crear nuevos fotoclubes con imágenes
+  - Endpoint PUT `/fotoclub/edit` mejorado con soporte de imágenes en base64
+  - Almacenamiento automático de imágenes de fotoclubes
+- ✅ **Optimización de Descargas**: Para concursos finalizados, se verifica si existe el ZIP antes de regenerarlo
+- ✅ **Health Check Mejorado**: Endpoint `/health` con información detallada del estado de la base de datos y sistema
+- ✅ **Soporte Multi-Database**: Configuración flexible para PostgreSQL y MySQL mediante `DB_CLIENT`
+- ✅ **Modo Solo Lectura**: Configuración `MODO_ESCRITURA` para controlar operaciones de escritura
+
+### PHP API
+- ✅ **Manejo Robusto de Autenticación**: Validación mejorada de tokens con respuestas HTTP correctas (401 para errores de autenticación)
+- ✅ **Validación de Headers**: Manejo seguro de headers Authorization malformados
+- ✅ **Respuestas JSON Estructuradas**: Formato consistente para todos los errores de autenticación
+
+### Documentación
+- ✅ **Actualización Completa**: Documentación actualizada con todos los nuevos endpoints y funcionalidades
+- ✅ **Ejemplos de Uso**: Ejemplos detallados para cada endpoint nuevo
+- ✅ **Especificaciones Técnicas**: Definiciones TypeScript para nuevas interfaces y tipos
 
 ## Instalación y Configuración
 

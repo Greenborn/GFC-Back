@@ -347,6 +347,147 @@ Content-Type: application/json
 
 ---
 
+### 3.4 Obtener Fotos Comprimidas de un Concurso
+**GET** `/contest/compressed-photos`
+
+Genera y obtiene un archivo ZIP con todas las fotografías de un concurso, organizadas por categoría, sección y premio. El endpoint crea una estructura de carpetas completa con las fotos y subdirectorios vacíos para cada premio disponible. Si el concurso ya está finalizado y el ZIP existe, solo devuelve la URL de descarga sin regenerar el archivo.
+
+#### Headers
+```
+Authorization: Bearer <token>
+```
+
+#### Query Parameters
+- `id` (int, requerido): ID del concurso
+
+#### Respuesta Exitosa (200) - Concurso Finalizado con ZIP Existente
+```json
+{
+  "success": true,
+  "contest_id": 1,
+  "download_url": "https://assets.prod-gfc.greenborn.com.ar/concurso_1.zip",
+  "message": "El concurso está finalizado y el archivo comprimido ya existe. Solo se envía el .zip."
+}
+```
+
+#### Respuesta Exitosa (200) - Procesamiento Completo
+```json
+{
+  "success": true,
+  "contest_sections": [
+    {
+      "id": 1,
+      "name": "Color"
+    },
+    {
+      "id": 2,
+      "name": "Blanco y Negro"
+    }
+  ],
+  "contest_categories": [
+    {
+      "id": 1,
+      "name": "Primera",
+      "mostrar_en_ranking": 1
+    },
+    {
+      "id": 2,
+      "name": "Estimulo",
+      "mostrar_en_ranking": 1
+    }
+  ],
+  "inscritos": [
+    {
+      "profile_id": 88,
+      "profile_name": "Juan Pérez",
+      "category_id": 1
+    }
+  ],
+  "contest_id": 1,
+  "contest_dir": "/var/www/GFC-PUBLIC-ASSETS/concurso_1",
+  "total_images": 450,
+  "images": [
+    {
+      "id": 10047,
+      "code": "3336_2025_38_Color_10047",
+      "title": "A LA DERECHA",
+      "profile_id": 88,
+      "url": "/images/2025/Primera/Color/3336_2025_38_Color_10047.jpg",
+      "section_id": 1,
+      "metric_id": 123,
+      "contest_result_id": 456
+    }
+  ],
+  "profile_category_dict": {
+    "88": 1
+  },
+  "download_url": "https://assets.prod-gfc.greenborn.com.ar/concurso_1.zip"
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "ID de concurso inválido o faltante. Use ?id=<contest_id>"
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "success": false,
+  "message": "Concurso no encontrado"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "success": false,
+  "message": "Error interno del servidor al obtener fotos asociadas al concurso",
+  "error": "Detalles del error"
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Requerida (Bearer Token)
+- **Permisos**: Usuarios autenticados
+- **Estructura de Carpetas**: 
+  - `concurso_{id}/`
+    - `{Categoría}/`
+      - `{Sección}/`
+        - `{Premio}/` (subdirectorios vacíos para cada premio)
+        - `{codigo_imagen}.jpg` (fotos)
+- **Optimización**: Si el concurso está finalizado y el ZIP ya existe, solo devuelve la URL
+- **Procesamiento de Imágenes**: Copia las imágenes desde el repositorio principal
+- **Formato de Nombres**: Los archivos se nombran según su código único
+- **Compresión**: Genera un archivo ZIP con nivel 9 de compresión
+- **Premios**: Obtiene los premios desde `metric_abm` con `organization_type = 'INTERNO'`
+- **Rate Limiting**: Según configuración global
+
+#### Estructura Generada del Directorio
+```
+concurso_1/
+├── Primera/
+│   ├── Color/
+│   │   ├── Primer Premio/
+│   │   ├── Segundo Premio/
+│   │   ├── Tercer Premio/
+│   │   ├── Mención de Honor/
+│   │   ├── 3336_2025_38_Color_10047.jpg
+│   │   └── 3337_2025_38_Color_10048.jpg
+│   └── Blanco y Negro/
+│       ├── Primer Premio/
+│       ├── Segundo Premio/
+│       └── ...
+└── Estimulo/
+    ├── Color/
+    └── Blanco y Negro/
+```
+
+---
+
 ## 4. Logs de Operaciones
 
 ### 4.1 Obtener Logs
@@ -774,7 +915,10 @@ Obtiene la lista completa de clubes fotográficos registrados en el sistema.
       "description": "Club de Tandil",
       "facebook": "facebook.com/portal",
       "instagram": "@portal",
-      "email": "contacto@portal.com"
+      "email": "contacto@portal.com",
+      "photo_url": "2025/foto_club_1234567890.jpg",
+      "mostrar_en_ranking": 1,
+      "organization_type": "INTERNO"
     },
     {
       "id": 2,
@@ -782,7 +926,10 @@ Obtiene la lista completa de clubes fotográficos registrados en el sistema.
       "description": "Club de Juarez",
       "facebook": "facebook.com/juarez",
       "instagram": "@juarez",
-      "email": "contacto@juarez.com"
+      "email": "contacto@juarez.com",
+      "photo_url": "2025/foto_club_1234567891.jpg",
+      "mostrar_en_ranking": 1,
+      "organization_type": "INTERNO"
     }
   ]
 }
@@ -803,7 +950,95 @@ Obtiene la lista completa de clubes fotográficos registrados en el sistema.
 
 ---
 
-### 10.2 Editar un fotoclub
+### 10.2 Crear un fotoclub
+**POST** `/fotoclub/create`
+
+Crea un nuevo club fotográfico en el sistema.
+
+#### Headers
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+#### Body de Request (ejemplo)
+```json
+{
+  "name": "Nuevo Fotoclub",
+  "description": "Descripción del nuevo club",
+  "facebook": "facebook.com/nuevofotoclub",
+  "instagram": "@nuevofotoclub",
+  "email": "contacto@nuevofotoclub.com",
+  "image": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+  "mostrar_en_ranking": 1,
+  "organization_type": "INTERNO"
+}
+```
+
+#### Parámetros
+- `name` (string, requerido): Nombre del fotoclub
+- `description` (string, opcional): Descripción del fotoclub
+- `facebook` (string, opcional): URL de Facebook
+- `instagram` (string, opcional): Usuario de Instagram
+- `email` (string, opcional): Email de contacto
+- `image` (string, opcional): Imagen en formato base64 (data URI)
+- `mostrar_en_ranking` (int, opcional): Si debe mostrarse en ranking (0/1)
+- `organization_type` (string, opcional): Tipo de organización ("INTERNO"/"EXTERNO")
+
+#### Respuesta Exitosa (201)
+```json
+{
+  "stat": true,
+  "text": "Fotoclub creado exitosamente",
+  "item": {
+    "id": 3,
+    "name": "Nuevo Fotoclub",
+    "description": "Descripción del nuevo club",
+    "facebook": "facebook.com/nuevofotoclub",
+    "instagram": "@nuevofotoclub",
+    "email": "contacto@nuevofotoclub.com",
+    "photo_url": "2025/foto_club_1234567892.jpg",
+    "mostrar_en_ranking": 1,
+    "organization_type": "INTERNO"
+  }
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "stat": false,
+  "text": "El nombre es obligatorio"
+}
+```
+
+#### Respuesta de Error (403)
+```json
+{
+  "stat": false,
+  "text": "Acceso denegado: solo administradores pueden crear fotoclubs"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "stat": false,
+  "text": "Ocurrió un error al crear el fotoclub."
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Requerida (Bearer Token)
+- **Permisos**: Solo admin (`role_id == "1"`)
+- **Validación**: El campo 'name' es obligatorio
+- **Procesamiento de Imagen**: Si se envía una imagen en base64, se guarda en el sistema de archivos
+- **Directorio de Imágenes**: `UPLOADS_BASE_PATH/{year}/foto_club_{timestamp}.{ext}`
+- **Rate Limiting**: Según configuración global
+
+---
+
+### 10.3 Editar un fotoclub
 **PUT** `/fotoclub/edit`
 
 Edita los datos de un club fotográfico existente.
@@ -822,9 +1057,19 @@ Content-Type: application/json
   "description": "Descripción actualizada",
   "facebook": "facebook.com/nuevo",
   "instagram": "@nuevo",
-  "email": "nuevo@club.com"
+  "email": "nuevo@club.com",
+  "image": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
 }
 ```
+
+#### Parámetros
+- `id` (int, requerido): ID del fotoclub a editar
+- `name` (string, requerido): Nombre del fotoclub
+- `description` (string, opcional): Descripción del fotoclub
+- `facebook` (string, opcional): URL de Facebook
+- `instagram` (string, opcional): Usuario de Instagram
+- `email` (string, opcional): Email de contacto
+- `image` (string, opcional): Nueva imagen en formato base64 (data URI)
 
 #### Respuesta Exitosa (200)
 ```json
@@ -839,6 +1084,14 @@ Content-Type: application/json
 {
   "stat": false,
   "text": "El nombre es obligatorio"
+}
+```
+
+#### Respuesta de Error (403)
+```json
+{
+  "stat": false,
+  "text": "Acceso denegado: solo administradores pueden editar fotoclubs"
 }
 ```
 
@@ -859,9 +1112,11 @@ Content-Type: application/json
 ```
 
 #### Características del Endpoint
-- **Autenticación**: Requerida (usuario autenticado)
-- **Permisos**: Requiere permisos de edición (writeProtection)
+- **Autenticación**: Requerida (Bearer Token)
+- **Permisos**: Solo admin (`role_id == "1"`) + writeProtection
 - **Validación**: El campo 'name' es obligatorio
+- **Procesamiento de Imagen**: Si se envía una nueva imagen, reemplaza la anterior
+- **Logging**: Se registra el cambio con valores anteriores y nuevos
 - **Rate Limiting**: Según configuración global
 
 ---

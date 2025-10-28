@@ -175,6 +175,41 @@ La API incluye un endpoint público para consultar participantes de concursos:
 curl -X GET "https://gfc.prod-api.greenborn.com.ar/contest/participants?id=1"
 ```
 
+#### Gestión de Fotoclubs
+La API incluye endpoints para la gestión de clubes fotográficos:
+
+- **GET** `/api/fotoclub/get_all` - Obtener listado de todos los fotoclubes (público)
+- **POST** `/api/fotoclub/create` - Crear un nuevo fotoclub (solo admin)
+- **PUT** `/api/fotoclub/edit` - Editar un fotoclub existente (solo admin)
+
+##### Características del Listado
+- **Sin autenticación**: Acceso público para consultas
+- **Información completa**: Incluye todos los datos del fotoclub
+- **Imágenes**: URLs de fotos de los clubes
+
+##### Características de Creación/Edición
+- **Autenticación requerida**: Solo administradores
+- **Subida de imágenes**: Soporta imágenes en formato base64 (data URI)
+- **Validación**: Nombre obligatorio
+- **Logging**: Se registran todas las operaciones de creación/modificación
+
+##### Ejemplo de uso
+```bash
+# Obtener todos los fotoclubes
+curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/fotoclub/get_all"
+
+# Crear un nuevo fotoclub (requiere autenticación)
+curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/fotoclub/create" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Nuevo Fotoclub",
+    "description": "Descripción del club",
+    "email": "contacto@fotoclub.com",
+    "image": "data:image/jpeg;base64,/9j/4AAQ..."
+  }'
+```
+
 ## WebSockets
 
 ### Eventos Principales

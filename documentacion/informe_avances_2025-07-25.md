@@ -3,9 +3,9 @@
 | <img src="https://avatars.githubusercontent.com/u/90219548?s=200&v=4" alt="Greenborn Logo" height="100"> | **Greenborn - Software en Crecimiento** |
 |:--|:--|
 
-**Fecha:** 2025-07-25
+**Fecha:** 2025-10-28
 
-Este informe detalla los avances realizados en el **Sistema de Gestión de Concursos** hasta el dìa de hoy.
+Este informe detalla los avances realizados en el **Sistema de Gestión de Concursos** hasta el día de hoy.
 
 ---
 
