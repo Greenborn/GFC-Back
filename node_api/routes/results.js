@@ -53,23 +53,61 @@ router.post('/judging', authMiddleware, async (req, res) => {
     return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores' });
   }
 
-  const estructura = req.body.estructura;
-  if (!estructura || typeof estructura !== 'object') {
-    return res.status(400).json({ success: false, message: 'Estructura inválida o faltante' });
-  }
+  try {
+    // Logging detallado para debug
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('POST /results/judging - Inicio del procesamiento');
+    console.log('Body recibido - Keys:', Object.keys(req.body));
+    console.log('Body recibido - Tipo:', typeof req.body);
+    
+    const estructura = req.body.estructura;
+    console.log('Estructura - Tipo:', typeof estructura);
+    console.log('Estructura - Es null:', estructura === null);
+    console.log('Estructura - Es undefined:', estructura === undefined);
+    
+    // Validación mejorada
+    if (!estructura) {
+      console.error('ERROR: Estructura no definida');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Estructura inválida o faltante',
+        detalle: 'El campo "estructura" no está presente en el body'
+      });
+    }
+    
+    if (typeof estructura !== 'object' || Array.isArray(estructura)) {
+      console.error('ERROR: Estructura no es un objeto válido');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Estructura inválida o faltante',
+        detalle: 'El campo "estructura" debe ser un objeto, no un array o valor primitivo'
+      });
+    }
+    
+    const concursosKeys = Object.keys(estructura);
+    if (concursosKeys.length === 0) {
+      console.error('ERROR: Estructura vacía');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Estructura inválida o faltante',
+        detalle: 'La estructura no contiene ningún concurso'
+      });
+    }
+    
+    console.log('Concursos encontrados:', concursosKeys);
+    console.log('INICIO procesamiento de estructura');
+    console.log('═══════════════════════════════════════════════════════');
+    
+    const informe = {
+      no_encontradas: {
+        metric: [],
+        image: [],
+      },
+      procesadas: []
+    };
 
-  const informe = {
-    no_encontradas: {
-      metric: [],
-      image: [],
-    },
-    procesadas: []
-  };
-
-  console.log('Estructura recibida:', JSON.stringify(estructura, null, 2));
-  console.log('INICIO procesamiento de estructura');
-  // Recorrido y extracción de información de la estructura
-  const resultados = [];
+    // Recorrido y extracción de información de la estructura
+    const resultados = [];
   
   // Iterar sobre los concursos (primer nivel de la estructura)
   for (let nombreConcurso in estructura) {
@@ -139,7 +177,26 @@ router.post('/judging', authMiddleware, async (req, res) => {
     await trx('contest').where({ id: contestIds[0] }).update({ judged: true });
   });
 
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('POST /results/judging - Procesamiento exitoso');
+  console.log('Total de actualizaciones:', updates.length);
+  console.log('═══════════════════════════════════════════════════════');
+
   res.json({ success: true, actualizaciones: updates });
+  
+  } catch (error) {
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('ERROR en POST /results/judging:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('═══════════════════════════════════════════════════════');
+    
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error al procesar los resultados',
+      error: error.message,
+      detalle: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
 });
 
 // Endpoint: POST /results/recalcular-ranking
