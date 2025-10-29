@@ -242,8 +242,6 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
     const fs = require('fs');
     const IMG_REPOSITORY_PATH = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
     const archiver = require('archiver');
-    const zipFileName = `concurso_${contestId}.zip`;
-    const zipFilePath = path.join(IMG_REPOSITORY_PATH, zipFileName);
     const IMG_BASE_PATH = process.env.IMG_BASE_PATH || 'https://assets.prod-gfc.greenborn.com.ar';
 
     try {
@@ -255,17 +253,65 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                 message: 'Concurso no encontrado'
             });
         }
+        
         const now = new Date();
         const endDate = new Date(contest.end_date);
-        const zipExists = fs.existsSync(zipFilePath);
-
-        // Si el concurso está finalizado y el zip ya existe, solo enviar el zip
-        if (endDate < now && zipExists) {
-            return res.json({
-                success: true,
-                contest_id: contestId,
-                download_url: `${IMG_BASE_PATH}/${zipFileName}`,
-                message: 'El concurso está finalizado y el archivo comprimido ya existe. Solo se envía el .zip.'
+        const isContestClosed = endDate < now;
+        
+        // Determinar nombre del archivo según estado del concurso
+        let zipFileName;
+        let zipFilePath;
+        
+        if (isContestClosed) {
+            // Concurso cerrado: nombre fijo sin fecha
+            zipFileName = `concurso_${contestId}.zip`;
+            zipFilePath = path.join(IMG_REPOSITORY_PATH, zipFileName);
+            
+            // Si el archivo definitivo ya existe, solo retornarlo
+            if (fs.existsSync(zipFilePath)) {
+                return res.json({
+                    success: true,
+                    contest_id: contestId,
+                    download_url: `${IMG_BASE_PATH}/${zipFileName}`,
+                    message: 'El concurso está finalizado y el archivo comprimido ya existe.'
+                });
+            }
+            
+            // Eliminar archivos temporales antiguos con fecha para este concurso
+            const files = fs.readdirSync(IMG_REPOSITORY_PATH);
+            const oldTempPattern = new RegExp(`^concurso_${contestId}_\\d{8}\\.zip$`);
+            files.forEach(file => {
+                if (oldTempPattern.test(file)) {
+                    try {
+                        fs.unlinkSync(path.join(IMG_REPOSITORY_PATH, file));
+                        console.log(`Archivo temporal antiguo eliminado: ${file}`);
+                    } catch (err) {
+                        console.error(`Error eliminando archivo temporal ${file}:`, err);
+                    }
+                }
+            });
+        } else {
+            // Concurso abierto: nombre con fecha actual
+            const dateNow = new Date();
+            const year = dateNow.getFullYear();
+            const month = dateNow.getMonth() + 1; // getMonth() devuelve 0-11
+            const day = dateNow.getDate();
+            const dateStr = `${year}${month}${day}`;
+            zipFileName = `concurso_${contestId}_${dateStr}.zip`;
+            zipFilePath = path.join(IMG_REPOSITORY_PATH, zipFileName);
+            
+            // Eliminar archivos anteriores de este concurso (tanto con fecha como sin fecha)
+            const files = fs.readdirSync(IMG_REPOSITORY_PATH);
+            const oldPattern = new RegExp(`^concurso_${contestId}(_\\d{8})?\\.zip$`);
+            files.forEach(file => {
+                if (oldPattern.test(file) && file !== zipFileName) {
+                    try {
+                        fs.unlinkSync(path.join(IMG_REPOSITORY_PATH, file));
+                        console.log(`Archivo anterior eliminado: ${file}`);
+                    } catch (err) {
+                        console.error(`Error eliminando archivo ${file}:`, err);
+                    }
+                }
             });
         }
 

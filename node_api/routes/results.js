@@ -54,7 +54,7 @@ router.post('/judging', authMiddleware, async (req, res) => {
   }
 
   const estructura = req.body.estructura;
-  if (!estructura || !estructura.exportacion) {
+  if (!estructura || typeof estructura !== 'object') {
     return res.status(400).json({ success: false, message: 'Estructura inválida o faltante' });
   }
 
@@ -66,38 +66,59 @@ router.post('/judging', authMiddleware, async (req, res) => {
     procesadas: []
   };
 
-  console.log('Estructura recibida:', JSON.stringify(estructura.exportacion, null, 2));
+  console.log('Estructura recibida:', JSON.stringify(estructura, null, 2));
   console.log('INICIO procesamiento de estructura');
   // Recorrido y extracción de información de la estructura
   const resultados = [];
-  for (let concurso in estructura.exportacion) {
-    let categoriaNormalizada = concurso === 'Estmulo' ? 'Estimulo' : concurso;
-    for (const seccion in estructura.exportacion[concurso]) {
-      for (const premio in estructura.exportacion[concurso][seccion]) {
-        const archivos = estructura.exportacion[concurso][seccion][premio].__files;
-        for (const archivo of archivos) {
-          // Extracción de datos del nombre de archivo
-          let nombreSinExtension = archivo.replace('.jpg', '').replace('Copia de ', '');
-          let partes = nombreSinExtension.split('_');
-          let id_usuario = partes[0];
-          let anio = partes[1];
-          let id_concurso = partes[2];
-          // La sección puede tener guiones bajos si tiene espacios
-          let id_imagen = partes[partes.length - 1];
-          let seccionArchivo = partes.slice(3, partes.length - 1).join('_');
-          let code = nombreSinExtension;
-          resultados.push({
-            categoria: categoriaNormalizada,
-            seccion,
-            premio,
-            archivo,
-            id_usuario,
-            anio,
-            id_concurso,
-            seccionArchivo,
-            id_imagen,
-            code
-          });
+  
+  // Iterar sobre los concursos (primer nivel de la estructura)
+  for (let nombreConcurso in estructura) {
+    const concursoData = estructura[nombreConcurso];
+    
+    // Iterar sobre las categorías (segundo nivel: "Primera", "Estímulo", etc.)
+    for (const categoria in concursoData) {
+      let categoriaNormalizada = categoria === 'Estmulo' ? 'Estimulo' : categoria;
+      const categoriaData = concursoData[categoria];
+      
+      // Iterar sobre las secciones (tercer nivel: "Sub Sección", "Monocromo", "Color")
+      for (const seccion in categoriaData) {
+        const seccionData = categoriaData[seccion];
+        
+        // Iterar sobre los premios (cuarto nivel: "1er PREMIO", "ACEPTADA", etc.)
+        for (const premio in seccionData) {
+          const premioData = seccionData[premio];
+          
+          // Verificar que exista __files
+          if (!premioData.__files || !Array.isArray(premioData.__files)) {
+            continue;
+          }
+          
+          const archivos = premioData.__files;
+          for (const archivo of archivos) {
+            // Extracción de datos del nombre de archivo
+            let nombreSinExtension = archivo.replace('.jpg', '').replace('Copia de ', '');
+            let partes = nombreSinExtension.split('_');
+            let id_usuario = partes[0];
+            let anio = partes[1];
+            let id_concurso = partes[2];
+            // La sección puede tener guiones bajos si tiene espacios
+            let id_imagen = partes[partes.length - 1];
+            let seccionArchivo = partes.slice(3, partes.length - 1).join('_');
+            let code = nombreSinExtension;
+            resultados.push({
+              nombreConcurso,
+              categoria: categoriaNormalizada,
+              seccion,
+              premio,
+              archivo,
+              id_usuario,
+              anio,
+              id_concurso,
+              seccionArchivo,
+              id_imagen,
+              code
+            });
+          }
         }
       }
     }
