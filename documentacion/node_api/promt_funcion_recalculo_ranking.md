@@ -174,9 +174,59 @@ ON "public"."profile_contest" (
   "profile_id" ASC
 );
 
-## Proceso de Cálculo
+## Proceso de Cálculo (Definición Técnica)
 
+### 1. Inicialización
+- Iniciar proceso de recalculo para el año actual.
+- Limpiar o preparar las tablas de ranking (`fotoclub_ranking`, `profiles_ranking_category_section`) se vaciarán
+
+### 2. Obtener datos base
+
+- Recuperar todos los concursos juzgados en el año actual:
+  - Seleccionar de la tabla `contest` aquellos registros donde:
+    - El campo `judged` sea verdadero
+    - La fecha de cierre (`end_date`) esté dentro del año en curso
+    - El campo `organization_type` sea igual a 'INTERNO'
+  - Ejemplo de consulta SQL:
+    ```sql
+    SELECT * FROM contest
+    WHERE judged = true
+      AND organization_type = 'INTERNO'
+      AND EXTRACT(YEAR FROM end_date) = EXTRACT(YEAR FROM CURRENT_DATE);
+    ```
+  - Alternativamente, si se requiere filtrar por otro campo de fecha, ajustar la consulta según corresponda.
+
+- Para cada concurso, obtener sus categorías (`contest_category`) y secciones (`contest_section`).
+- Obtener todos los resultados (`contest_result`) asociados a los concursos juzgados.
+- Obtener la definición de premios y puntajes desde la tabla `metric`.
+
+### 3. Procesar resultados por perfil
+Para cada perfil participante:
+  - Para cada categoría y sección en la que participó:
+  - Sumar el puntaje total obtenido según los premios (`metric.score`).
+  - Contabilizar la cantidad de premios por tipo (acumulando en un JSON `prizes`).
+  - Calcular la efectividad (porcentaje de imágenes premiadas sobre presentadas).
+  - Guardar/actualizar el registro en `profiles_ranking_category_section`.
+
+### 4. Procesar resultados por fotoclub
+Para cada fotoclub:
+  - Identificar todos los perfiles asociados al fotoclub.
+  - Sumar puntajes y premios obtenidos por sus miembros en el año.
+  - Calcular la efectividad anual del fotoclub.
+  - Guardar/actualizar el registro en `fotoclub_ranking`.
+
+### 5. Generar salida
+- Retornar un JSON con stat == true y los rankings generados.
+- En caso de error, retornar stat == false y loguear el error.
 
 ## Validaciones y Errores
 - Manejo de errores y casos excepcionales.
-- los errores retornan stat == false y se muestra error en console.log
+- Los errores retornan stat == false y se muestra error en console.log
+
+## Ubicacion de la función en estructura de archivos
+Se usará archivo node_api/controllers/ranking.js para implementar nueva funcion actualizar_ranking
+
+## Notas de implementación y llamada de la función 
+la misma se puede llamar de dos maneras
+- Por linea de comandos, se debe crear nuevo script dentro de directorio node_api/commands/recalcular_ranking.js que debe implementar todo el codigo necesario para conectarse a la base de datos usando las configuraciones ya definidas en node_api/.env
+- A petición del administrador en edpoint existente en endpoint /recalcular-ranking, no omitas la validación de que el usuario que hace el llamado debe ser de tipo administrador (mantenlo como está), reemplaza el llamado a comando php
