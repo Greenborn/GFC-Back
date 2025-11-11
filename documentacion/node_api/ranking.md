@@ -10,7 +10,7 @@ Este documento describe el flujo de generación y recálculo del ranking desde l
   - Se completan datos cruzando `image`, `contest_result`, `metric` y `metric_abm`.
   - Se actualizan `metric.prize` y `metric.score` en base a `metric_abm` para cada resultado.
   - Se marca el concurso como `judged = true` (solo si hay un único `contest_id`).
-- Luego se recalcula el ranking global vía `POST /api/results/recalcular-ranking`, que ejecuta un comando PHP (Yii CLI) que actualiza las tablas de ranking.
+- Luego se recalcula el ranking global vía `POST /api/results/recalcular-ranking`, que ahora utiliza lógica Node.js nativa para actualizar las tablas de ranking sin depender de comando PHP.
 
 ## Endpoints
 
@@ -100,13 +100,13 @@ Errores y validaciones:
 
 - Propósito: Recalcular el ranking global en base a los resultados y métricas ya consolidados.
 - Autenticación: Requiere usuario con `role_id == '1'` (administrador).
-- Acción: Ejecuta el comando PHP (Yii CLI) `php8.1 yii actualizar-ranking/index` con `cwd` en `/var/www/GFC-Back-PRD/php_api/`.
-- Timeout: 300000 ms (5 minutos).
+- Acción (Node): Selecciona concursos del año actual con `judged = true` y `organization_type = 'INTERNO'`, agrega por perfil/categoría/sección y por fotoclub, y persiste en transacción.
 
 Efectos esperados:
 
-- Actualiza las tablas de ranking en la base de datos (según lógica del proyecto PHP Yii). En el código del proyecto PHP existen modelos como `ProfilesRanking` y `FotoclubRanking`, que suelen ser los agregados de ranking por perfil y fotoclub.
-- Considera los `score` ya asentados en `metric` y la lógica definida en la app PHP.
+- Limpia e inserta registros en `profiles_ranking_category_section` y `fotoclub_ranking`.
+- `prizes` se guarda como JSON con la sumatoria de puntajes por tipo de premio.
+- `porc_efectividad_anual` se compone con premiadas, totales y porcentaje.
 
 Respuestas típicas:
 
@@ -114,15 +114,19 @@ Respuestas típicas:
 {
   "success": true,
   "message": "Ranking recalculado exitosamente",
-  "output": "... salida del comando ..."
+  "output": {
+    "stat": true,
+    "message": "Ranking recalculado exitosamente",
+    "perfiles_insertados": 123,
+    "fotoclubs_insertados": 12
+  }
 }
 ```
 
 Errores y validaciones:
 
 - 403 si el usuario no es admin.
-- 408 si el comando PHP excede el tiempo de ejecución.
-- 500 si el comando devuelve `stderr` o ocurre un error interno.
+- 500 si ocurre un error interno durante el recálculo.
 
 ## Consideraciones de Datos y Configuración
 
@@ -140,7 +144,7 @@ Errores y validaciones:
 
 1. Ejecutar `POST /api/results/judging` con el objeto `estructura` obtenido del sistema de juzgamiento.
 2. Verificar que el concurso queda con `judged = true` y que las métricas se actualizan (prize/score) correctamente.
-3. Ejecutar `POST /api/results/recalcular-ranking` para publicar/actualizar el ranking global.
+3. Ejecutar `POST /api/results/recalcular-ranking` para publicar/actualizar el ranking global (lógica Node).
 
 ## Ejemplos de Peticiones
 

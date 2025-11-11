@@ -69,6 +69,32 @@ node_api/
 - **[Arquitectura](arquitectura.md)**: Diseño arquitectónico detallado
 - **[Definición Técnica](definicion_tecnica.md)**: Especificación técnica exhaustiva
 - **[Endpoints](endpoints.md)**: Documentación completa de todos los endpoints
+- **[Ranking](ranking.md)**: Flujo de generación y recálculo del ranking
+
+## Recálculo de Ranking
+
+- Descripción: El recálculo anual del ranking se realiza ahora directamente en Node.js, sin dependencia del comando PHP.
+- Tablas afectadas: `profiles_ranking_category_section` y `fotoclub_ranking`.
+- Fuentes de datos: `contest_result` + `metric` + `image` + `profile_contest`.
+- Filtros de concursos: `judged = true`, `organization_type = 'INTERNO'`, `end_date >= primer día del año`.
+
+Formas de ejecución:
+- Endpoint: `POST /api/results/recalcular-ranking` (requiere token de administrador).
+- CLI: `node node_api/commands/recalcular_ranking.js` (carga `.env` y utiliza `knex`).
+
+Salida esperada (endpoint):
+```json
+{
+  "success": true,
+  "message": "Ranking recalculado exitosamente",
+  "output": {
+    "stat": true,
+    "message": "Ranking recalculado exitosamente",
+    "perfiles_insertados": 123,
+    "fotoclubs_insertados": 12
+  }
+}
+```
 
 ## Configuración e Instalación
 
@@ -301,6 +327,9 @@ npm run migrate:rollback
 
 # Generar logs de operaciones
 npm run logs:generate
+
+# Recalcular ranking anual (CLI)
+node node_api/commands/recalcular_ranking.js
 ```
 
 ## Integración con PHP API
@@ -352,4 +381,4 @@ Para soporte técnico específico de la API Node.js, contactar al equipo de desa
 
 ---
 
-**Navegación**: [Volver al README Principal](../../README.md) | [Arquitectura](arquitectura.md) | [Definición Técnica](definicion_tecnica.md) | [Endpoints](endpoints.md) 
+**Navegación**: [Volver al README Principal](../../README.md) | [Arquitectura](arquitectura.md) | [Definición Técnica](definicion_tecnica.md) | [Endpoints](endpoints.md)
