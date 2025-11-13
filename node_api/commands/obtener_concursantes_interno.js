@@ -63,6 +63,10 @@ async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const now = new Date();
   const year = parseInt(argv.year || now.getFullYear(), 10);
+  const startBound = `${year}-01-01 00:00:00`;
+  const endBound = `${year}-12-31 23:59:59`;
+  const limit = argv.limit ? parseInt(argv.limit, 10) : null;
+  const verbose = !!(argv.verbose || argv.v);
 
   let outputPath = argv.output;
   if (!outputPath) {
@@ -94,7 +98,9 @@ async function main() {
       process.exit(0);
     }
 
+    if (verbose) console.log(`[${new Date().toISOString()}] Verificando conexión a la base...`);
     await global.knex.raw('SELECT 1');
+    if (verbose) console.log(`[${new Date().toISOString()}] Conexión OK. Ejecutando consulta (${year})...`);
 
     const q = global.knex('profile_contest as pc')
       .join('contest as c', 'pc.contest_id', 'c.id')
@@ -103,8 +109,8 @@ async function main() {
       .leftJoin('fotoclub as fc', 'fc.id', 'p.fotoclub_id')
       .where('c.organization_type', 'INTERNO')
       .andWhere(function () {
-        this.whereRaw('EXTRACT(YEAR FROM c.start_date) = ?', [year])
-            .orWhereRaw('EXTRACT(YEAR FROM c.end_date) = ?', [year]);
+        this.whereBetween('c.start_date', [startBound, endBound])
+            .orWhereBetween('c.end_date', [startBound, endBound]);
       })
       .select(
         'p.id as profile_id',
@@ -123,7 +129,12 @@ async function main() {
       .orderBy('p.name', 'asc')
       .orderBy('p.last_name', 'asc');
 
+    if (limit && Number.isFinite(limit) && limit > 0) {
+      q.limit(limit);
+    }
+
     const rows = await q;
+    if (verbose) console.log(`[${new Date().toISOString()}] Consulta completada. Filas: ${rows.length}. Procesando...`);
 
     const uniqueMap = new Map();
     for (const r of rows) {
@@ -154,6 +165,7 @@ async function main() {
     const csv = toCsv(unique, headers);
     fs.writeFileSync(outputPath, csv, 'utf8');
 
+    if (verbose) console.log(`[${new Date().toISOString()}] CSV escrito.`);
     console.log(`OK: ${unique.length} concursantes únicos exportados para ${year}`);
     console.log(`Archivo: ${outputPath}`);
     process.exit(0);
