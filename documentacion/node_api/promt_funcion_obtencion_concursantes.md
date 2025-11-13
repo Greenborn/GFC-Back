@@ -1,4 +1,5 @@
 ## Prompt para GPT-5: Función de obtención de concursantes INTERNO (año en curso)
+ERROR al obtener concursantes INTERNO: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
 
 Desarrolla una función en Node.js ubicada en el directorio `commands` de la carpeta `node_api` que realice lo siguiente:
 
