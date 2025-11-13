@@ -1,6 +1,22 @@
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+
+let ENV_PATH_USED = null;
+(function loadEnv() {
+  const candidates = [
+    path.resolve(__dirname, '..', '.env'),
+    path.resolve(__dirname, '..', '..', '.env')
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      require('dotenv').config({ path: p });
+      if (process.env.DB_CLIENT || process.env.DB_HOST || process.env.DB_NAME) {
+        ENV_PATH_USED = p;
+        break;
+      }
+    }
+  }
+})();
 require('../knexfile.js');
 
 function parseArgs(argv) {
@@ -58,9 +74,24 @@ async function main() {
     const requiredEnv = ['DB_CLIENT', 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
     for (const k of requiredEnv) {
       if (!process.env[k] || typeof process.env[k] !== 'string') {
-        console.error(`Configuración faltante o inválida: ${k}. Verifique ${path.resolve(__dirname, '..', '.env')}`);
+        console.error(`Configuración faltante o inválida: ${k}. Verifique ${ENV_PATH_USED || path.resolve(__dirname, '..', '.env')}`);
         process.exit(1);
       }
+    }
+
+    if (argv['check-env'] || argv.checkEnv) {
+      const mask = v => typeof v === 'string' ? v.replace(/.(?=.{2})/g, '*') : v;
+      const summary = {
+        DB_CLIENT: process.env.DB_CLIENT,
+        DB_HOST: process.env.DB_HOST,
+        DB_PORT: process.env.DB_PORT,
+        DB_USER: process.env.DB_USER,
+        DB_PASSWORD: mask(process.env.DB_PASSWORD || ''),
+        DB_NAME: process.env.DB_NAME,
+        ENV_PATH: ENV_PATH_USED
+      };
+      console.log(JSON.stringify(summary, null, 2));
+      process.exit(0);
     }
 
     await global.knex.raw('SELECT 1');
