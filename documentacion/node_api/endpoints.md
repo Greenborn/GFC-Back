@@ -821,7 +821,7 @@ Ejemplo: `3336_2025_38_Color_10047.jpg`
 ### 8.2 Recalcular Ranking
 **POST** `/results/recalcular-ranking`
 
-Ejecuta el comando PHP para recalcular el ranking de usuarios. Este endpoint ejecuta el comando `php8.1 yii actualizar-ranking/index` en el directorio del servidor PHP.
+Recalcula el ranking anual directamente con lógica Node.js (sin comando PHP). El controlador Node lee resultados juzgados del año en curso y actualiza las tablas `profiles_ranking_category_section` y `fotoclub_ranking` en una transacción.
 
 #### Headers
 ```
@@ -833,7 +833,12 @@ Authorization: Bearer <token>
 {
   "success": true,
   "message": "Ranking recalculado exitosamente",
-  "output": "Salida del comando PHP ejecutado"
+  "output": {
+    "stat": true,
+    "message": "Ranking recalculado exitosamente",
+    "perfiles_insertados": 123,
+    "fotoclubs_insertados": 12
+  }
 }
 ```
 
@@ -845,29 +850,22 @@ Authorization: Bearer <token>
 }
 ```
 
-#### Respuesta de Error (408)
-```json
-{
-  "success": false,
-  "message": "Timeout: El comando tardó demasiado en ejecutarse"
-}
-```
-
 #### Respuesta de Error (500)
 ```json
 {
   "success": false,
-  "message": "Error al ejecutar el comando de actualización de ranking",
+  "message": "Error interno al recalcular ranking",
   "error": "Detalles del error"
 }
 ```
 
 #### Características del Endpoint
 - **Autenticación**: Requerida (solo rol `admin`)
-- **Timeout**: 5 minutos máximo de ejecución
-- **Comando**: Ejecuta `php8.1 yii actualizar-ranking/index` en `/var/www/gfc.prod-api.greenborn.com.ar`
-- **Logging**: Registra inicio y resultado de la ejecución
-- **Manejo de errores**: Captura errores de Node.js y del comando PHP
+- **Transaccional**: Limpia e inserta rankings en una transacción
+- **Selección de concursos**: `judged = true`, `organization_type = 'INTERNO'`, `end_date >= inicio de año`
+- **Perfil/Categoría/Sección**: Suma `metric.score`, cuenta presentadas/premiadas, compone `prizes` como JSON con sumatoria de puntajes por premio
+- **Fotoclub**: Suma agregados de sus miembros, calcula `porc_efectividad_anual`
+- **Manejo de errores**: Captura errores de Node.js y devuelve detalles en `error`
 
 ---
 
@@ -1292,4 +1290,4 @@ Content-Type: application/json
 
 ---
 
-[Navegación: Volver al inicio](#endpoints---nodejs-api) 
+[Navegación: Volver al inicio](#endpoints---nodejs-api)

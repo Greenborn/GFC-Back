@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const { exec } = require('child_process');
-const util = require('util');
-const execAsync = util.promisify(exec);
+const { actualizarRanking } = require('../controllers/ranking');
 
 // Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile, el contest_result, la metric y la metric_abm
 async function complementaInfoImagen(resultado, knex) {
@@ -207,46 +205,16 @@ router.post('/recalcular-ranking', authMiddleware, async (req, res) => {
   }
 
   try {
-    console.log('Iniciando recálculo de ranking...');
-    
-    // Ejecutar el comando PHP para actualizar el ranking
-    const comando = 'php8.1 yii actualizar-ranking/index';
-    const directorio = '/var/www/GFC-Back-PRD/php_api/';
-    
-    console.log(`Ejecutando comando: ${comando} en directorio: ${directorio}`);
-    
-    const { stdout, stderr } = await execAsync(comando, { 
-      cwd: directorio,
-      timeout: 300000 // 5 minutos de timeout
-    });
-    
-    if (stderr) {
-      console.error('Error en la ejecución del comando PHP:', stderr);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Error al ejecutar el comando de actualización de ranking',
-        error: stderr 
-      });
-    }
-    
-    console.log('Comando ejecutado exitosamente:', stdout);
-    
+    console.log('Iniciando recálculo de ranking con lógica Node...');
+    const resultado = await actualizarRanking();
     res.json({ 
       success: true, 
-      message: 'Ranking recalculado exitosamente',
-      output: stdout 
+      message: resultado?.message || 'Ranking recalculado exitosamente',
+      output: resultado 
     });
     
   } catch (error) {
     console.error('Error al recalcular ranking:', error);
-    
-    if (error.code === 'ETIMEDOUT') {
-      return res.status(408).json({ 
-        success: false, 
-        message: 'Timeout: El comando tardó demasiado en ejecutarse' 
-      });
-    }
-    
     res.status(500).json({ 
       success: false, 
       message: 'Error interno al recalcular ranking',
@@ -255,4 +223,4 @@ router.post('/recalcular-ranking', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;
