@@ -867,6 +867,176 @@ Authorization: Bearer <token>
 - **Fotoclub**: Suma agregados de sus miembros, calcula `porc_efectividad_anual`
 - **Manejo de errores**: Captura errores de Node.js y devuelve detalles en `error`
 
+### 8.3 Detalle de Ranking por Concursante
+**GET** `/ranking/detalle`
+
+Obtiene el detalle de participación y ranking de un concursante dentro de un concurso específico. Incluye datos del concurso y del perfil, categorías asignadas por inscripción, secciones en las que tiene resultados, listado de imágenes con sus métricas y el ranking total con posición calculada contra el resto de participantes del concurso.
+
+#### Headers
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+#### Query Parameters
+- `profile_id` (int, requerido): ID del concursante (perfil)
+- `contest_id` (int, opcional): ID del concurso
+- `year` (int, opcional): Año a consultar si no se especifica `contest_id` (default: año actual)
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "contest": {
+    "id": 51,
+    "name": "Tres elementos y Paisaje",
+    "description": "...",
+    "start_date": "2025-07-27 22:53:00",
+    "end_date": "2025-08-17 23:58:00",
+    "organization_type": "INTERNO",
+    "judged": true
+  },
+  "profile": {
+    "id": 123,
+    "name": "Juan",
+    "last_name": "Pérez",
+    "fotoclub": { "id": 7, "name": "GFC", "photo_url": "..." },
+    "img_url": "images/perfil/123.jpg"
+  },
+  "categories": [
+    { "id": 2, "name": "Primera" }
+  ],
+  "sections": [
+    { "id": 1, "name": "Color" },
+    { "id": 2, "name": "Monocromo" }
+  ],
+  "results": [
+    {
+      "section": "Color",
+      "category": "Primera",
+      "images": [
+        { "image_id": 10047, "metric": { "prize": "1er PREMIO", "score": 95 } },
+        { "image_id": 10048, "metric": { "prize": "ACEPTADA", "score": 1 } }
+      ]
+    },
+    {
+      "section": "Monocromo",
+      "category": "Primera",
+      "images": [
+        { "image_id": 10090, "metric": { "prize": "MENCION", "score": 5 } }
+      ]
+    }
+  ],
+  "ranking": {
+    "total_score": 101,
+    "position": 2
+  }
+}
+```
+
+#### Respuesta de Error (401)
+```json
+{ "success": false, "message": "No autenticado" }
+```
+
+#### Respuesta de Error (403)
+```json
+{ "success": false, "message": "El concursante no está inscripto en el concurso" }
+```
+
+#### Respuesta de Error (404)
+```json
+{ "success": false, "message": "Concurso no encontrado" }
+```
+```json
+{ "success": false, "message": "Concursante no encontrado" }
+```
+
+#### Respuesta de Error (500)
+```json
+{ "success": false, "message": "Error interno", "error": "Detalles" }
+```
+
+#### Características del Endpoint
+- **Autenticación**: Requerida (Bearer Token)
+- **Permisos**: Usuarios autenticados
+- **Validación**: Verifica inscripción del perfil en el concurso (`profile_contest`)
+- **Datos incluidos**: `contest`, `profile` (con `fotoclub`), `categories`, `sections`, `results` y `ranking`
+- **Cálculo de ranking**: Suma `metric.score` del concursante y calcula `position` comparando contra total de participantes del concurso
+
+#### Ejemplos de Uso
+- cURL
+```
+curl -H "Authorization: Bearer <token>" \
+  "http://localhost:7779/api/ranking/detalle?contest_id=51&profile_id=123"
+```
+
+- Node.js (axios)
+```js
+const axios = require('axios');
+const token = '<token>';
+const url = 'http://localhost:7779/api/ranking/detalle?contest_id=51&profile_id=123';
+axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
+  .then(res => console.log(res.data))
+  .catch(err => console.error(err.response?.status, err.response?.data));
+```
+
+#### Pruebas Automatizadas
+- Script de prueba disponible en `test/test_ranking_detalle.js` que:
+  - Autentica y obtiene `token`
+  - Descubre `contest_id` y `profile_id` válidos
+  - Verifica acceso sin token (401) y con token (200)
+  - Valida la estructura de respuesta (`contest`, `profile`, `categories`, `sections`, `results`, `ranking`)
+
+#### Variante sin `contest_id` (opcional)
+
+**GET** `/ranking/detalle?profile_id={id}&year=YYYY`
+
+Cuando no se especifica `contest_id`, el endpoint devuelve los datos de todos los concursos del año indicado (por defecto, año actual) en los que el perfil participó o está inscripto. El filtrado se realiza por `end_date >= 1 de enero` y año de la fecha de cierre igual al `year` indicado.
+
+#### Query Parameters
+- `year` (int, opcional): Año a consultar. Default: año actual.
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "profile": { "id": 123, "name": "Juan", "last_name": "Pérez", "fotoclub": { "id": 7, "name": "GFC" }, "img_url": "..." },
+  "year": 2025,
+  "items": [
+    {
+      "contest": { "id": 51, "name": "Concurso A", "end_date": "2025-03-20 23:59:00" },
+      "categories": [ { "id": 2, "name": "Primera" } ],
+      "sections": [ { "id": 1, "name": "Color" } ],
+      "results": [ { "section": "Color", "category": "Primera", "images": [ { "image_id": 10047, "metric": { "prize": "1er PREMIO", "score": 95 } } ] } ],
+      "ranking": { "total_score": 95, "position": 1 }
+    },
+    {
+      "contest": { "id": 52, "name": "Concurso B", "end_date": "2025-06-15 23:59:00" },
+      "categories": [],
+      "sections": [],
+      "results": [],
+      "ranking": { "total_score": 0, "position": null }
+    }
+  ],
+  "count": 2
+}
+```
+
+#### Ejemplos de Uso
+- cURL
+```
+curl -H "Authorization: Bearer <token>" \
+  "http://localhost:7779/api/ranking/detalle?profile_id=123&year=2025"
+```
+
+- Node.js (axios)
+```js
+const axios = require('axios');
+const token = '<token>';
+axios.get('http://localhost:7779/api/ranking/detalle?profile_id=123&year=2025', { headers: { Authorization: `Bearer ${token}` } })
+  .then(res => console.log(res.data.items.length))
+  .catch(err => console.error(err.response?.status, err.response?.data));
+```
+
 ---
 
 ## 9. Códigos de Error
