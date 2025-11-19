@@ -868,7 +868,7 @@ Authorization: Bearer <token>
 - **Manejo de errores**: Captura errores de Node.js y devuelve detalles en `error`
 
 ### 8.3 Detalle de Ranking por Concursante
-**GET** `/ranking/detalle/:contest_id/:profile_id`
+**GET** `/ranking/detalle`
 
 Obtiene el detalle de participación y ranking de un concursante dentro de un concurso específico. Incluye datos del concurso y del perfil, categorías asignadas por inscripción, secciones en las que tiene resultados, listado de imágenes con sus métricas y el ranking total con posición calculada contra el resto de participantes del concurso.
 
@@ -878,9 +878,10 @@ Authorization: Bearer <token>
 Content-Type: application/json
 ```
 
-#### Parámetros de Ruta
-- `contest_id` (int, requerido): ID del concurso
+#### Query Parameters
 - `profile_id` (int, requerido): ID del concursante (perfil)
+- `contest_id` (int, opcional): ID del concurso
+- `year` (int, opcional): Año a consultar si no se especifica `contest_id` (default: año actual)
 
 #### Respuesta Exitosa (200)
 ```json
@@ -966,14 +967,14 @@ Content-Type: application/json
 - cURL
 ```
 curl -H "Authorization: Bearer <token>" \
-  "http://localhost:7779/api/ranking/detalle/51/123"
+  "http://localhost:7779/api/ranking/detalle?contest_id=51&profile_id=123"
 ```
 
 - Node.js (axios)
 ```js
 const axios = require('axios');
 const token = '<token>';
-const url = 'http://localhost:7779/api/ranking/detalle/51/123';
+const url = 'http://localhost:7779/api/ranking/detalle?contest_id=51&profile_id=123';
 axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
   .then(res => console.log(res.data))
   .catch(err => console.error(err.response?.status, err.response?.data));
@@ -988,7 +989,7 @@ axios.get(url, { headers: { Authorization: `Bearer ${token}` } })
 
 #### Variante sin `contest_id` (opcional)
 
-**GET** `/ranking/detalle/:profile_id?year=YYYY`
+**GET** `/ranking/detalle?profile_id={id}&year=YYYY`
 
 Cuando no se especifica `contest_id`, el endpoint devuelve los datos de todos los concursos del año indicado (por defecto, año actual) en los que el perfil participó o está inscripto. El filtrado se realiza por `end_date >= 1 de enero` y año de la fecha de cierre igual al `year` indicado.
 
@@ -1024,14 +1025,14 @@ Cuando no se especifica `contest_id`, el endpoint devuelve los datos de todos lo
 - cURL
 ```
 curl -H "Authorization: Bearer <token>" \
-  "http://localhost:7779/api/ranking/detalle/123?year=2025"
+  "http://localhost:7779/api/ranking/detalle?profile_id=123&year=2025"
 ```
 
 - Node.js (axios)
 ```js
 const axios = require('axios');
 const token = '<token>';
-axios.get('http://localhost:7779/api/ranking/detalle/123?year=2025', { headers: { Authorization: `Bearer ${token}` } })
+axios.get('http://localhost:7779/api/ranking/detalle?profile_id=123&year=2025', { headers: { Authorization: `Bearer ${token}` } })
   .then(res => console.log(res.data.items.length))
   .catch(err => console.error(err.response?.status, err.response?.data));
 ```
