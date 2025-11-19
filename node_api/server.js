@@ -92,6 +92,7 @@ app_admin.use('/api/contest', require('./routes/contest.js')); // Ruta compatibl
 app_admin.use('/api/images', require('./routes/images.js'));
 app_admin.use('/api/log', require('./routes/log.js'));
 app_admin.use('/api/results', require('./routes/results.js'));
+app_admin.use('/api/ranking', require('./routes/ranking.js'));
 
 // Manejo de errores global
 app_admin.use((err, req, res, next) => {
