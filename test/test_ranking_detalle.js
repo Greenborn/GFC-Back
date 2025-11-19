@@ -55,6 +55,12 @@ async function run() {
   console.log(`🖼️ Results: ${(data && data.results && data.results.length) || 0}`);
   console.log(`📈 Ranking total_score: ${data && data.ranking && data.ranking.total_score}`);
   console.log(`📌 Ranking position: ${data && data.ranking && data.ranking.position}`);
+  console.log('🧪 Probando variante sin contest_id...');
+  const year = Number(process.env.RANKING_YEAR) || new Date().getFullYear();
+  const resVar = await axios.get(`${NODE_API_BASE_URL}/api/ranking/detalle/${profileId}?year=${year}`, { headers });
+  console.log(`📊 Status variante: ${resVar.status}`);
+  console.log(`📦 Items: ${(resVar.data && resVar.data.items && resVar.data.items.length) || 0}`);
+  console.log(`📅 Año: ${resVar.data && resVar.data.year}`);
   const end = Date.now();
   console.log(`⏱️ Tiempo: ${end - start}ms`);
 }
