@@ -53,6 +53,10 @@ async function run() {
   console.log(`🗂️ Categories: ${(data && data.categories && data.categories.length) || 0}`);
   console.log(`📋 Sections: ${(data && data.sections && data.sections.length) || 0}`);
   console.log(`🖼️ Results: ${(data && data.results && data.results.length) || 0}`);
+  const firstRes = data && data.results && data.results[0];
+  const firstImg = firstRes && firstRes.images && firstRes.images[0];
+  console.log(`🎨 Obra: ${firstImg && firstImg.title}`);
+  console.log(`🖼️ Miniatura: ${firstImg && firstImg.thumbnail_url}`);
   console.log(`📈 Ranking total_score: ${data && data.ranking && data.ranking.total_score}`);
   console.log(`📌 Ranking position: ${data && data.ranking && data.ranking.position}`);
   console.log('🧪 Probando variante sin contest_id...');
@@ -60,6 +64,11 @@ async function run() {
   const resVar = await axios.get(`${NODE_API_BASE_URL}/api/ranking/detalle?profile_id=${profileId}&year=${year}`, { headers });
   console.log(`📊 Status variante: ${resVar.status}`);
   console.log(`📦 Items: ${(resVar.data && resVar.data.items && resVar.data.items.length) || 0}`);
+  const firstItem = resVar.data && resVar.data.items && resVar.data.items[0];
+  const firstResVar = firstItem && firstItem.results && firstItem.results[0];
+  const firstImgVar = firstResVar && firstResVar.images && firstResVar.images[0];
+  console.log(`🎨 Obra (var): ${firstImgVar && firstImgVar.title}`);
+  console.log(`🖼️ Miniatura (var): ${firstImgVar && firstImgVar.thumbnail_url}`);
   console.log(`📅 Año: ${resVar.data && resVar.data.year}`);
   const end = Date.now();
   console.log(`⏱️ Tiempo: ${end - start}ms`);
