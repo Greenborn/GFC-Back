@@ -2,10 +2,25 @@
 // Verifica que los scores en la tabla 'metric' coincidan con los valores definidos en 'metric_abm'
 // Uso: node node_api/commands/revisar_metricas_temporada.js
 
-const config = require('dotenv').config();
+// Cargar variables de entorno desde el directorio correcto
+const path = require('path');
+const dotenv = require('dotenv');
+const envPath = path.join(__dirname, '..', '.env');
+const config = dotenv.config({ path: envPath });
+
+if (config.error) {
+  console.error('⚠️  Error cargando archivo .env:', config.error.message);
+  console.log('📍 Buscando en:', envPath);
+}
+
+// Verificar que las variables críticas estén cargadas
+if (!process.env.DB_PASSWORD) {
+  console.error('❌ ERROR: DB_PASSWORD no está definido en el archivo .env');
+  process.exit(1);
+}
+
 require('../knexfile.js'); // inicializa global.knex
 const fs = require('fs');
-const path = require('path');
 
 /**
  * Obtiene todos los concursos de la temporada actual (año actual)
