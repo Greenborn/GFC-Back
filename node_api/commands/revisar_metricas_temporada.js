@@ -24,19 +24,21 @@ const fs = require('fs');
 
 /**
  * Obtiene todos los concursos de la temporada actual (año actual)
+ * Solo concursos con organization_type = 'INTERNO'
  * @returns {Promise<Array>} Lista de concursos
  */
 async function obtenerConcursosTemporada() {
   const añoActual = new Date().getFullYear();
   const fechaInicio = new Date(`${añoActual}-01-01`);
   
-  console.log(`📅 Buscando concursos del año ${añoActual}...`);
+  console.log(`📅 Buscando concursos INTERNOS del año ${añoActual}...`);
   
   const concursos = await global.knex('contest')
     .where('end_date', '>', fechaInicio)
+    .where('organization_type', 'INTERNO')
     .orderBy('end_date', 'desc');
   
-  console.log(`✅ Encontrados ${concursos.length} concursos en la temporada ${añoActual}`);
+  console.log(`✅ Encontrados ${concursos.length} concursos INTERNOS en la temporada ${añoActual}`);
   
   return concursos;
 }
@@ -65,35 +67,28 @@ async function obtenerMetricasConcurso(contestId) {
 
 /**
  * Obtiene la tabla de puntajes de referencia (metric_abm)
- * @param {string} organizationType - Tipo de organización del concurso
+ * Solo para organization_type = 'INTERNO'
  * @returns {Promise<Object>} Mapa de premio -> puntaje
  */
-async function obtenerPuntajesReferencia(organizationType = null) {
-  let query = global.knex('metric_abm').select('prize', 'score', 'organization_type');
+async function obtenerPuntajesReferencia() {
+  const puntajes = await global.knex('metric_abm')
+    .select('prize', 'score', 'organization_type')
+    .where('organization_type', 'INTERNO');
   
-  if (organizationType) {
-    query = query.where('organization_type', organizationType);
-  }
-  
-  const puntajes = await query;
-  
-  // Crear un mapa para búsqueda rápida
+  // Crear un mapa para búsqueda rápida (prize -> score)
   const mapa = {};
   puntajes.forEach(p => {
-    const key = organizationType 
-      ? `${p.prize}` 
-      : `${p.prize}_${p.organization_type || 'default'}`;
-    mapa[key] = p.score;
+    mapa[p.prize] = p.score;
   });
   
   return { registros: puntajes, mapa };
 }
 
 /**
- * Verifica las métricas de un concurso contra la tabla de referencia
+ * Verifica y corrige las métricas de un concurso contra la tabla de referencia
  * @param {Object} concurso - Datos del concurso
  * @param {Object} puntajesRef - Mapa de puntajes de referencia
- * @returns {Promise<Object>} Resultado de la verificación
+ * @returns {Promise<Object>} Resultado de la verificación y corrección
  */
 async function verificarMetricasConcurso(concurso, puntajesRef) {
   const metricas = await obtenerMetricasConcurso(concurso.id);
@@ -107,30 +102,14 @@ async function verificarMetricasConcurso(concurso, puntajesRef) {
     correctas: 0,
     incorrectas: 0,
     no_encontradas: 0,
-    errores: []
+    corregidas: 0,
+    errores: [],
+    correcciones: []
   };
   
   for (const metrica of metricas) {
-    // Buscar el puntaje de referencia
-    let puntajeEsperado = null;
-    
-    // Primero intentar con organization_type específico
-    if (concurso.organization_type) {
-      const key = `${metrica.prize}_${concurso.organization_type}`;
-      puntajeEsperado = puntajesRef.mapa[key];
-    }
-    
-    // Si no se encuentra, buscar sin organization_type o con default
-    if (puntajeEsperado === null || puntajeEsperado === undefined) {
-      const keyDefault = `${metrica.prize}_default`;
-      puntajeEsperado = puntajesRef.mapa[keyDefault];
-    }
-    
-    // Si aún no se encuentra, buscar solo por prize (compatibilidad)
-    if (puntajeEsperado === null || puntajeEsperado === undefined) {
-      const keySimple = metrica.prize;
-      puntajeEsperado = puntajesRef.mapa[keySimple];
-    }
+    // Buscar el puntaje de referencia por prize
+    const puntajeEsperado = puntajesRef.mapa[metrica.prize];
     
     if (puntajeEsperado === null || puntajeEsperado === undefined) {
       resultado.no_encontradas++;
@@ -139,7 +118,7 @@ async function verificarMetricasConcurso(concurso, puntajesRef) {
         prize: metrica.prize,
         score_actual: metrica.score,
         tipo: 'no_encontrado',
-        mensaje: `Premio '${metrica.prize}' no encontrado en metric_abm`
+        mensaje: `Premio '${metrica.prize}' no encontrado en metric_abm para INTERNO`
       });
     } else {
       // Comparar puntajes (convertir a número para comparación)
@@ -150,15 +129,34 @@ async function verificarMetricasConcurso(concurso, puntajesRef) {
         resultado.correctas++;
       } else {
         resultado.incorrectas++;
-        resultado.errores.push({
-          metric_id: metrica.metric_id,
-          prize: metrica.prize,
-          score_actual: scoreActual,
-          score_esperado: scoreEsperado,
-          diferencia: scoreActual - scoreEsperado,
-          tipo: 'score_incorrecto',
-          mensaje: `Score incorrecto: esperado ${scoreEsperado}, encontrado ${scoreActual}`
-        });
+        
+        // Realizar la corrección en la base de datos
+        try {
+          await global.knex('metric')
+            .where('id', metrica.metric_id)
+            .update({ score: scoreEsperado });
+          
+          resultado.corregidas++;
+          resultado.correcciones.push({
+            metric_id: metrica.metric_id,
+            prize: metrica.prize,
+            score_anterior: scoreActual,
+            score_nuevo: scoreEsperado,
+            diferencia: scoreActual - scoreEsperado,
+            tipo: 'corregido',
+            mensaje: `✓ Corregido: ${scoreActual} → ${scoreEsperado}`
+          });
+        } catch (error) {
+          resultado.errores.push({
+            metric_id: metrica.metric_id,
+            prize: metrica.prize,
+            score_actual: scoreActual,
+            score_esperado: scoreEsperado,
+            diferencia: scoreActual - scoreEsperado,
+            tipo: 'error_actualizacion',
+            mensaje: `Error al actualizar: ${error.message}`
+          });
+        }
       }
     }
   }
@@ -196,6 +194,7 @@ function mostrarResumenConsola(resumen) {
   console.log(`📊 Total de métricas revisadas: ${resumen.total_metricas}`);
   console.log(`\n✅ Métricas correctas: ${resumen.total_correctas}`);
   console.log(`❌ Métricas incorrectas: ${resumen.total_incorrectas}`);
+  console.log(`🔧 Métricas corregidas: ${resumen.total_corregidas}`);
   console.log(`⚠️  Métricas no encontradas: ${resumen.total_no_encontradas}`);
   
   if (resumen.total_metricas > 0) {
@@ -214,7 +213,16 @@ function mostrarResumenConsola(resumen) {
     console.log(`   Total métricas: ${concurso.total_metricas}`);
     console.log(`   ✅ Correctas: ${concurso.correctas}`);
     console.log(`   ❌ Incorrectas: ${concurso.incorrectas}`);
+    console.log(`   🔧 Corregidas: ${concurso.corregidas}`);
     console.log(`   ⚠️  No encontradas: ${concurso.no_encontradas}`);
+    
+    if (concurso.correcciones && concurso.correcciones.length > 0) {
+      console.log(`   \n   🔧 Correcciones aplicadas (${concurso.correcciones.length}):`);
+      concurso.correcciones.forEach((corr, idx) => {
+        console.log(`      ${idx + 1}. ${corr.mensaje}`);
+        console.log(`         Metric ID: ${corr.metric_id}, Prize: ${corr.prize}`);
+      });
+    }
     
     if (concurso.errores.length > 0) {
       console.log(`   \n   🔍 Errores encontrados (${concurso.errores.length}):`);
@@ -261,10 +269,12 @@ async function main() {
     const resumen = {
       fecha_ejecucion: new Date().toISOString(),
       año_temporada: new Date().getFullYear(),
+      organization_type: 'INTERNO',
       total_concursos: concursos.length,
       total_metricas: 0,
       total_correctas: 0,
       total_incorrectas: 0,
+      total_corregidas: 0,
       total_no_encontradas: 0,
       tiempo_ejecucion_ms: 0,
       concursos: []
@@ -283,6 +293,7 @@ async function main() {
       resumen.total_metricas += resultado.total_metricas;
       resumen.total_correctas += resultado.correctas;
       resumen.total_incorrectas += resultado.incorrectas;
+      resumen.total_corregidas += resultado.corregidas;
       resumen.total_no_encontradas += resultado.no_encontradas;
       
       console.log(`    ✓ ${resultado.total_metricas} métricas verificadas`);
