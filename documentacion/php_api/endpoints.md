@@ -8,13 +8,13 @@ Esta documentación describe todos los endpoints disponibles en la API PHP del s
 
 ### Base URL
 ```
-https://api.gfc-back.com/v1
+https://gfc.prod-api.greenborn.com.ar
 ```
 
 ### Autenticación
-La mayoría de endpoints requieren autenticación mediante JWT Bearer Token:
+La mayoría de endpoints requieren autenticación mediante Bearer Token persistente:
 ```
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer <access_token>
 ```
 
 ### Formatos de Respuesta
@@ -58,65 +58,25 @@ Autentica un usuario y devuelve un token de acceso.
 ```
 
 ### 1.2 Registro de Usuario
-**POST** `/auth/register`
+**POST** `/sign-up`
 
-Registra un nuevo usuario en el sistema.
+Registra un nuevo usuario. Devuelve un token y código de verificación para confirmar el registro.
 
 #### Parámetros
 ```json
 {
-  "username": "john_doe",
-  "email": "user@example.com",
-  "password": "secure_password",
-  "password_confirmation": "secure_password",
-  "first_name": "John",
-  "last_name": "Doe"
-}
-```
-
-#### Respuesta Exitosa (201)
-```json
-{
-  "success": true,
-  "data": {
-    "user": {
-      "id": 1,
-      "username": "john_doe",
-      "email": "user@example.com",
-      "status": "pending"
-    },
-    "message": "Usuario registrado. Verifica tu email para activar la cuenta."
+  "userData": {
+    "username": "john_doe",
+    "email": "user@example.com",
+    "password": "secure_password",
+    "role_id": 3
+  },
+  "profileData": {
+    "name": "John",
+    "last_name": "Doe",
+    "dni": "12345678",
+    "fotoclub_id": 10
   }
-}
-```
-
-### 1.3 Logout
-**POST** `/auth/logout`
-
-Cierra la sesión del usuario actual.
-
-#### Headers
-```
-Authorization: Bearer <token>
-```
-
-#### Respuesta Exitosa (200)
-```json
-{
-  "success": true,
-  "message": "Sesión cerrada exitosamente"
-}
-```
-
-### 1.4 Refresh Token
-**POST** `/auth/refresh`
-
-Renueva el token JWT usando el refresh token.
-
-#### Parámetros
-```json
-{
-  "refresh_token": "refresh_token_here"
 }
 ```
 
@@ -124,17 +84,35 @@ Renueva el token JWT usando el refresh token.
 ```json
 {
   "success": true,
-  "data": {
-    "token": "new_jwt_token_here",
-    "expires_in": 86400
-  }
+  "sign_up_verif_token": "<token_verificacion>",
+  "profile": { "id": 123 }
 }
 ```
 
-### 1.5 Recuperar Contraseña
-**POST** `/auth/forgot-password`
+### 1.3 Validar Código de Registro
+**PUT** `/sign-up/{id}`
 
-Envía un email para recuperar la contraseña.
+Valida el código de verificación enviado por email para activar la cuenta.
+
+#### Parámetros
+```json
+{
+  "sign_up_verif_token": "<token_verificacion>",
+  "sign_up_verif_code": 12345
+}
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true
+}
+```
+
+### 1.4 Recuperar Contraseña
+**POST** `/password-reset`
+
+Envía un email con el enlace de recuperación de contraseña.
 
 #### Parámetros
 ```json
@@ -146,57 +124,60 @@ Envía un email para recuperar la contraseña.
 #### Respuesta Exitosa (200)
 ```json
 {
-  "success": true,
-  "message": "Email de recuperación enviado"
+  "status": true,
+  "message": "Email enviado!"
 }
 ```
 
-### 1.6 Resetear Contraseña
-**POST** `/auth/reset-password`
+### 1.5 Cambiar Contraseña (Autenticado)
+**PUT** `/change-password/{user_id}`
 
-Resetea la contraseña usando el token de recuperación.
+Cambia la contraseña del usuario autenticado.
 
 #### Parámetros
 ```json
 {
-  "token": "reset_token_here",
-  "password": "new_password",
-  "password_confirmation": "new_password"
+  "old_password": "contraseña_actual",
+  "new_password": "nueva_contraseña"
 }
 ```
 
 #### Respuesta Exitosa (200)
 ```json
 {
-  "success": true,
+  "status": true,
+  "id": 68,
   "message": "Contraseña actualizada exitosamente"
 }
 ```
 
-### 1.7 Verificar Email
-**POST** `/auth/verify-email`
+### 1.6 Cambiar Contraseña con Token
+**PUT** `/change-password-token/{token}`
 
-Verifica el email del usuario usando el token de verificación.
+Actualiza la contraseña usando el token de recuperación.
 
 #### Parámetros
 ```json
 {
-  "token": "verification_token_here"
+  "new_password": "nueva_contraseña"
 }
 ```
 
 #### Respuesta Exitosa (200)
 ```json
 {
-  "success": true,
-  "message": "Email verificado exitosamente"
+  "status": true,
+  "id": 68
 }
 ```
+
+### 1.7 Verificación de Email
+La verificación de email se realiza mediante el flujo de registro: ver 1.3.
 
 ## 2. Usuarios
 
 ### 2.1 Obtener Lista de Usuarios
-**GET** `/users`
+**GET** `/user`
 
 Obtiene una lista paginada de usuarios.
 
@@ -242,7 +223,7 @@ Authorization: Bearer <token>
 ```
 
 ### 2.2 Obtener Usuario por ID
-**GET** `/users/{id}`
+**GET** `/user/{id}`
 
 Obtiene los detalles de un usuario específico.
 
@@ -279,7 +260,7 @@ Authorization: Bearer <token>
 ```
 
 ### 2.3 Crear Usuario
-**POST** `/users`
+**POST** `/user`
 
 Crea un nuevo usuario (solo administradores).
 
@@ -316,7 +297,7 @@ Authorization: Bearer <admin_token>
 ```
 
 ### 2.4 Actualizar Usuario
-**PUT** `/users/{id}`
+**PUT** `/user/{id}`
 
 Actualiza los datos de un usuario.
 
@@ -349,7 +330,7 @@ Authorization: Bearer <token>
 ```
 
 ### 2.5 Eliminar Usuario
-**DELETE** `/users/{id}`
+**DELETE** `/user/{id}`
 
 Elimina un usuario del sistema.
 
@@ -367,7 +348,7 @@ Authorization: Bearer <admin_token>
 ```
 
 ### 2.6 Obtener Perfil de Usuario
-**GET** `/users/{id}/profile`
+**GET** `/profile?filter[profile.id]={id}`
 
 Obtiene el perfil completo de un usuario.
 
@@ -399,7 +380,7 @@ Authorization: Bearer <token>
 ```
 
 ### 2.7 Actualizar Perfil de Usuario
-**PUT** `/users/{id}/profile`
+**PUT** `/profile/{id}`
 
 Actualiza el perfil de un usuario.
 
@@ -442,7 +423,7 @@ Authorization: Bearer <token>
 ## 3. Concursos
 
 ### 3.1 Obtener Lista de Concursos
-**GET** `/contests`
+**GET** `/contest`
 
 Obtiene una lista paginada de concursos.
 
@@ -485,7 +466,7 @@ Obtiene una lista paginada de concursos.
 ```
 
 ### 3.2 Obtener Concurso por ID
-**GET** `/contests/{id}`
+**GET** `/contest/{id}`
 
 Obtiene los detalles completos de un concurso.
 
@@ -636,7 +617,7 @@ curl 'https://gfc.prod-api.greenborn.com.ar/contest/123' \
 ```
 
 ### 3.6 Obtener Categorías de Concurso
-**GET** `/contests/{id}/categories`
+**GET** `/contest-category?filter[contest_id]={id}`
 
 Obtiene todas las categorías de un concurso específico.
 
@@ -665,7 +646,7 @@ Obtiene todas las categorías de un concurso específico.
 ```
 
 ### 3.7 Obtener Resultados de Concurso
-**GET** `/contests/{id}/results`
+**GET** `/contest-result?filter[contest_id]={id}`
 
 Obtiene todos los resultados de un concurso.
 
@@ -712,8 +693,8 @@ Obtiene todos los resultados de un concurso.
 }
 ```
 
-### 3.8 Obtener Estadísticas de Concurso
-**GET** `/contests/{id}/statistics`
+### 3.8 Estadísticas
+**GET** `/stadistics` (usar `filter[...]` según corresponda)
 
 Obtiene estadísticas detalladas de un concurso.
 
@@ -767,7 +748,7 @@ Obtiene estadísticas detalladas de un concurso.
 ## 4. Categorías
 
 ### 4.1 Obtener Lista de Categorías
-**GET** `/categories`
+**GET** `/category`
 
 Obtiene una lista de todas las categorías.
 
@@ -797,7 +778,7 @@ Obtiene una lista de todas las categorías.
 ```
 
 ### 4.2 Obtener Categoría por ID
-**GET** `/categories/{id}`
+**GET** `/category/{id}`
 
 Obtiene los detalles de una categoría específica.
 
@@ -829,7 +810,7 @@ Obtiene los detalles de una categoría específica.
 ```
 
 ### 4.3 Crear Categoría
-**POST** `/categories`
+**POST** `/category`
 
 Crea una nueva categoría.
 
@@ -862,7 +843,7 @@ Authorization: Bearer <admin_token>
 ```
 
 ### 4.4 Actualizar Categoría
-**PUT** `/categories/{id}`
+**PUT** `/category/{id}`
 
 Actualiza una categoría existente.
 
@@ -894,7 +875,7 @@ Authorization: Bearer <admin_token>
 ```
 
 ### 4.5 Eliminar Categoría
-**DELETE** `/categories/{id}`
+**DELETE** `/category/{id}`
 
 Elimina una categoría.
 
@@ -911,8 +892,8 @@ Authorization: Bearer <admin_token>
 }
 ```
 
-### 4.6 Obtener Secciones de Categoría
-**GET** `/categories/{id}/sections`
+### 4.6 Obtener Secciones por Categoría
+**GET** `/section?filter[category_id]={id}`
 
 Obtiene todas las secciones de una categoría.
 
@@ -936,7 +917,7 @@ Obtiene todas las secciones de una categoría.
 ## 5. Secciones
 
 ### 5.1 Obtener Lista de Secciones
-**GET** `/sections`
+**GET** `/section`
 
 Obtiene una lista de todas las secciones.
 
@@ -970,7 +951,7 @@ Obtiene una lista de todas las secciones.
 ```
 
 ### 5.2 Obtener Sección por ID
-**GET** `/sections/{id}`
+**GET** `/section/{id}`
 
 Obtiene los detalles de una sección específica.
 
@@ -1004,7 +985,7 @@ Obtiene los detalles de una sección específica.
 ```
 
 ### 5.3 Crear Sección
-**POST** `/sections`
+**POST** `/section`
 
 Crea una nueva sección.
 
@@ -1037,7 +1018,7 @@ Authorization: Bearer <admin_token>
 ```
 
 ### 5.4 Actualizar Sección
-**PUT** `/sections/{id}`
+**PUT** `/section/{id}`
 
 Actualiza una sección existente.
 
@@ -1069,7 +1050,7 @@ Authorization: Bearer <admin_token>
 ```
 
 ### 5.5 Eliminar Sección
-**DELETE** `/sections/{id}`
+**DELETE** `/section/{id}`
 
 Elimina una sección.
 
@@ -1087,7 +1068,7 @@ Authorization: Bearer <admin_token>
 ```
 
 ### 5.6 Obtener Resultados de Sección
-**GET** `/sections/{id}/results`
+**GET** `/contest-result?filter[section_id]={id}`
 
 Obtiene todos los resultados de una sección específica.
 
@@ -1128,7 +1109,7 @@ Obtiene todos los resultados de una sección específica.
 ## 6. Resultados
 
 ### 6.1 Obtener Lista de Resultados
-**GET** `/results`
+**GET** `/contest-result`
 
 Obtiene una lista paginada de resultados.
 
@@ -1188,7 +1169,7 @@ Authorization: Bearer <token>
 ```
 
 ### 6.2 Obtener Resultado por ID
-**GET** `/results/{id}`
+**GET** `/contest-result/{id}`
 
 Obtiene los detalles completos de un resultado.
 
@@ -1365,7 +1346,7 @@ Authorization: Bearer <judge_token>
 ```
 
 ### 6.7 Obtener Resultados por Concurso
-**GET** `/results/contest/{contest_id}`
+**GET** `/contest-result?filter[contest_id]={contest_id}`
 
 Obtiene todos los resultados de un concurso específico.
 
@@ -1407,7 +1388,7 @@ Obtiene todos los resultados de un concurso específico.
 ```
 
 ### 6.8 Obtener Resultados por Usuario
-**GET** `/results/user/{user_id}`
+**GET** `/contest-result?filter[profile_id]={profile_id}`
 
 Obtiene todos los resultados de un usuario específico.
 
@@ -1484,6 +1465,51 @@ Content-Type: application/json
 {
   "success": false,
   "message": "Acceso denegado: solo administradores pueden registrar resultados."
+}
+```
+
+### 6.10 Comprimir Fotos del Concurso
+**GET** `/compressed-photos/{contest_id}`
+
+Genera un archivo ZIP con las fotos del concurso y devuelve la ruta de descarga (combinar con `imageBaseUrl`).
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "status": true,
+  "download_url": "concurso_35.zip"
+}
+```
+
+### 6.11 Plantilla de Juzgamiento
+**GET** `/results-upload/{contest_id}`
+
+Crea y devuelve un ZIP con la estructura de directorios para el juzgamiento.
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "status": true,
+  "download_url": "juzgamiento_concurso_35.zip"
+}
+```
+
+## 11. Ranking
+
+### 11.1 Obtener Ranking
+**GET** `/ranking`
+
+Devuelve ranking de perfiles y fotoclubs, junto con secciones y categorías visibles.
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "items": {
+    "profiles": [ /* ... */ ],
+    "fotoclubs": [ /* ... */ ],
+    "Section": [ /* ... */ ],
+    "Category": [ /* ... */ ]
+  }
 }
 ```
 
