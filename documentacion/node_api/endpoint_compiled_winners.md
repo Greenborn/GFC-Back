@@ -6,6 +6,11 @@ Genera un ZIP con todas las fotografías premiadas de los concursos del año esp
 ## Ruta
 `GET /api/contest/compiled-winners`
 
+## Base URL
+```
+https://gfc.prod-api.greenborn.com.ar/api
+```
+
 ## Seguridad
 - Privado: requiere autenticación con token Bearer
 - Permisos: solo administrador (`role_id == '1'`)
@@ -21,11 +26,10 @@ Genera un ZIP con todas las fotografías premiadas de los concursos del año esp
 - Crea `compilado_premiadas` en `IMG_REPOSITORY_PATH`
   - Si existe se elimina y se recrea
 - Estructura generada:
-  - `<titulo_concurso_sanitizado>/` (minúsculas, espacios→`_`, solo alfanumérico)
-    - `<categoria>/` (minúsculas)
-      - `<seccion>/` (minúsculas)
-        - `<premio>/` (minúsculas)
-          - archivos con su nombre original
+  - `<categoria>/` (minúsculas)
+    - `<seccion>/` (minúsculas)
+      - `<premio>/` (minúsculas)
+        - archivos con su nombre original
 - Copia de archivos desde `IMG_REPOSITORY_PATH + image.url`
 - Genera `compilado_premiadas_<year>.zip` y devuelve URL pública
 

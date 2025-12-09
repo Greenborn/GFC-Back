@@ -545,10 +545,6 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
         fs.mkdirSync(compiledDir, { recursive: true });
 
         for (const contest of contests) {
-            const contestName = sanitizeContestTitle(contest.title || contest.name || `concurso_${contest.id}`, `concurso_${contest.id}`);
-            const contestDir = path.join(compiledDir, contestName);
-            if (!fs.existsSync(contestDir)) fs.mkdirSync(contestDir, { recursive: true });
-
             const rows = await global.knex('contest_result as cr')
                 .leftJoin('metric as m', 'cr.metric_id', 'm.id')
                 .leftJoin('image as i', 'cr.image_id', 'i.id')
@@ -573,7 +569,7 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
             for (const row of rows) {
                 const catNameNorm = normalizeText(row.category_name || '');
                 if (categoriasList.length && !categoriasList.includes(catNameNorm)) continue;
-                const categoriaDir = path.join(contestDir, sanitizeNamePart(row.category_name || 'categoria'));
+                const categoriaDir = path.join(compiledDir, sanitizeNamePart(row.category_name || 'categoria'));
                 if (!fs.existsSync(categoriaDir)) fs.mkdirSync(categoriaDir, { recursive: true });
                 const sectionDir = path.join(categoriaDir, sanitizeNamePart(row.section_name || 'seccion'));
                 if (!fs.existsSync(sectionDir)) fs.mkdirSync(sectionDir, { recursive: true });
