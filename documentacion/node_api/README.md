@@ -198,6 +198,29 @@ La API incluye un endpoint autenticado para consultar participantes de concursos
 curl -X GET "https://gfc.prod-api.greenborn.com.ar/contest/participants?id=1"
 ```
 
+#### Descarga de Fotos Premiadas del Año
+La API incluye un endpoint autenticado para compilar y descargar las fotos premiadas del año:
+
+- **GET** `/api/contest/compiled-winners?year=<yyyy>&premios=<csv>&categorias=<csv>`
+
+##### Parámetros
+- `year` (opcional): año objetivo; por defecto, año en curso
+- `premios` (opcional): lista separada por comas; por defecto `"1er PREMIO","2do PREMIO","3er PREMIO","MENCION ESPECIAL"`
+- `categorias` (opcional): lista separada por comas; por defecto `"Estímulo","Primera"`
+
+##### Respuesta
+```json
+{
+  "success": true,
+  "year": 2025,
+  "download_url": "https://assets.prod-gfc.greenborn.com.ar/compilado_premiadas_2025.zip"
+}
+```
+
+##### Notas
+- Solo considera concursos con `judged = true` y `organization_type = 'INTERNO'` dentro del rango del año.
+- Genera estructura `compilado_premiadas/<concurso>/<categoria>/<premio>/` conservando el nombre original de cada archivo.
+
 #### Gestión de Fotoclubs
 La API incluye endpoints para la gestión de clubes fotográficos:
 

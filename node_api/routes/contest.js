@@ -477,4 +477,135 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
     }
 });
 
+router.get('/compiled-winners', authMiddleware, async (req, res) => {
+    if (!req.user || req.user.role_id != '1') {
+        return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores' });
+    }
+
+    const path = require('path');
+    const fs = require('fs');
+    const archiver = require('archiver');
+    const IMG_REPOSITORY_PATH = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
+    const IMG_BASE_PATH = process.env.IMG_BASE_PATH || 'https://assets.prod-gfc.greenborn.com.ar';
+
+    function normalizeText(s) {
+        return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+    function sanitizeContestTitle(s, fallback) {
+        const base = (s || fallback || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return base.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
+    }
+    function sanitizeNamePart(s) {
+        const base = (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return base.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
+    }
+    function normalizePrizeInputList(premiosCsv) {
+        const defaults = ['Primer Premio', 'Segundo Premio', 'Tercer Premio', 'Mención de Honor'];
+        if (!premiosCsv || premiosCsv.toString().trim() === '') return defaults;
+        const items = premiosCsv.split(',').map(v => normalizeText(v));
+        const mapped = items.map(v => {
+            if (v.includes('1er')) return 'Primer Premio';
+            if (v.includes('2do')) return 'Segundo Premio';
+            if (v.includes('3er')) return 'Tercer Premio';
+            if (v.includes('mencion especial') || v.includes('mencion_de_honor') || v.includes('mencion honor')) return 'Mención de Honor';
+            if (v.includes('primer premio')) return 'Primer Premio';
+            if (v.includes('segundo premio')) return 'Segundo Premio';
+            if (v.includes('tercer premio')) return 'Tercer Premio';
+            return v;
+        });
+        const uniq = Array.from(new Set(mapped.filter(Boolean)));
+        return uniq.length ? uniq : defaults;
+    }
+    function normalizeCategoryList(catCsv) {
+        const defaults = ['Estímulo', 'Primera'];
+        if (!catCsv || catCsv.toString().trim() === '') return defaults;
+        const items = catCsv.split(',').map(v => v.trim()).filter(Boolean);
+        return items.length ? items : defaults;
+    }
+
+    try {
+        const currentYear = new Date().getFullYear();
+        const year = parseInt(req.query.year, 10) || currentYear;
+        const premiosList = normalizePrizeInputList(req.query.premios);
+        const categoriasList = normalizeCategoryList(req.query.categorias).map(v => normalizeText(v));
+
+        const dateStart = new Date(`${year}-01-01T00:00:00`);
+        const dateEnd = new Date(`${year}-12-31T23:59:59`);
+
+        const contests = await global.knex('contest')
+            .select('*')
+            .where('judged', true)
+            .andWhere('organization_type', 'INTERNO')
+            .andWhereBetween('end_date', [dateStart, dateEnd]);
+
+        const compiledDir = path.join(IMG_REPOSITORY_PATH, 'compilado_premiadas');
+        if (fs.existsSync(compiledDir)) {
+            try { fs.rmSync(compiledDir, { recursive: true, force: true }); } catch (e) {}
+        }
+        fs.mkdirSync(compiledDir, { recursive: true });
+
+        for (const contest of contests) {
+            const contestName = sanitizeContestTitle(contest.title || contest.name || `concurso_${contest.id}`, `concurso_${contest.id}`);
+            const contestDir = path.join(compiledDir, contestName);
+            if (!fs.existsSync(contestDir)) fs.mkdirSync(contestDir, { recursive: true });
+
+            const rows = await global.knex('contest_result as cr')
+                .leftJoin('metric as m', 'cr.metric_id', 'm.id')
+                .leftJoin('image as i', 'cr.image_id', 'i.id')
+                .leftJoin('profile as p', 'i.profile_id', 'p.id')
+                .leftJoin('profile_contest as pc', function() {
+                    this.on('i.profile_id', '=', 'pc.profile_id').andOn('cr.contest_id', '=', 'pc.contest_id');
+                })
+                .leftJoin('category as c', 'pc.category_id', 'c.id')
+                .select(
+                    'i.url as image_url',
+                    'i.title as image_title',
+                    'p.name as author_name',
+                    'p.last_name as author_last_name',
+                    'm.prize as prize',
+                    'c.name as category_name'
+                )
+                .where('cr.contest_id', contest.id)
+                .whereIn('m.prize', premiosList);
+
+            for (const row of rows) {
+                const catNameNorm = normalizeText(row.category_name || '');
+                if (categoriasList.length && !categoriasList.includes(catNameNorm)) continue;
+                const categoriaDir = path.join(contestDir, sanitizeNamePart(row.category_name || 'categoria'));
+                if (!fs.existsSync(categoriaDir)) fs.mkdirSync(categoriaDir, { recursive: true });
+                const premioDir = path.join(categoriaDir, sanitizeNamePart(row.prize || 'premio'));
+                if (!fs.existsSync(premioDir)) fs.mkdirSync(premioDir, { recursive: true });
+                const srcPath = path.join(IMG_REPOSITORY_PATH, row.image_url || '');
+                const destFile = path.basename(row.image_url || '');
+                const destPath = path.join(premioDir, destFile);
+                try {
+                    if (fs.existsSync(srcPath)) {
+                        fs.copyFileSync(srcPath, destPath);
+                    }
+                } catch (e) {}
+            }
+        }
+
+        const zipName = `compilado_premiadas_${year}.zip`;
+        const zipPath = path.join(IMG_REPOSITORY_PATH, zipName);
+        if (fs.existsSync(zipPath)) {
+            try { fs.unlinkSync(zipPath); } catch (e) {}
+        }
+        await new Promise((resolve, reject) => {
+            const output = fs.createWriteStream(zipPath);
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            output.on('close', () => resolve());
+            archive.on('error', err => reject(err));
+            archive.pipe(output);
+            archive.directory(compiledDir, false);
+            archive.finalize();
+        });
+
+        const downloadUrl = `${IMG_BASE_PATH}/${zipName}`;
+        return res.json({ success: true, year, download_url: downloadUrl });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Error interno al compilar premiadas del año', error: error.message });
+    }
+});
+
 module.exports = router;

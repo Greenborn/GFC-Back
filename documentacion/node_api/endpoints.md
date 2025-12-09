@@ -479,7 +479,78 @@ concurso_1/
     └── Blanco y Negro/
 ```
 
----
+
+### 3.5 Descarga de Fotos Premiadas del Año
+**GET** `/contest/compiled-winners`
+
+Genera y descarga un archivo ZIP con las fotografías premiadas del año especificado. Recorre todos los concursos del año, tomando únicamente aquellos con `judged == true` y `organization_type == "INTERNO"`, y copia las imágenes ganadoras según filtros de premios y categorías.
+
+#### Headers
+```
+Authorization: Bearer <token>
+```
+
+#### Query Parameters
+- `year` (int, opcional): Año objetivo. Si no se especifica, se toma el año en curso.
+- `premios` (string, opcional): Lista separada por comas. Por defecto: `"1er PREMIO","2do PREMIO","3er PREMIO","MENCION ESPECIAL"`.
+- `categorias` (string, opcional): Lista separada por comas. Por defecto: `"Estímulo","Primera"`.
+
+#### Comportamiento
+- Selecciona concursos cuyo `end_date` esté entre `1 de enero (00:00)` y `31 de diciembre (23:59)` del año indicado.
+- Filtra `contest` por `judged = true` y `organization_type = 'INTERNO'`.
+- Crea un directorio temporal bajo `IMG_REPOSITORY_PATH` llamado `compilado_premiadas`.
+  - Si existe, se elimina y se vuelve a crear.
+- Estructura de carpetas dentro de `compilado_premiadas`:
+  - `{titulo_concurso_sanitizado}/` (minúsculas, espacios→"_", solo alfanumérico)
+    - `{categoria}/` (minúsculas)
+    - `{premio}/` (minúsculas)
+        - archivos con su nombre original
+- Las rutas de origen se construyen con `IMG_BASE_PATH + image.url` y se copian al repositorio local.
+- Se genera el ZIP `compilado_premiadas_<year>.zip` en `IMG_REPOSITORY_PATH` y se expone por `IMG_BASE_PATH`.
+
+#### Origen de Datos
+- `contest` (title, end_date, judged, organization_type)
+- `contest_result` (contest_id, image_id, section_id, metric_id)
+- `metric` (prize, score) para identificar premios
+- `image` (title, url, profile_id)
+- `profile` (name, last_name)
+- `profile_contest` → `category` (name) para ubicar por categoría
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "year": 2025,
+  "download_url": "https://assets.prod-gfc.greenborn.com.ar/compilado_premiadas_2025.zip"
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "Parámetros inválidos"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "success": false,
+  "message": "Error interno al compilar premiadas del año",
+  "error": "Detalles del error"
+}
+```
+
+#### Notas Técnicas
+- `IMG_REPOSITORY_PATH` se define en `.env` (por ejemplo: `/var/www/GFC-PUBLIC-ASSETS`).
+- `IMG_BASE_PATH` se usa para construir el `download_url` público.
+- Normalización:
+  - Premios y categorías se comparan por su texto; se recomienda admitir equivalencias y normalizar a valores de `metric.prize`.
+  - Títulos de concursos sanitizados: reemplazo de espacios por `_`, filtrado no alfanumérico, minúsculas.
+
+#### Seguridad
+- Permisos: Solo administrador (`role_id == '1'`).
 
 ## 4. Logs de Operaciones
 
