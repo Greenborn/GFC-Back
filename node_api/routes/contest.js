@@ -500,18 +500,15 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
         return base.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
     }
     function normalizePrizeInputList(premiosCsv) {
-        const defaults = ['Primer Premio', 'Segundo Premio', 'Tercer Premio', 'Mención de Honor'];
+        const defaults = ['1er PREMIO', '2do PREMIO', '3er PREMIO', 'MENCION ESPECIAL'];
         if (!premiosCsv || premiosCsv.toString().trim() === '') return defaults;
         const items = premiosCsv.split(',').map(v => normalizeText(v));
         const mapped = items.map(v => {
-            if (v.includes('1er')) return 'Primer Premio';
-            if (v.includes('2do')) return 'Segundo Premio';
-            if (v.includes('3er')) return 'Tercer Premio';
-            if (v.includes('mencion especial') || v.includes('mencion_de_honor') || v.includes('mencion honor')) return 'Mención de Honor';
-            if (v.includes('primer premio')) return 'Primer Premio';
-            if (v.includes('segundo premio')) return 'Segundo Premio';
-            if (v.includes('tercer premio')) return 'Tercer Premio';
-            return v;
+            if (v.includes('1er') || v.includes('primer')) return '1er PREMIO';
+            if (v.includes('2do') || v.includes('segundo')) return '2do PREMIO';
+            if (v.includes('3er') || v.includes('tercer')) return '3er PREMIO';
+            if (v.includes('mencion')) return 'MENCION ESPECIAL';
+            return v.toUpperCase();
         });
         const uniq = Array.from(new Set(mapped.filter(Boolean)));
         return uniq.length ? uniq : defaults;
@@ -578,6 +575,7 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                 )
                 .where('cr.contest_id', contest.id)
                 .whereIn('m.prize', premiosList);
+            console.log('Filas encontradas para concurso', contest.id, ':', rows.length);
 
             for (const row of rows) {
                 const catNameNorm = normalizeText(row.category_name || '');
@@ -591,13 +589,13 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                 const srcPath = path.join(IMG_REPOSITORY_PATH, row.image_url || '');
                 const destFile = path.basename(row.image_url || '');
                 const destPath = path.join(premioDir, destFile);
+                categoriasEncontradas.add(row.category_name || '');
+                seccionesEncontradas.add(row.section_name || '');
+                premiosEncontrados.add(row.prize || '');
                 try {
                     if (fs.existsSync(srcPath)) {
                         fs.copyFileSync(srcPath, destPath);
                         totalFotografias++;
-                        categoriasEncontradas.add(row.category_name || '');
-                        seccionesEncontradas.add(row.section_name || '');
-                        premiosEncontrados.add(row.prize || '');
                         console.log('Copiada fotografía:', srcPath, '->', destPath);
                     }
                 } catch (e) {}
@@ -625,7 +623,12 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
             archive.finalize();
         });
 
-        const downloadUrl = `${IMG_BASE_PATH}/${zipName}`;
+        function joinUrl(base, part) {
+            const b = String(base).replace(/\/+$/, '');
+            const p = String(part).replace(/^\/+/, '');
+            return `${b}/${p}`;
+        }
+        const downloadUrl = joinUrl(IMG_BASE_PATH, zipName);
         console.log('Respuesta enviada con download_url:', downloadUrl);
         return res.json({ success: true, year, download_url: downloadUrl });
     } catch (error) {
