@@ -503,8 +503,9 @@ Authorization: Bearer <token>
 - Estructura de carpetas dentro de `compilado_premiadas`:
   - `{titulo_concurso_sanitizado}/` (minúsculas, espacios→"_", solo alfanumérico)
     - `{categoria}/` (minúsculas)
-    - `{premio}/` (minúsculas)
-        - archivos con su nombre original
+      - `{seccion}/` (minúsculas)
+        - `{premio}/` (minúsculas)
+          - archivos con su nombre original
 - Las rutas de origen se construyen con `IMG_BASE_PATH + image.url` y se copian al repositorio local.
 - Se genera el ZIP `compilado_premiadas_<year>.zip` en `IMG_REPOSITORY_PATH` y se expone por `IMG_BASE_PATH`.
 
@@ -515,6 +516,7 @@ Authorization: Bearer <token>
 - `image` (title, url, profile_id)
 - `profile` (name, last_name)
 - `profile_contest` → `category` (name) para ubicar por categoría
+- `section` (name) para ubicar por sección
 
 #### Respuesta Exitosa (200)
 ```json
