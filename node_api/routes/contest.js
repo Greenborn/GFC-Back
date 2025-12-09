@@ -529,6 +529,10 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
         const premiosList = normalizePrizeInputList(req.query.premios);
         const categoriasList = normalizeCategoryList(req.query.categorias).map(v => normalizeText(v));
 
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('GET /contest/compiled-winners - Inicio');
+        console.log('Parámetros: year=', year, ', premios=', premiosList.join(', '), ', categorias=', categoriasList.join(', '));
+
         const dateStart = new Date(`${year}-01-01T00:00:00`);
         const dateEnd = new Date(`${year}-12-31T23:59:59`);
 
@@ -538,11 +542,20 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
             .andWhere('organization_type', 'INTERNO')
             .andWhereBetween('end_date', [dateStart, dateEnd]);
 
+        console.log('Concursos seleccionados:', contests.length);
+        contests.forEach(c => console.log(` - id=${c.id}, name=${c.title || c.name}, end_date=${c.end_date}`));
+
         const compiledDir = path.join(IMG_REPOSITORY_PATH, 'compilado_premiadas');
         if (fs.existsSync(compiledDir)) {
             try { fs.rmSync(compiledDir, { recursive: true, force: true }); } catch (e) {}
         }
         fs.mkdirSync(compiledDir, { recursive: true });
+        console.log('Creado directorio base:', compiledDir);
+
+        const categoriasEncontradas = new Set();
+        const seccionesEncontradas = new Set();
+        const premiosEncontrados = new Set();
+        let totalFotografias = 0;
 
         for (const contest of contests) {
             const rows = await global.knex('contest_result as cr')
@@ -570,21 +583,31 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                 const catNameNorm = normalizeText(row.category_name || '');
                 if (categoriasList.length && !categoriasList.includes(catNameNorm)) continue;
                 const categoriaDir = path.join(compiledDir, sanitizeNamePart(row.category_name || 'categoria'));
-                if (!fs.existsSync(categoriaDir)) fs.mkdirSync(categoriaDir, { recursive: true });
+                if (!fs.existsSync(categoriaDir)) { fs.mkdirSync(categoriaDir, { recursive: true }); console.log('Creado directorio categoría:', categoriaDir); }
                 const sectionDir = path.join(categoriaDir, sanitizeNamePart(row.section_name || 'seccion'));
-                if (!fs.existsSync(sectionDir)) fs.mkdirSync(sectionDir, { recursive: true });
+                if (!fs.existsSync(sectionDir)) { fs.mkdirSync(sectionDir, { recursive: true }); console.log('Creado directorio sección:', sectionDir); }
                 const premioDir = path.join(sectionDir, sanitizeNamePart(row.prize || 'premio'));
-                if (!fs.existsSync(premioDir)) fs.mkdirSync(premioDir, { recursive: true });
+                if (!fs.existsSync(premioDir)) { fs.mkdirSync(premioDir, { recursive: true }); console.log('Creado directorio premio:', premioDir); }
                 const srcPath = path.join(IMG_REPOSITORY_PATH, row.image_url || '');
                 const destFile = path.basename(row.image_url || '');
                 const destPath = path.join(premioDir, destFile);
                 try {
                     if (fs.existsSync(srcPath)) {
                         fs.copyFileSync(srcPath, destPath);
+                        totalFotografias++;
+                        categoriasEncontradas.add(row.category_name || '');
+                        seccionesEncontradas.add(row.section_name || '');
+                        premiosEncontrados.add(row.prize || '');
+                        console.log('Copiada fotografía:', srcPath, '->', destPath);
                     }
                 } catch (e) {}
             }
         }
+
+        console.log('Categorías encontradas:', Array.from(categoriasEncontradas).filter(Boolean).join(', '));
+        console.log('Secciones encontradas:', Array.from(seccionesEncontradas).filter(Boolean).join(', '));
+        console.log('Premios encontrados:', Array.from(premiosEncontrados).filter(Boolean).join(', '));
+        console.log('Total de fotografías copiadas:', totalFotografias);
 
         const zipName = `compilado_premiadas_${year}.zip`;
         const zipPath = path.join(IMG_REPOSITORY_PATH, zipName);
@@ -592,16 +615,18 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
             try { fs.unlinkSync(zipPath); } catch (e) {}
         }
         await new Promise((resolve, reject) => {
+            console.log('Generando ZIP:', zipPath);
             const output = fs.createWriteStream(zipPath);
             const archive = archiver('zip', { zlib: { level: 9 } });
-            output.on('close', () => resolve());
-            archive.on('error', err => reject(err));
+            output.on('close', () => { console.log('ZIP generado:', zipPath, '-', archive.pointer(), 'bytes'); resolve(); });
+            archive.on('error', err => { console.error('Error generando ZIP:', err); reject(err); });
             archive.pipe(output);
             archive.directory(compiledDir, false);
             archive.finalize();
         });
 
         const downloadUrl = `${IMG_BASE_PATH}/${zipName}`;
+        console.log('Respuesta enviada con download_url:', downloadUrl);
         return res.json({ success: true, year, download_url: downloadUrl });
     } catch (error) {
         return res.status(500).json({ success: false, message: 'Error interno al compilar premiadas del año', error: error.message });
