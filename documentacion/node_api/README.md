@@ -49,20 +49,17 @@ node_api/
 - **Knex.js**: Query builder y migraciones
 
 ### Comunicación en Tiempo Real
-- **Socket.io**: WebSockets para comunicación bidireccional
-- **WebSocket**: Protocolo de comunicación
+- **express-ws**: soporte WebSocket disponible; actualmente no se expone servidor WS
 
 ### Procesamiento de Archivos
-- **Sharp**: Procesamiento de imágenes
-- **Multer**: Middleware para subida de archivos
-- **fs-extra**: Utilidades de sistema de archivos
+- **archiver**: Compresión ZIP de directorios
+- **fs**: Utilidades de sistema de archivos
 
 ### Utilidades
-- **Joi**: Validación de esquemas
-- **bcrypt**: Encriptación de contraseñas
-- **jsonwebtoken**: Manejo de JWT
-- **nodemailer**: Envío de emails
-- **winston**: Logging
+- **bcryptjs**: Encriptación de contraseñas
+- **axios**: Cliente HTTP para servicios externos (notificador de email)
+- **dotenv**: Variables de entorno
+- **uuid**: Identificadores
 
 ## Documentación Técnica
 
@@ -164,7 +161,7 @@ Salida esperada (endpoint):
 - Documentar parámetros y valores de retorno
 - Incluir ejemplos de uso cuando sea necesario
 
-## Endpoints Públicos
+## Endpoints
 
 ### Endpoints Públicos
 
@@ -186,15 +183,15 @@ curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/images/search?q=3336_2025
 ```
 
 #### Consulta de Participantes
-La API incluye un endpoint público para consultar participantes de concursos:
+La API incluye un endpoint autenticado para consultar participantes de concursos:
 
-- **GET** `/contest/participants?id=<contest_id>` - Obtener listado básico de participantes de un concurso
+- **GET** `/api/contest/participants?id=<contest_id>`
 
 ##### Características
-- **Información esencial**: Solo nombre, apellido, DNI y categoría
+- **Autenticación**: Requerida (Bearer token persistente)
+- **Permisos**: Solo admin (`role_id == '1'`) o delegado (`role_id == '2'`)
+- **Información esencial**: Nombre, apellido, DNI, email y categoría
 - **Ordenamiento**: Por apellido y nombre
-- **Sin autenticación**: Acceso público para consultas
-- **Validación**: Verifica que el concurso existe
 
 ##### Ejemplo de uso
 ```bash
@@ -238,13 +235,7 @@ curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/fotoclub/create" \
 
 ## WebSockets
 
-### Eventos Principales
-- **user:join**: Usuario se conecta
-- **user:leave**: Usuario se desconecta
-- **contest:update**: Actualización de concurso
-- **result:new**: Nueva fotografía enviada
-- **result:evaluated**: Fotografía evaluada
-- **notification:new**: Nueva notificación
+Actualmente no se exponen eventos WebSocket en producción desde este subproyecto.
 
 ### Estructura de Mensajes
 ```javascript
@@ -279,17 +270,7 @@ curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/fotoclub/create" \
 
 ### Ejecutar Tests
 ```bash
-# Todos los tests
 npm test
-
-# Tests unitarios
-npm run test:unit
-
-# Tests de integración
-npm run test:integration
-
-# Tests de WebSockets
-npm run test:websocket
 ```
 
 ## Deployment
@@ -363,11 +344,10 @@ La API Node.js se integra con la API PHP para:
 ## Seguridad
 
 ### Medidas Implementadas
-- **JWT Authentication**: Autenticación con tokens
-- **Input Validation**: Validación de entrada con Joi
-- **SQL Injection Protection**: Uso de Knex.js
-- **CORS Configuration**: Configuración de CORS
-- **Rate Limiting**: Limitación de requests
+- **Bearer Token persistente**: Autenticación por `Authorization: Bearer <token>` vinculado a `user.access_token`
+- **Protección SQL**: Uso de Knex.js
+- **CORS**: Configuración de orígenes permitidos
+- **Modo de escritura**: Control por `MODO_ESCRITURA` (`READ_ONLY`/`READ_WRITE`)
 
 ### WebSocket Security
 - **Authentication**: Autenticación de conexiones WebSocket

@@ -8,13 +8,13 @@ Esta documentación describe todos los endpoints disponibles en la API Node.js d
 
 ### Base URL
 ```
-https://api.gfc-back.com/node
+https://gfc.prod-api.greenborn.com.ar/api
 ```
 
 ### Autenticación
-La mayoría de endpoints requieren autenticación mediante JWT Bearer Token:
+La mayoría de endpoints requieren autenticación mediante Bearer Token persistente:
 ```
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer <access_token>
 ```
 
 ### Formatos de Respuesta
@@ -29,32 +29,25 @@ Authorization: Bearer <your_jwt_token>
 ### 1.1 Login de Usuario
 **POST** `/auth/login`
 
-Autentica un usuario y devuelve un token JWT.
+Autentica un usuario y devuelve un token de acceso persistente.
 
 #### Parámetros
 ```json
 {
-  "email": "user@example.com",
-  "password": "secure_password"
+  "username": "usuario_admin",
+  "password": "contraseña_segura"
 }
 ```
 
 #### Respuesta Exitosa (200)
 ```json
 {
-  "success": true,
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "refresh_token_here",
-    "expires_in": 86400,
-    "user": {
-      "id": 1,
-      "username": "john_doe",
-      "email": "user@example.com",
-      "role": "participant"
-    }
-  },
-  "message": "Login exitoso"
+  "status": true,
+  "token": "yeCk1wTui-819R7E1LkWVamHsohSns_a",
+  "username": "testlucho",
+  "roleType": "Administrador",
+  "roleId": 1,
+  "id": 68
 }
 ```
 
