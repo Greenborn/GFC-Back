@@ -23,8 +23,9 @@ Genera un ZIP con todas las fotografías premiadas de los concursos del año esp
 - Estructura generada:
   - `<titulo_concurso_sanitizado>/` (minúsculas, espacios→`_`, solo alfanumérico)
     - `<categoria>/` (minúsculas)
-      - `<premio>/` (minúsculas)
-        - archivos con su nombre original
+      - `<seccion>/` (minúsculas)
+        - `<premio>/` (minúsculas)
+          - archivos con su nombre original
 - Copia de archivos desde `IMG_REPOSITORY_PATH + image.url`
 - Genera `compilado_premiadas_<year>.zip` y devuelve URL pública
 

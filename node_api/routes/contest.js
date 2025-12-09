@@ -557,13 +557,15 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                     this.on('i.profile_id', '=', 'pc.profile_id').andOn('cr.contest_id', '=', 'pc.contest_id');
                 })
                 .leftJoin('category as c', 'pc.category_id', 'c.id')
+                .leftJoin('section as s', 'cr.section_id', 's.id')
                 .select(
                     'i.url as image_url',
                     'i.title as image_title',
                     'p.name as author_name',
                     'p.last_name as author_last_name',
                     'm.prize as prize',
-                    'c.name as category_name'
+                    'c.name as category_name',
+                    's.name as section_name'
                 )
                 .where('cr.contest_id', contest.id)
                 .whereIn('m.prize', premiosList);
@@ -573,7 +575,9 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                 if (categoriasList.length && !categoriasList.includes(catNameNorm)) continue;
                 const categoriaDir = path.join(contestDir, sanitizeNamePart(row.category_name || 'categoria'));
                 if (!fs.existsSync(categoriaDir)) fs.mkdirSync(categoriaDir, { recursive: true });
-                const premioDir = path.join(categoriaDir, sanitizeNamePart(row.prize || 'premio'));
+                const sectionDir = path.join(categoriaDir, sanitizeNamePart(row.section_name || 'seccion'));
+                if (!fs.existsSync(sectionDir)) fs.mkdirSync(sectionDir, { recursive: true });
+                const premioDir = path.join(sectionDir, sanitizeNamePart(row.prize || 'premio'));
                 if (!fs.existsSync(premioDir)) fs.mkdirSync(premioDir, { recursive: true });
                 const srcPath = path.join(IMG_REPOSITORY_PATH, row.image_url || '');
                 const destFile = path.basename(row.image_url || '');
