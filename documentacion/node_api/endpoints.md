@@ -501,12 +501,11 @@ Authorization: Bearer <token>
 - Crea un directorio temporal bajo `IMG_REPOSITORY_PATH` llamado `compilado_premiadas`.
   - Si existe, se elimina y se vuelve a crear.
 - Estructura de carpetas dentro de `compilado_premiadas`:
-  - `{titulo_concurso_sanitizado}/` (minúsculas, espacios→"_", solo alfanumérico)
-    - `{categoria}/` (minúsculas)
-      - `{seccion}/` (minúsculas)
-        - `{premio}/` (minúsculas)
-          - archivos con su nombre original
-- Las rutas de origen se construyen con `IMG_BASE_PATH + image.url` y se copian al repositorio local.
+  - `{categoria}/` (minúsculas)
+    - `{seccion}/` (minúsculas)
+      - `{premio}/` (minúsculas)
+        - archivos con su nombre original
+- Las rutas de origen se construyen con `IMG_REPOSITORY_PATH + image.url` y se copian al repositorio local.
 - Se genera el ZIP `compilado_premiadas_<year>.zip` en `IMG_REPOSITORY_PATH` y se expone por `IMG_BASE_PATH`.
 
 #### Origen de Datos
