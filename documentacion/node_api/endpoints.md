@@ -501,8 +501,10 @@ Authorization: Bearer <token>
 - Crea un directorio temporal bajo `IMG_REPOSITORY_PATH` llamado `compilado_premiadas`.
   - Si existe, se elimina y se vuelve a crear.
 - Estructura de carpetas dentro de `compilado_premiadas`:
+  - Directorios raíz adicionales: `eleccion_jurado/`, `eleccion_publico/`
   - `{categoria}/` (minúsculas)
     - `{seccion}/` (minúsculas)
+      - Directorio adicional: `eleccion_jurado/`
       - `{premio}/` (minúsculas)
         - archivos nombrados por `image.code` con su extensión original
 - Las rutas de origen se construyen con `IMG_REPOSITORY_PATH + image.url` y se copian al repositorio local.

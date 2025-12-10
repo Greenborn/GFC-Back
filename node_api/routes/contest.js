@@ -548,6 +548,10 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
         }
         fs.mkdirSync(compiledDir, { recursive: true });
         console.log('Creado directorio base:', compiledDir);
+        const rootJurado = path.join(compiledDir, 'eleccion_jurado');
+        const rootPublico = path.join(compiledDir, 'eleccion_publico');
+        if (!fs.existsSync(rootJurado)) { fs.mkdirSync(rootJurado, { recursive: true }); console.log('Creado directorio raíz:', rootJurado); }
+        if (!fs.existsSync(rootPublico)) { fs.mkdirSync(rootPublico, { recursive: true }); console.log('Creado directorio raíz:', rootPublico); }
 
         const categoriasEncontradas = new Set();
         const seccionesEncontradas = new Set();
@@ -585,6 +589,8 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                 if (!fs.existsSync(categoriaDir)) { fs.mkdirSync(categoriaDir, { recursive: true }); console.log('Creado directorio categoría:', categoriaDir); }
                 const sectionDir = path.join(categoriaDir, sanitizeNamePart(row.section_name || 'seccion'));
                 if (!fs.existsSync(sectionDir)) { fs.mkdirSync(sectionDir, { recursive: true }); console.log('Creado directorio sección:', sectionDir); }
+                const sectionJuradoDir = path.join(sectionDir, 'eleccion_jurado');
+                if (!fs.existsSync(sectionJuradoDir)) { fs.mkdirSync(sectionJuradoDir, { recursive: true }); console.log('Creado directorio sección (eleccion_jurado):', sectionJuradoDir); }
                 const premioDir = path.join(sectionDir, sanitizeNamePart(row.prize || 'premio'));
                 if (!fs.existsSync(premioDir)) { fs.mkdirSync(premioDir, { recursive: true }); console.log('Creado directorio premio:', premioDir); }
                 const srcPath = path.join(IMG_REPOSITORY_PATH, row.image_url || '');

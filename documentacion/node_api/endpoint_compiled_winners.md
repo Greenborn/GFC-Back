@@ -26,10 +26,14 @@ https://gfc.prod-api.greenborn.com.ar/api
 - Crea `compilado_premiadas` en `IMG_REPOSITORY_PATH`
   - Si existe se elimina y se recrea
 - Estructura generada:
+  - Directorios raíz adicionales:
+    - `eleccion_jurado/`
+    - `eleccion_publico/`
   - `<categoria>/` (minúsculas)
     - `<seccion>/` (minúsculas)
-        - `<premio>/` (minúsculas)
-          - archivos nombrados por `image.code` con su extensión original
+      - Directorio adicional: `eleccion_jurado/`
+      - `<premio>/` (minúsculas)
+        - archivos nombrados por `image.code` con su extensión original
 - Copia de archivos desde `IMG_REPOSITORY_PATH + image.url`
 - Genera `compilado_premiadas_<year>.zip` y devuelve URL pública
 

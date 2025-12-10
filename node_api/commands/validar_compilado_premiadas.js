@@ -45,7 +45,9 @@ async function validateStructure(baseDir, year, verbose) {
     console.error(`No existe: ${compiledDir}`);
     process.exit(2);
   }
-  const categories = fs.readdirSync(compiledDir).filter(d => fs.lstatSync(path.join(compiledDir, d)).isDirectory());
+  const categories = fs.readdirSync(compiledDir)
+    .filter(d => fs.lstatSync(path.join(compiledDir, d)).isDirectory())
+    .filter(d => !['eleccion_jurado', 'eleccion_publico'].includes(d));
   const result = {
     categories: new Set(),
     sections: new Set(),
@@ -59,7 +61,9 @@ async function validateStructure(baseDir, year, verbose) {
     const sections = fs.readdirSync(catDir).filter(d => fs.lstatSync(path.join(catDir, d)).isDirectory());
     for (const secDirName of sections) {
       const secDir = path.join(catDir, secDirName);
-      const prizes = fs.readdirSync(secDir).filter(d => fs.lstatSync(path.join(secDir, d)).isDirectory());
+      const prizes = fs.readdirSync(secDir)
+        .filter(d => fs.lstatSync(path.join(secDir, d)).isDirectory())
+        .filter(d => d !== 'eleccion_jurado');
       for (const prizeDirName of prizes) {
         const prizeDir = path.join(secDir, prizeDirName);
         const files = fs.readdirSync(prizeDir).filter(f => fs.lstatSync(path.join(prizeDir, f)).isFile());
