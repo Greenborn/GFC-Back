@@ -219,7 +219,7 @@ La API incluye un endpoint autenticado para compilar y descargar las fotos premi
 
 ##### Notas
 - Solo considera concursos con `judged = true` y `organization_type = 'INTERNO'` dentro del rango del año.
-- Genera estructura `compilado_premiadas/<categoria>/<seccion>/<premio>/` conservando el nombre original de cada archivo.
+- Genera estructura `compilado_premiadas/<categoria>/<seccion>/<premio>/` con archivos nombrados por `image.code` y su extensión original.
 
 #### Gestión de Fotoclubs
 La API incluye endpoints para la gestión de clubes fotográficos:

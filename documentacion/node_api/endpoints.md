@@ -504,7 +504,7 @@ Authorization: Bearer <token>
   - `{categoria}/` (minúsculas)
     - `{seccion}/` (minúsculas)
       - `{premio}/` (minúsculas)
-        - archivos con su nombre original
+        - archivos nombrados por `image.code` con su extensión original
 - Las rutas de origen se construyen con `IMG_REPOSITORY_PATH + image.url` y se copian al repositorio local.
 - Se genera el ZIP `compilado_premiadas_<year>.zip` en `IMG_REPOSITORY_PATH` y se expone por `IMG_BASE_PATH`.
 

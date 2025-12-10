@@ -28,8 +28,8 @@ https://gfc.prod-api.greenborn.com.ar/api
 - Estructura generada:
   - `<categoria>/` (minúsculas)
     - `<seccion>/` (minúsculas)
-      - `<premio>/` (minúsculas)
-        - archivos con su nombre original
+        - `<premio>/` (minúsculas)
+          - archivos nombrados por `image.code` con su extensión original
 - Copia de archivos desde `IMG_REPOSITORY_PATH + image.url`
 - Genera `compilado_premiadas_<year>.zip` y devuelve URL pública
 

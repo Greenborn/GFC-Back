@@ -566,6 +566,7 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                 .leftJoin('section as s', 'cr.section_id', 's.id')
                 .select(
                     'i.url as image_url',
+                    'i.code as image_code',
                     'i.title as image_title',
                     'p.name as author_name',
                     'p.last_name as author_last_name',
@@ -587,7 +588,8 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                 const premioDir = path.join(sectionDir, sanitizeNamePart(row.prize || 'premio'));
                 if (!fs.existsSync(premioDir)) { fs.mkdirSync(premioDir, { recursive: true }); console.log('Creado directorio premio:', premioDir); }
                 const srcPath = path.join(IMG_REPOSITORY_PATH, row.image_url || '');
-                const destFile = path.basename(row.image_url || '');
+                const ext = path.extname(row.image_url || '') || '.jpg';
+                const destFile = (row.image_code && String(row.image_code).trim()) ? `${row.image_code}${ext}` : path.basename(row.image_url || '');
                 const destPath = path.join(premioDir, destFile);
                 categoriasEncontradas.add(row.category_name || '');
                 seccionesEncontradas.add(row.section_name || '');
