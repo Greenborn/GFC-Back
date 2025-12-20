@@ -29,6 +29,10 @@ router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
     if (!user) {
       return res.status(200).json({ r: false });
     } else {
+      if (user.status !== 1) {
+        await LogOperacion(user.id, 'recuperar contraseña - usuario inhabilitado', '{"email":"'+email+'"}', new Date());
+        return res.status(200).json({ r: false });
+      }
       const TIME_DIFF = new Date().getTime() - new Date(user.pass_recovery_date).getTime()
       if ( TIME_DIFF < 0 && TIME_DIFF > global.config.verify_code_time ) {
         return res.status(200).json({ r: false });
@@ -74,6 +78,10 @@ router.post('/recupera_pass_confirm_code', async (req, res) => {
     if (!user) {
       return res.status(200).json({ r: false });
     } else {
+      if (user.status !== 1) {
+        await LogOperacion(user.id, 'confirmar código - usuario inhabilitado', '{"email":"'+email+'"}', AHORA);
+        return res.status(200).json({ r: false });
+      }
       const TIME_DIFF = new Date().getTime() - new Date(user.pass_recovery_date).getTime()
       if ( TIME_DIFF < 0 && TIME_DIFF > global.config.verify_code_time ) {
         return res.status(200).json({ r: false });
@@ -102,6 +110,11 @@ router.post('/recupera_pass', writeProtection, async (req, res) => {
     if (!user) {
       return res.status(200).json({ r: true });
     } else {
+      if (user.status !== 1) {
+        const AHORA = new Date()
+        await LogOperacion(user.id, 'recuperar contraseña - usuario inhabilitado', '{"email":"'+email+'"}', AHORA);
+        return res.status(200).json({ r: true });
+      }
       const TOKEN_RECUPERA_PASS = crypto.randomBytes(32).toString('hex').slice(0, 6);
       const AHORA = new Date()
 
