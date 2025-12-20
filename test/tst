@@ -1,0 +1,18 @@
+ET /contest/compiled-winners - Inicio
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Parámetros: year= 2025 , premios= Primer Premio, Segundo Premio, Tercer Premio, Mención de Honor , categorias= estimulo, primera
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Concursos seleccionados: 7
+6|GFC_PROD_API  | 2025-12-09 19:39:13:  - id=38, name=Textura Urbana y Ferrocarriles, end_date=Mon May 12 2025 23:55:00 GMT-0300 (Argentina Standard Time)
+6|GFC_PROD_API  | 2025-12-09 19:39:13:  - id=52, name=“Balcarce: mi lugar en el mundo”  Sub tema: Escaleras  , end_date=Sun Oct 12 2025 23:55:00 GMT-0300 (Argentina Standard Time)
+6|GFC_PROD_API  | 2025-12-09 19:39:13:  - id=36, name=Minimalismo y Animales, end_date=Sun Jan 26 2025 23:55:00 GMT-0300 (Argentina Standard Time)
+6|GFC_PROD_API  | 2025-12-09 19:39:13:  - id=37, name=Sombras y/o Reflejos + Pequeño Detalle, end_date=Sun Apr 20 2025 23:55:00 GMT-0300 (Argentina Standard Time)
+6|GFC_PROD_API  | 2025-12-09 19:39:13:  - id=39, name=Fotografìa Abstracta y Naturaleza, end_date=Mon Jul 07 2025 23:55:00 GMT-0300 (Argentina Standard Time)
+6|GFC_PROD_API  | 2025-12-09 19:39:13:  - id=51, name=Tres elementos y Paisaje, end_date=Sun Aug 17 2025 23:58:00 GMT-0300 (Argentina Standard Time)
+6|GFC_PROD_API  | 2025-12-09 19:39:13:  - id=54, name="Arquitectura marplatense" Sub tema: Movimiento , end_date=Tue Nov 04 2025 12:30:00 GMT-0300 (Argentina Standard Time)
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Creado directorio base: /var/www/GFC-PUBLIC-ASSETS/compilado_premiadas
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Categorías encontradas: 
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Secciones encontradas: 
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Premios encontrados: 
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Total de fotografías copiadas: 0
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Generando ZIP: /var/www/GFC-PUBLIC-ASSETS/compilado_premiadas_2025.zip
+6|GFC_PROD_API  | 2025-12-09 19:39:13: ZIP generado: /var/www/GFC-PUBLIC-ASSETS/compilado_premiadas_2025.zip - 22 bytes
+6|GFC_PROD_API  | 2025-12-09 19:39:13: Respuesta enviada con download_url: https://assets.prod-gfc.greenborn.com.ar//compilado_premiadas_2025.zip

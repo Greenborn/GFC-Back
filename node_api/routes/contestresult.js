@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
+const writeProtection = require('../middleware/writeProtection.js');
+const LogOperacion = require('../controllers/log_operaciones.js');
 
 // GET /contest-result?expand=profile,profile.user,profile.fotoclub,image.profile,image.thumbnail&filter[contest_id]=51
 router.get('/contest-result', authMiddleware, async (req, res) => {
@@ -151,6 +153,51 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error interno' });
+  }
+});
+
+// POST /disable_user
+// Cambia el estado de un usuario mediante JSON: { id: number, status: 0 | 1 }
+router.post('/disable_user', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const id = req.body?.id;
+    const status = req.body?.status;
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'Parámetro id inválido o faltante' });
+    }
+    if (!(status === 0 || status === 1)) {
+      return res.status(400).json({ success: false, message: 'El campo status debe ser 0 o 1' });
+    }
+    if (!(req?.user?.role_id == '1')) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores' });
+    }
+    const usuario = await global.knex('user').where({ id }).first();
+    if (!usuario) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+    const updates = { status, updated_at: new Date().toISOString() };
+    if (status === 0) {
+      updates.access_token = null;
+    }
+    const result = await global.knex('user').where({ id }).update(updates);
+    await LogOperacion(
+      req.user.id,
+      (status === 0 ? 'Deshabilitar' : 'Habilitar') + ' Usuario - ' + req.user.username,
+      JSON.stringify({ targetUserId: id, status }),
+      new Date()
+    );
+    if (result === 1) {
+      return res.json({
+        success: true,
+        message: status === 0 ? 'Usuario deshabilitado' : 'Usuario habilitado',
+        data: { id, status }
+      });
+    } else {
+      return res.status(500).json({ success: false, message: 'No se pudo actualizar el usuario' });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar estado de usuario', error: error.message });
   }
 });
 
