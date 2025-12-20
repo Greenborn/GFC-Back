@@ -193,6 +193,89 @@ Authorization: Bearer <token>
 }
 ```
 
+### 2.3 Cambiar Estado de Usuario (habilitar/deshabilitar)
+**PUT** `/user/{id}/status`
+
+Cambia el estado de un usuario: `1` para habilitado, `0` para deshabilitado. Al deshabilitar, se invalida el `access_token` del usuario para impedir accesos posteriores.
+
+#### Headers
+```
+Authorization: Bearer <token_admin>
+Content-Type: application/json
+```
+
+#### Body de Request
+```json
+{
+  "status": 0
+}
+```
+
+Valores permitidos:
+- `0`: Deshabilitar usuario (se borra el `access_token`)
+- `1`: Habilitar usuario
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Usuario deshabilitado",
+  "data": {
+    "id": 123,
+    "status": 0
+  }
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "El campo status debe ser 0 o 1"
+}
+```
+
+#### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado: solo administradores"
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "success": false,
+  "message": "Usuario no encontrado"
+}
+```
+
+#### Respuesta de Error (503)
+```json
+{
+  "success": false,
+  "message": "Sistema en modo de solo lectura",
+  "error": "READ_ONLY_MODE"
+}
+```
+
+#### Ejemplos
+- Deshabilitar usuario:
+```bash
+curl -X PUT "https://gfc.prod-api.greenborn.com.ar/api/user/123/status" \
+  -H "Authorization: Bearer <token_admin>" \
+  -H "Content-Type: application/json" \
+  -d "{\"status\":0}"
+```
+- Habilitar usuario:
+```bash
+curl -X PUT "https://gfc.prod-api.greenborn.com.ar/api/user/123/status" \
+  -H "Authorization: Bearer <token_admin>" \
+  -H "Content-Type: application/json" \
+  -d "{\"status\":1}"
+```
+
 ---
 
 ## 3. Concursos

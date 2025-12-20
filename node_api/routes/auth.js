@@ -169,6 +169,10 @@ router.post('/login', async (req, res) => {
       await LogOperacion(user.id, 'contraseña incorrecta', '{"user":"'+username+'"}', new Date());
       return res.status(401).json({ r: false, error: 'Usuario o Contraseña Incorrecta' });
     }
+    if (user.status !== 1) {
+      await LogOperacion(user.id, 'login - usuario inhabilitado', '{"user":"'+username+'"}', new Date());
+      return res.status(403).json({ r: false, error: 'Usuario inhabilitado' });
+    }
     await LogOperacion(user.id, 'login - '+username, null, new Date());
 
     const profile = await global.knex('profile').where('id', user?.profile_id).first();
