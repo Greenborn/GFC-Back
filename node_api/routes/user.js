@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const knex = require('../knexfile');
 const authMiddleware = require('../middleware/authMiddleware');
-const writeProtection = require('../middleware/writeProtection.js');
 
 // Endpoint: GET /user/me
 router.get('/me', authMiddleware, (req, res) => {
@@ -60,51 +59,6 @@ router.get('/:id', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error al obtener usuario' });
-  }
-});
-
-// PUT /user/:id/status
-// Cambia el estado del usuario (0 = deshabilitado, 1 = habilitado)
-router.put('/:id/status', authMiddleware, writeProtection, async (req, res) => {
-  const targetUserId = parseInt(req.params.id, 10);
-  const nuevoEstado = req.body?.status;
-  try {
-    if (!Number.isFinite(targetUserId)) {
-      return res.status(400).json({ success: false, message: 'Parámetro id inválido' });
-    }
-    if (nuevoEstado !== 0 && nuevoEstado !== 1) {
-      return res.status(400).json({ success: false, message: 'El campo status debe ser 0 o 1' });
-    }
-    if (!(req?.user?.role_id == '1')) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores' });
-    }
-    const usuarioObjetivo = await global.knex('user').where('id', targetUserId).first();
-    if (!usuarioObjetivo) {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
-    }
-    const updates = { status: nuevoEstado, updated_at: new Date().toISOString() };
-    if (nuevoEstado === 0) {
-      updates.access_token = null;
-    }
-    const result = await global.knex('user').where('id', targetUserId).update(updates);
-    await LogOperacion(
-      req.user.id,
-      (nuevoEstado === 0 ? 'Deshabilitar' : 'Habilitar') + ' Usuario - ' + req.user.username,
-      JSON.stringify({ targetUserId, status: nuevoEstado }),
-      new Date()
-    );
-    if (result === 1) {
-      return res.json({
-        success: true,
-        message: nuevoEstado === 0 ? 'Usuario deshabilitado' : 'Usuario habilitado',
-        data: { id: targetUserId, status: nuevoEstado }
-      });
-    } else {
-      return res.status(500).json({ success: false, message: 'No se pudo actualizar el usuario' });
-    }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, message: 'Error al actualizar estado de usuario', error: error.message });
   }
 });
 

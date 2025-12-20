@@ -193,10 +193,10 @@ Authorization: Bearer <token>
 }
 ```
 
-### 2.3 Cambiar Estado de Usuario (habilitar/deshabilitar)
-**PUT** `/user/{id}/status`
+### 2.3 Deshabilitar/Habilitar Usuario
+**POST** `/disable_user`
 
-Cambia el estado de un usuario: `1` para habilitado, `0` para deshabilitado. Al deshabilitar, se invalida el `access_token` del usuario para impedir accesos posteriores.
+Recibe un JSON con `id` de usuario y `status` (`1` habilitado, `0` deshabilitado). Al deshabilitar, se invalida el `access_token` del usuario para impedir accesos posteriores.
 
 #### Headers
 ```
@@ -207,6 +207,7 @@ Content-Type: application/json
 #### Body de Request
 ```json
 {
+  "id": 123,
   "status": 0
 }
 ```
@@ -263,17 +264,17 @@ Valores permitidos:
 #### Ejemplos
 - Deshabilitar usuario:
 ```bash
-curl -X PUT "https://gfc.prod-api.greenborn.com.ar/api/user/123/status" \
+curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/disable_user" \
   -H "Authorization: Bearer <token_admin>" \
   -H "Content-Type: application/json" \
-  -d "{\"status\":0}"
+  -d "{\"id\":123,\"status\":0}"
 ```
 - Habilitar usuario:
 ```bash
-curl -X PUT "https://gfc.prod-api.greenborn.com.ar/api/user/123/status" \
+curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/disable_user" \
   -H "Authorization: Bearer <token_admin>" \
   -H "Content-Type: application/json" \
-  -d "{\"status\":1}"
+  -d "{\"id\":123,\"status\":1}"
 ```
 
 ---

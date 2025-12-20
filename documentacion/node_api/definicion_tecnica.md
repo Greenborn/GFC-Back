@@ -293,7 +293,7 @@ PUT /users/{id}
 DELETE /users/{id}
 GET /users/{id}/profile
 PUT /users/{id}/profile
-PUT /user/{id}/status
+POST /disable_user
 ```
 
 #### Concursos
