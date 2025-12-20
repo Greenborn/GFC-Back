@@ -1451,6 +1451,10 @@ Content-Type: application/json
 
 Solicita el envío de un código de verificación al correo electrónico del usuario para recuperar la contraseña.
 
+Restricciones:
+- Solo usuarios activos (`status == 1`) pueden recibir email de recuperación.
+- Usuarios deshabilitados: se responde `{"r": true}` pero no se envía email ni se actualiza token.
+
 #### Headers
 ```
 Content-Type: application/json
@@ -1499,6 +1503,10 @@ Content-Type: application/json
 **POST** `/auth/recupera_pass_confirm_code`
 
 Verifica que el código de recuperación enviado al correo sea válido y no haya expirado.
+
+Restricciones:
+- Solo usuarios activos (`status == 1`) pueden confirmar código.
+- Usuarios deshabilitados: respuesta `{"r": false}`.
 
 #### Headers
 ```
@@ -1556,6 +1564,10 @@ Content-Type: application/json
 **POST** `/auth/recupera_pass_new_pass`
 
 Permite establecer una nueva contraseña usando el código de recuperación recibido por email.
+
+Restricciones:
+- Solo usuarios activos (`status == 1`) pueden establecer nueva contraseña.
+- Usuarios deshabilitados: respuesta `{"r": false}` y no se actualiza la contraseña.
 
 #### Headers
 ```
