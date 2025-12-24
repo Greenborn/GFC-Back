@@ -201,4 +201,46 @@ router.post('/disable_user', authMiddleware, writeProtection, async (req, res) =
   }
 });
 
+// GET /foto-del-anio - Endpoint público para listar fotos del año de la última temporada
+router.get('/foto-del-anio', async (req, res) => {
+  try {
+    // Obtener la última temporada (el valor máximo de temporada)
+    const maxTemporadaResult = await global.knex('foto_del_anio')
+      .max('temporada as max_temporada')
+      .first();
+
+    const maxTemporada = maxTemporadaResult?.max_temporada;
+
+    if (!maxTemporada) {
+      return res.json({
+        items: [],
+        temporada: null
+      });
+    }
+
+    // Obtener los registros de la última temporada ordenados por orden
+    const items = await global.knex('foto_del_anio')
+      .where('temporada', maxTemporada)
+      .orderBy('orden', 'asc')
+      .select([
+        'id',
+        'id_foto',
+        'puesto',
+        'orden',
+        'temporada',
+        'nombre_obra',
+        'nombre_autor',
+        'url_imagen'
+      ]);
+
+    res.json({
+      items,
+      temporada: maxTemporada
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error interno' });
+  }
+});
+
 module.exports = router;
