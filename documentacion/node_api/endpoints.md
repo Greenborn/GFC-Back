@@ -1623,4 +1623,213 @@ Content-Type: application/json
 
 ---
 
+## 12. Fotos del Año
+
+### 12.1 Registrar Fotos del Año
+**POST** `/foto-del-anio`
+
+Registra o sobreescribe las fotos del año para una temporada específica. Si ya existen fotos registradas para la temporada, las reemplaza completamente.
+
+#### Autenticación y Permisos
+- **Requerida**: Sí (Bearer Token)
+- **Roles permitidos**: Solo administradores (`role_id == '1'`)
+
+#### Parámetros del Body
+```json
+{
+  "temporada": 2024,
+  "fotos": [
+    {
+      "id_foto": 1001,
+      "puesto": "1er Lugar",
+      "orden": 1,
+      "nombre_obra": "Amanecer en los Andes",
+      "nombre_autor": "Juan Pérez",
+      "url_imagen": "https://example.com/amanecer-andes.jpg"
+    },
+    {
+      "id_foto": 1002,
+      "puesto": "2do Lugar", 
+      "orden": 2,
+      "nombre_obra": "Reflejos del Lago",
+      "nombre_autor": "María González",
+      "url_imagen": "https://example.com/reflejos-lago.jpg"
+    }
+  ]
+}
+```
+
+#### Campos Requeridos por Foto
+- **id_foto** (number): ID único de la fotografía
+- **puesto** (string): Posición o premio obtenido
+- **orden** (number): Orden de visualización 
+- **nombre_obra** (string): Título de la obra fotográfica
+- **nombre_autor** (string): Nombre del autor/fotógrafo
+- **url_imagen** (string): URL de la imagen
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Se registraron exitosamente 2 fotos del año para la temporada 2024",
+  "data": {
+    "temporada": 2024,
+    "cantidad_fotos": 2
+  }
+}
+```
+
+#### Respuestas de Error
+
+**Error 400 - Datos faltantes**
+```json
+{
+  "success": false,
+  "message": "Se requiere temporada y un array de fotos"
+}
+```
+
+**Error 400 - Campos faltantes en fotos**
+```json
+{
+  "success": false,
+  "message": "Cada foto debe tener: id_foto, puesto, orden, nombre_obra, nombre_autor y url_imagen"
+}
+```
+
+**Error 403 - Sin permisos**
+```json
+{
+  "success": false,
+  "message": "Acceso denegado. Solo administradores pueden acceder a este recurso."
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Bearer Token requerido
+- **Permisos**: Solo administrador (`role_id == "1"`)
+- **Transaccional**: Sí (elimina fotos existentes e inserta nuevas)
+- **Logging**: Registra operación en log de auditoría
+- **Sobreescritura**: Automática por temporada
+
+### 12.2 Obtener Fotos del Año por Temporada
+**GET** `/foto-del-anio/:temporada`
+
+Obtiene todas las fotos del año registradas para una temporada específica, ordenadas por el campo `orden`.
+
+#### Autenticación y Permisos
+- **Requerida**: Sí (Bearer Token)
+- **Roles permitidos**: Solo administradores (`role_id == '1'`)
+
+#### Parámetros de URL
+- **temporada** (number): Año de la temporada (ej: 2024)
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "id_foto": 1001,
+      "puesto": "1er Lugar",
+      "orden": 1,
+      "temporada": 2024,
+      "nombre_obra": "Amanecer en los Andes",
+      "nombre_autor": "Juan Pérez",
+      "url_imagen": "https://example.com/amanecer-andes.jpg"
+    },
+    {
+      "id": 2,
+      "id_foto": 1002,
+      "puesto": "2do Lugar",
+      "orden": 2,
+      "temporada": 2024,
+      "nombre_obra": "Reflejos del Lago",
+      "nombre_autor": "María González", 
+      "url_imagen": "https://example.com/reflejos-lago.jpg"
+    }
+  ],
+  "total": 2
+}
+```
+
+#### Respuesta sin datos (200)
+```json
+{
+  "success": true,
+  "data": [],
+  "total": 0
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Bearer Token requerido
+- **Permisos**: Solo administrador (`role_id == "1"`)
+- **Ordenamiento**: Por campo `orden` ascendente
+- **Filtrado**: Por temporada exacta
+
+### 12.3 Obtener Todas las Fotos del Año
+**GET** `/foto-del-anio`
+
+Obtiene todas las fotos del año registradas en el sistema, agrupadas por temporada y ordenadas por temporada descendente y orden ascendente.
+
+#### Autenticación y Permisos  
+- **Requerida**: Sí (Bearer Token)
+- **Roles permitidos**: Solo administradores (`role_id == '1'`)
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": {
+    "2025": [
+      {
+        "id": 3,
+        "id_foto": 2001,
+        "puesto": "1er Lugar",
+        "orden": 1,
+        "temporada": 2025,
+        "nombre_obra": "Bosque Encantado",
+        "nombre_autor": "Ana Martínez",
+        "url_imagen": "https://example.com/bosque-encantado.jpg"
+      }
+    ],
+    "2024": [
+      {
+        "id": 1,
+        "id_foto": 1001,
+        "puesto": "1er Lugar",
+        "orden": 1,
+        "temporada": 2024,
+        "nombre_obra": "Amanecer en los Andes", 
+        "nombre_autor": "Juan Pérez",
+        "url_imagen": "https://example.com/amanecer-andes.jpg"
+      },
+      {
+        "id": 2,
+        "id_foto": 1002,
+        "puesto": "2do Lugar",
+        "orden": 2,
+        "temporada": 2024,
+        "nombre_obra": "Reflejos del Lago",
+        "nombre_autor": "María González",
+        "url_imagen": "https://example.com/reflejos-lago.jpg"
+      }
+    ]
+  },
+  "total_temporadas": 2,
+  "total_fotos": 3
+}
+```
+
+#### Características del Endpoint
+- **Autenticación**: Bearer Token requerido
+- **Permisos**: Solo administrador (`role_id == "1"`)
+- **Agrupamiento**: Por temporada (año)
+- **Ordenamiento**: Temporada DESC, orden ASC dentro de cada grupo
+- **Estadísticas**: Incluye totales de temporadas y fotos
+
+---
+
 [Navegación: Volver al inicio](#endpoints---nodejs-api)
