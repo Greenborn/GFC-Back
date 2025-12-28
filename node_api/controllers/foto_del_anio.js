@@ -288,8 +288,31 @@ class FotoDelAnioController {
                 .orderBy('temporada', 'desc')
                 .orderBy('orden', 'asc');
 
+            // Obtener IDs de fotos únicos
+            const fotoIds = [...new Set(fotos.map(f => f.id_foto))];
+
+            // Obtener todas las miniaturas de las fotos en una sola consulta
+            const thumbnails = await global.knex('thumbnail')
+                .whereIn('image_id', fotoIds)
+                .select('*');
+
+            // Crear mapa de miniaturas por image_id
+            const thumbnailsMap = {};
+            thumbnails.forEach(thumb => {
+                if (!thumbnailsMap[thumb.image_id]) {
+                    thumbnailsMap[thumb.image_id] = [];
+                }
+                thumbnailsMap[thumb.image_id].push(thumb);
+            });
+
+            // Agregar miniaturas a cada foto
+            const fotosConThumbnails = fotos.map(foto => ({
+                ...foto,
+                thumbnails: thumbnailsMap[foto.id_foto] || []
+            }));
+
             // Agrupar por temporada
-            const fotosPorTemporada = fotos.reduce((acc, foto) => {
+            const fotosPorTemporada = fotosConThumbnails.reduce((acc, foto) => {
                 if (!acc[foto.temporada]) {
                     acc[foto.temporada] = [];
                 }
@@ -301,7 +324,7 @@ class FotoDelAnioController {
                 success: true,
                 data: fotosPorTemporada,
                 total_temporadas: Object.keys(fotosPorTemporada).length,
-                total_fotos: fotos.length
+                total_fotos: fotosConThumbnails.length
             });
 
         } catch (error) {
