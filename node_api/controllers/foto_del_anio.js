@@ -100,7 +100,7 @@ class FotoDelAnioController {
                 // Buscar todas las fotografías en la base de datos
                 const imagenes = await trx('image')
                     .whereIn('code', codigosUnicos)
-                    .select('id', 'code', 'title', 'profile_id');
+                    .select('id', 'code', 'title', 'profile_id', 'url');
 
                 // Validar que todas las fotografías únicas existan
                 if (imagenes.length !== codigosUnicos.length) {
@@ -183,7 +183,7 @@ class FotoDelAnioController {
                         temporada: temporada,
                         nombre_obra: imagen.title,
                         nombre_autor: mapaPerfiles[imagen.profile_id],
-                        url_imagen: foto.nombreArchivo
+                        url_imagen: imagen.url
                     };
                 });
 
