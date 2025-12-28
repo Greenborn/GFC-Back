@@ -233,8 +233,31 @@ router.get('/foto-del-anio', async (req, res) => {
         'url_imagen'
       ]);
 
+    // Obtener IDs de fotos únicos
+    const fotoIds = [...new Set(items.map(f => f.id_foto))];
+
+    // Obtener todas las miniaturas de las fotos en una sola consulta
+    const thumbnails = await global.knex('thumbnail')
+      .whereIn('image_id', fotoIds)
+      .select('*');
+
+    // Crear mapa de miniaturas por image_id
+    const thumbnailsMap = {};
+    thumbnails.forEach(thumb => {
+      if (!thumbnailsMap[thumb.image_id]) {
+        thumbnailsMap[thumb.image_id] = [];
+      }
+      thumbnailsMap[thumb.image_id].push(thumb);
+    });
+
+    // Agregar miniaturas a cada foto
+    const itemsConThumbnails = items.map(foto => ({
+      ...foto,
+      thumbnails: thumbnailsMap[foto.id_foto] || []
+    }));
+
     res.json({
-      items,
+      items: itemsConThumbnails,
       temporada: maxTemporada
     });
   } catch (error) {
