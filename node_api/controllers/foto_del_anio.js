@@ -94,10 +94,15 @@ class FotoDelAnioController {
                 // Extraer códigos de las fotografías (quitar extensión)
                 const codigosFotos = fotosExtraidas.map(f => f.nombreArchivo.replace(/\.[^.]+$/, ''));
 
+                console.log('Códigos de fotos buscados:', codigosFotos);
+
                 // Buscar todas las fotografías en la base de datos
                 const imagenes = await trx('image')
                     .whereIn('code', codigosFotos)
                     .select('id', 'code', 'title', 'profile_id');
+
+                console.log('Imágenes encontradas:', imagenes.length, 'de', codigosFotos.length);
+                console.log('Códigos encontrados:', imagenes.map(img => img.code));
 
                 // Validar que todas las fotografías existan
                 if (imagenes.length !== codigosFotos.length) {
