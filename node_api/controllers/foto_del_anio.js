@@ -1,5 +1,31 @@
 const LogOperacion = require('./log_operaciones.js');
 
+/**
+ * Obtiene un valor de un objeto usando una ruta tipo dot notation
+ * Ej: "directorios.eleccion_jurado.archivos[0]"
+ */
+function obtenerValorPorRuta(objeto, ruta) {
+    const partes = ruta.split('.');
+    let valor = objeto;
+
+    for (const parte of partes) {
+        // Manejar acceso a arrays: "archivos[0]"
+        const match = parte.match(/^(\w+)\[(\d+)\]$/);
+        if (match) {
+            const [, nombrePropiedad, indice] = match;
+            valor = valor?.[nombrePropiedad]?.[parseInt(indice)];
+        } else {
+            valor = valor?.[parte];
+        }
+
+        if (valor === undefined || valor === null) {
+            return null;
+        }
+    }
+
+    return valor;
+}
+
 class FotoDelAnioController {
     
     /**
@@ -37,7 +63,7 @@ class FotoDelAnioController {
 
             for (const rutaConfig of rutasFotosEsperadas) {
                 try {
-                    const archivo = this.obtenerValorPorRuta(req.body, rutaConfig.ruta);
+                    const archivo = obtenerValorPorRuta(req.body, rutaConfig.ruta);
                     
                     if (!archivo) {
                         erroresValidacion.push(`No se encontró fotografía en: ${rutaConfig.ruta}`);
@@ -201,32 +227,6 @@ class FotoDelAnioController {
                 error: error.message
             });
         }
-    }
-
-    /**
-     * Obtiene un valor de un objeto usando una ruta tipo dot notation
-     * Ej: "directorios.eleccion_jurado.archivos[0]"
-     */
-    obtenerValorPorRuta(objeto, ruta) {
-        const partes = ruta.split('.');
-        let valor = objeto;
-
-        for (const parte of partes) {
-            // Manejar acceso a arrays: "archivos[0]"
-            const match = parte.match(/^(\w+)\[(\d+)\]$/);
-            if (match) {
-                const [, nombrePropiedad, indice] = match;
-                valor = valor?.[nombrePropiedad]?.[parseInt(indice)];
-            } else {
-                valor = valor?.[parte];
-            }
-
-            if (valor === undefined || valor === null) {
-                return null;
-            }
-        }
-
-        return valor;
     }
 
     /**
