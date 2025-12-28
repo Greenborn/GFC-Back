@@ -236,6 +236,7 @@ class FotoDelAnioController {
 
             const fotos = await global.knex('foto_del_anio')
                 .where('temporada', temporada)
+                .select('*')
                 .orderBy('orden', 'asc');
 
             return res.json({
