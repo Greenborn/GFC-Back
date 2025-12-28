@@ -239,10 +239,33 @@ class FotoDelAnioController {
                 .select('*')
                 .orderBy('orden', 'asc');
 
+            // Obtener IDs de fotos únicos
+            const fotoIds = [...new Set(fotos.map(f => f.id_foto))];
+
+            // Obtener todas las miniaturas de las fotos en una sola consulta
+            const thumbnails = await global.knex('thumbnail')
+                .whereIn('image_id', fotoIds)
+                .select('*');
+
+            // Crear mapa de miniaturas por image_id
+            const thumbnailsMap = {};
+            thumbnails.forEach(thumb => {
+                if (!thumbnailsMap[thumb.image_id]) {
+                    thumbnailsMap[thumb.image_id] = [];
+                }
+                thumbnailsMap[thumb.image_id].push(thumb);
+            });
+
+            // Agregar miniaturas a cada foto
+            const fotosConThumbnails = fotos.map(foto => ({
+                ...foto,
+                thumbnails: thumbnailsMap[foto.id_foto] || []
+            }));
+
             return res.json({
                 success: true,
-                data: fotos,
-                total: fotos.length
+                data: fotosConThumbnails,
+                total: fotosConThumbnails.length
             });
 
         } catch (error) {
