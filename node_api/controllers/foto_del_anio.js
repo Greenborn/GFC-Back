@@ -4,64 +4,192 @@ class FotoDelAnioController {
     
     /**
      * Registra o actualiza las fotos del año para una temporada específica
+     * Procesa estructura jerárquica de directorios con fotografías seleccionadas
      * Si ya existen fotos para la temporada, las sobreescribe
      */
     async registrarFotosDelAnio(req, res) {
         try {
-            const { temporada, fotos } = req.body;
+            const { raiz, directorios } = req.body;
 
             // Validación de entrada
-            if (!temporada || !fotos || !Array.isArray(fotos)) {
+            if (!raiz || !directorios) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Se requiere temporada y un array de fotos'
+                    message: 'Se requiere raiz y directorios'
                 });
             }
 
-            // Validar que cada foto tenga los campos requeridos
-            for (const foto of fotos) {
-                if (!foto.id_foto || !foto.puesto || !foto.orden || 
-                    !foto.nombre_obra || !foto.nombre_autor || !foto.url_imagen) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Cada foto debe tener: id_foto, puesto, orden, nombre_obra, nombre_autor y url_imagen'
+            // Definir las rutas de las fotografías esperadas
+            const rutasFotosEsperadas = [
+                { ruta: 'directorios.eleccion_jurado.archivos[0]', puesto: 'Fotografía del Año - Elección Jurado', orden: 1 },
+                { ruta: 'directorios.eleccion_publico.archivos[0]', puesto: 'Fotografía del Año - Elección Público', orden: 2 },
+                { ruta: 'directorios.primera.subdirectorios.sub_seccion.subdirectorios.eleccion_jurado.archivos[0]', puesto: 'Fotografía del Año Primera - Subsección - Elección Jurado', orden: 3 },
+                { ruta: 'directorios.primera.subdirectorios.color.subdirectorios.eleccion_jurado.archivos[0]', puesto: 'Fotografía del Año Primera - Color - Elección Jurado', orden: 4 },
+                { ruta: 'directorios.primera.subdirectorios.monocromo.subdirectorios.eleccion_jurado.archivos[0]', puesto: 'Fotografía del Año Primera - Monocromo - Elección Jurado', orden: 5 },
+                { ruta: 'directorios.estimulo.subdirectorios.sub_seccion.subdirectorios.eleccion_jurado.archivos[0]', puesto: 'Fotografía del Año Estímulo - Subsección - Elección Jurado', orden: 6 },
+                { ruta: 'directorios.estimulo.subdirectorios.color.subdirectorios.eleccion_jurado.archivos[0]', puesto: 'Fotografía del Año Estímulo - Color - Elección Jurado', orden: 7 },
+                { ruta: 'directorios.estimulo.subdirectorios.monocromo.subdirectorios.eleccion_jurado.archivos[0]', puesto: 'Fotografía del Año Estímulo - Monocromo - Elección Jurado', orden: 8 }
+            ];
+
+            // Extraer las fotografías de la estructura jerárquica
+            const fotosExtraidas = [];
+            const erroresValidacion = [];
+
+            for (const rutaConfig of rutasFotosEsperadas) {
+                try {
+                    const archivo = this.obtenerValorPorRuta(req.body, rutaConfig.ruta);
+                    
+                    if (!archivo) {
+                        erroresValidacion.push(`No se encontró fotografía en: ${rutaConfig.ruta}`);
+                        continue;
+                    }
+
+                    fotosExtraidas.push({
+                        nombreArchivo: archivo,
+                        puesto: rutaConfig.puesto,
+                        orden: rutaConfig.orden
                     });
+                } catch (error) {
+                    erroresValidacion.push(`Error al extraer fotografía de ${rutaConfig.ruta}: ${error.message}`);
                 }
             }
 
+            // Validar que se encontraron todas las fotografías
+            if (fotosExtraidas.length !== 8) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Se requieren exactamente 8 fotografías, se encontraron ${fotosExtraidas.length}`,
+                    errores: erroresValidacion
+                });
+            }
+
+            // Validar que exista exactamente una fotografía en cada ubicación
+            const nombresArchivos = fotosExtraidas.map(f => f.nombreArchivo);
+            const nombresUnicos = new Set(nombresArchivos);
+            if (nombresArchivos.length !== nombresUnicos.size) {
+                const duplicados = nombresArchivos.filter((item, index) => nombresArchivos.indexOf(item) !== index);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Existen fotografías duplicadas en diferentes ubicaciones',
+                    duplicados: [...new Set(duplicados)]
+                });
+            }
+
             // Usar transacción para garantizar consistencia
-            await global.knex.transaction(async (trx) => {
+            const resultado = await global.knex.transaction(async (trx) => {
+                // Extraer códigos de las fotografías (quitar extensión)
+                const codigosFotos = fotosExtraidas.map(f => f.nombreArchivo.replace(/\.[^.]+$/, ''));
+
+                // Buscar todas las fotografías en la base de datos
+                const imagenes = await trx('image')
+                    .whereIn('code', codigosFotos)
+                    .select('id', 'code', 'title', 'profile_id');
+
+                // Validar que todas las fotografías existan
+                if (imagenes.length !== codigosFotos.length) {
+                    const codigosEncontrados = imagenes.map(img => img.code);
+                    const codigosNoEncontrados = codigosFotos.filter(c => !codigosEncontrados.includes(c));
+                    throw new Error(`Fotografías no encontradas en la base de datos: ${codigosNoEncontrados.join(', ')}`);
+                }
+
+                // Crear mapa de código a imagen
+                const mapaImagenes = {};
+                imagenes.forEach(img => {
+                    mapaImagenes[img.code] = img;
+                });
+
+                // Obtener IDs de imágenes
+                const imageIds = imagenes.map(img => img.id);
+
+                // Buscar en contest_result
+                const contestResults = await trx('contest_result')
+                    .whereIn('image_id', imageIds)
+                    .select('image_id', 'contest_id');
+
+                // Validar que todas las imágenes tengan contest_result
+                if (contestResults.length !== imagenes.length) {
+                    const imageIdsEnResultados = contestResults.map(cr => cr.image_id);
+                    const imageIdsSinResultado = imageIds.filter(id => !imageIdsEnResultados.includes(id));
+                    throw new Error(`Fotografías sin resultados de concurso: ${imageIdsSinResultado.join(', ')}`);
+                }
+
+                // Obtener IDs de concursos
+                const contestIds = [...new Set(contestResults.map(cr => cr.contest_id))];
+
+                // Obtener información de los concursos
+                const concursos = await trx('contest')
+                    .whereIn('id', contestIds)
+                    .select('id', 'end_date');
+
+                // Validar que todos los concursos pertenezcan a la misma temporada
+                const anios = concursos.map(c => new Date(c.end_date).getFullYear());
+                const aniosUnicos = [...new Set(anios)];
+                
+                if (aniosUnicos.length !== 1) {
+                    throw new Error(`Las fotografías pertenecen a diferentes temporadas: ${aniosUnicos.join(', ')}`);
+                }
+
+                const temporada = aniosUnicos[0];
+
+                // Crear mapa de image_id a contest_id
+                const mapaContestResult = {};
+                contestResults.forEach(cr => {
+                    mapaContestResult[cr.image_id] = cr.contest_id;
+                });
+
+                // Obtener IDs de perfiles únicos
+                const profileIds = [...new Set(imagenes.map(img => img.profile_id))];
+
+                // Obtener información de autores
+                const perfiles = await trx('profile')
+                    .whereIn('id', profileIds)
+                    .select('id', 'name', 'last_name');
+
+                // Crear mapa de profile_id a nombre completo
+                const mapaPerfiles = {};
+                perfiles.forEach(perfil => {
+                    mapaPerfiles[perfil.id] = `${perfil.last_name} ${perfil.name}`;
+                });
+
                 // Eliminar fotos existentes de la misma temporada
                 await trx('foto_del_anio').where('temporada', temporada).del();
 
-                // Insertar las nuevas fotos
-                const fotosParaInsertar = fotos.map(foto => ({
-                    id_foto: foto.id_foto,
-                    puesto: foto.puesto,
-                    orden: foto.orden,
-                    temporada: parseInt(temporada),
-                    nombre_obra: foto.nombre_obra,
-                    nombre_autor: foto.nombre_autor,
-                    url_imagen: foto.url_imagen
-                }));
+                // Preparar registros para insertar
+                const fotosParaInsertar = fotosExtraidas.map(foto => {
+                    const codigo = foto.nombreArchivo.replace(/\.[^.]+$/, '');
+                    const imagen = mapaImagenes[codigo];
+                    
+                    return {
+                        id_foto: imagen.id,
+                        puesto: foto.puesto,
+                        orden: foto.orden,
+                        temporada: temporada,
+                        nombre_obra: imagen.title,
+                        nombre_autor: mapaPerfiles[imagen.profile_id],
+                        url_imagen: foto.nombreArchivo
+                    };
+                });
 
+                // Insertar los nuevos registros
                 await trx('foto_del_anio').insert(fotosParaInsertar);
+
+                return { temporada, cantidad: fotosParaInsertar.length };
             });
 
             // Log de la operación
             await LogOperacion(
                 req.user.id,
-                `Registro de fotos del año - Temporada ${temporada} - ${req.user.username}`,
-                `Se registraron ${fotos.length} fotos del año para la temporada ${temporada}`,
+                `Registro de fotos del año - Temporada ${resultado.temporada} - ${req.user.username}`,
+                `Se registraron ${resultado.cantidad} fotos del año para la temporada ${resultado.temporada}`,
                 new Date()
             );
 
             return res.json({
                 success: true,
-                message: `Se registraron exitosamente ${fotos.length} fotos del año para la temporada ${temporada}`,
+                message: `Se registraron exitosamente ${resultado.cantidad} fotos del año para la temporada ${resultado.temporada}`,
                 data: {
-                    temporada: parseInt(temporada),
-                    cantidad_fotos: fotos.length
+                    temporada: resultado.temporada,
+                    cantidad_fotos: resultado.cantidad
                 }
             });
 
@@ -69,10 +197,36 @@ class FotoDelAnioController {
             console.error('Error al registrar fotos del año:', error);
             return res.status(500).json({
                 success: false,
-                message: 'Error interno del servidor al registrar fotos del año',
+                message: 'Error al registrar fotos del año',
                 error: error.message
             });
         }
+    }
+
+    /**
+     * Obtiene un valor de un objeto usando una ruta tipo dot notation
+     * Ej: "directorios.eleccion_jurado.archivos[0]"
+     */
+    obtenerValorPorRuta(objeto, ruta) {
+        const partes = ruta.split('.');
+        let valor = objeto;
+
+        for (const parte of partes) {
+            // Manejar acceso a arrays: "archivos[0]"
+            const match = parte.match(/^(\w+)\[(\d+)\]$/);
+            if (match) {
+                const [, nombrePropiedad, indice] = match;
+                valor = valor?.[nombrePropiedad]?.[parseInt(indice)];
+            } else {
+                valor = valor?.[parte];
+            }
+
+            if (valor === undefined || valor === null) {
+                return null;
+            }
+        }
+
+        return valor;
     }
 
     /**
