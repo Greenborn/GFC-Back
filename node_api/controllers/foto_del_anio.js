@@ -93,17 +93,20 @@ class FotoDelAnioController {
             const resultado = await global.knex.transaction(async (trx) => {
                 // Extraer códigos de las fotografías (quitar extensión)
                 const codigosFotos = fotosExtraidas.map(f => f.nombreArchivo.replace(/\.[^.]+$/, ''));
+                
+                // Obtener códigos únicos (pueden haber duplicados porque la misma foto gana en varias categorías)
+                const codigosUnicos = [...new Set(codigosFotos)];
 
                 // Buscar todas las fotografías en la base de datos
                 const imagenes = await trx('image')
-                    .whereIn('code', codigosFotos)
+                    .whereIn('code', codigosUnicos)
                     .select('id', 'code', 'title', 'profile_id');
 
-                // Validar que todas las fotografías existan
-                if (imagenes.length !== codigosFotos.length) {
+                // Validar que todas las fotografías únicas existan
+                if (imagenes.length !== codigosUnicos.length) {
                     const codigosEncontrados = imagenes.map(img => img.code);
-                    const codigosNoEncontrados = codigosFotos.filter(c => !codigosEncontrados.includes(c));
-                    throw new Error(`Fotografías no encontradas en la base de datos. Buscados (${codigosFotos.length}): [${codigosFotos.join(', ')}]. Encontrados (${imagenes.length}): [${codigosEncontrados.join(', ')}]. No encontrados: [${codigosNoEncontrados.join(', ')}]`);
+                    const codigosNoEncontrados = codigosUnicos.filter(c => !codigosEncontrados.includes(c));
+                    throw new Error(`Fotografías no encontradas en la base de datos: ${codigosNoEncontrados.join(', ')}`);
                 }
 
                 // Crear mapa de código a imagen
