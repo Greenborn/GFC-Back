@@ -89,18 +89,6 @@ class FotoDelAnioController {
                 });
             }
 
-            // Validar que exista exactamente una fotografía en cada ubicación
-            const nombresArchivos = fotosExtraidas.map(f => f.nombreArchivo);
-            const nombresUnicos = new Set(nombresArchivos);
-            if (nombresArchivos.length !== nombresUnicos.size) {
-                const duplicados = nombresArchivos.filter((item, index) => nombresArchivos.indexOf(item) !== index);
-                return res.status(400).json({
-                    success: false,
-                    message: 'Existen fotografías duplicadas en diferentes ubicaciones',
-                    duplicados: [...new Set(duplicados)]
-                });
-            }
-
             // Usar transacción para garantizar consistencia
             const resultado = await global.knex.transaction(async (trx) => {
                 // Extraer códigos de las fotografías (quitar extensión)
