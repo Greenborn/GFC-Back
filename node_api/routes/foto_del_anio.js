@@ -48,15 +48,15 @@ router.post('/', adminMiddleware, FotoDelAnioController.registrarFotosDelAnio);
 /**
  * @route GET /api/foto-del-anio/:temporada
  * @desc Obtiene las fotos del año de una temporada específica
- * @access Private (Solo administradores)
+ * @access Public
  */
-router.get('/:temporada', adminMiddleware, FotoDelAnioController.obtenerFotosDelAnio);
+router.get('/:temporada', FotoDelAnioController.obtenerFotosDelAnio);
 
 /**
  * @route GET /api/foto-del-anio
  * @desc Obtiene todas las fotos del año agrupadas por temporada
- * @access Private (Solo administradores)
+ * @access Public
  */
-router.get('/', adminMiddleware, FotoDelAnioController.obtenerTodasLasFotosDelAnio);
+router.get('/', FotoDelAnioController.obtenerTodasLasFotosDelAnio);
 
 module.exports = router;

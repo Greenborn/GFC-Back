@@ -1718,8 +1718,8 @@ Registra o sobreescribe las fotos del año para una temporada específica. Si ya
 Obtiene todas las fotos del año registradas para una temporada específica, ordenadas por el campo `orden`.
 
 #### Autenticación y Permisos
-- **Requerida**: Sí (Bearer Token)
-- **Roles permitidos**: Solo administradores (`role_id == '1'`)
+- **Requerida**: No (endpoint público)
+- **Roles permitidos**: Todos (público)
 
 #### Parámetros de URL
 - **temporada** (number): Año de la temporada (ej: 2024)
@@ -1764,8 +1764,8 @@ Obtiene todas las fotos del año registradas para una temporada específica, ord
 ```
 
 #### Características del Endpoint
-- **Autenticación**: Bearer Token requerido
-- **Permisos**: Solo administrador (`role_id == "1"`)
+- **Autenticación**: No requerida (público)
+- **Permisos**: Público
 - **Ordenamiento**: Por campo `orden` ascendente
 - **Filtrado**: Por temporada exacta
 
@@ -1775,8 +1775,8 @@ Obtiene todas las fotos del año registradas para una temporada específica, ord
 Obtiene todas las fotos del año registradas en el sistema, agrupadas por temporada y ordenadas por temporada descendente y orden ascendente.
 
 #### Autenticación y Permisos  
-- **Requerida**: Sí (Bearer Token)
-- **Roles permitidos**: Solo administradores (`role_id == '1'`)
+- **Requerida**: No (endpoint público)
+- **Roles permitidos**: Todos (público)
 
 #### Respuesta Exitosa (200)
 ```json
@@ -1824,8 +1824,8 @@ Obtiene todas las fotos del año registradas en el sistema, agrupadas por tempor
 ```
 
 #### Características del Endpoint
-- **Autenticación**: Bearer Token requerido
-- **Permisos**: Solo administrador (`role_id == "1"`)
+- **Autenticación**: No requerida (público)
+- **Permisos**: Público
 - **Agrupamiento**: Por temporada (año)
 - **Ordenamiento**: Temporada DESC, orden ASC dentro de cada grupo
 - **Estadísticas**: Incluye totales de temporadas y fotos
