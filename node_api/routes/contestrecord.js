@@ -149,8 +149,18 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       temporada: temporada || new Date().getFullYear()
     };
 
-    // Insertar registro
-    const [newId] = await global.knex('contests_records').insert(data);
+
+    // Insertar registro y obtener el ID de forma compatible
+    let newId;
+    if (global.knex.client && global.knex.client.config && global.knex.client.config.client === 'pg') {
+      // PostgreSQL
+      const inserted = await global.knex('contests_records').insert(data).returning('id');
+      newId = Array.isArray(inserted) ? (inserted[0]?.id || inserted[0]) : inserted;
+    } else {
+      // MySQL, SQLite, etc.
+      newId = await global.knex('contests_records').insert(data);
+      if (Array.isArray(newId)) newId = newId[0];
+    }
 
     // Obtener el registro creado
     const newRecord = await global.knex('contests_records')
