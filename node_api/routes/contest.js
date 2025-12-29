@@ -644,4 +644,145 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
     }
 });
 
+// Middleware de administrador
+const adminMiddleware = require('../middleware/adminMiddleware');
+
+/**
+ * DELETE /contest/:id
+ * Elimina un concurso y sus relaciones (contest_category, contest_section, contests_records)
+ * 
+ * Restricciones:
+ * - Solo accesible para usuarios administradores (role_id = 1)
+ * - No se puede eliminar si tiene inscripciones (profile_contest)
+ * - No se puede eliminar si tiene fotografías asociadas (contest_result)
+ * 
+ * Todas las operaciones se realizan dentro de una transacción
+ */
+router.delete('/:id', adminMiddleware, async (req, res) => {
+    const contestId = parseInt(req.params.id);
+    
+    // Validar que el ID sea un número válido
+    if (isNaN(contestId) || contestId <= 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'ID de concurso inválido'
+        });
+    }
+
+    // Iniciar transacción
+    const trx = await global.knex.transaction();
+    
+    try {
+        // Verificar que el concurso existe
+        const contest = await trx('contest')
+            .where('id', contestId)
+            .first();
+        
+        if (!contest) {
+            await trx.rollback();
+            return res.status(404).json({
+                success: false,
+                message: 'Concurso no encontrado'
+            });
+        }
+
+        // Verificar si hay inscripciones (profile_contest)
+        const inscripcionesCount = await trx('profile_contest')
+            .where('contest_id', contestId)
+            .count('* as count')
+            .first();
+        
+        if (parseInt(inscripcionesCount.count) > 0) {
+            await trx.rollback();
+            return res.status(409).json({
+                success: false,
+                message: `No se puede eliminar el concurso porque tiene ${inscripcionesCount.count} inscripción(es) asociada(s)`,
+                details: {
+                    profile_contest_count: parseInt(inscripcionesCount.count)
+                }
+            });
+        }
+
+        // Verificar si hay fotografías asociadas (contest_result)
+        const fotografiasCount = await trx('contest_result')
+            .where('contest_id', contestId)
+            .count('* as count')
+            .first();
+        
+        if (parseInt(fotografiasCount.count) > 0) {
+            await trx.rollback();
+            return res.status(409).json({
+                success: false,
+                message: `No se puede eliminar el concurso porque tiene ${fotografiasCount.count} fotografía(s) asociada(s)`,
+                details: {
+                    contest_result_count: parseInt(fotografiasCount.count)
+                }
+            });
+        }
+
+        // Eliminar relaciones en orden:
+        // 1. Eliminar contest_category
+        const deletedCategories = await trx('contest_category')
+            .where('contest_id', contestId)
+            .del();
+        
+        // 2. Eliminar contest_section
+        const deletedSections = await trx('contest_section')
+            .where('contest_id', contestId)
+            .del();
+        
+        // 3. Eliminar contests_records
+        const deletedRecords = await trx('contests_records')
+            .where('contest_id', contestId)
+            .del();
+        
+        // 4. Eliminar el concurso
+        const deletedContest = await trx('contest')
+            .where('id', contestId)
+            .del();
+
+        // Confirmar transacción
+        await trx.commit();
+
+        // Log de operación
+        await LogOperacion(
+            req.user.id,
+            `Eliminación de concurso ID: ${contestId} - Nombre: ${contest.name} - Usuario: ${req.user.username}`,
+            JSON.stringify({
+                contest_id: contestId,
+                contest_name: contest.name,
+                deleted_categories: deletedCategories,
+                deleted_sections: deletedSections,
+                deleted_records: deletedRecords
+            }),
+            new Date()
+        );
+
+        res.status(200).json({
+            success: true,
+            message: `Concurso "${contest.name}" eliminado correctamente`,
+            details: {
+                contest_id: contestId,
+                contest_name: contest.name,
+                deleted_relations: {
+                    contest_category: deletedCategories,
+                    contest_section: deletedSections,
+                    contests_records: deletedRecords
+                }
+            }
+        });
+
+    } catch (error) {
+        // Rollback en caso de error
+        await trx.rollback();
+        
+        console.error('Error al eliminar concurso:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor al eliminar el concurso',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

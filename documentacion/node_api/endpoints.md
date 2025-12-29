@@ -643,6 +643,119 @@ Authorization: Bearer <token>
 #### Seguridad
 - Permisos: Solo administrador (`role_id == '1'`).
 
+### 3.6 Eliminar Concurso
+**DELETE** `/contest/{id}`
+
+Elimina un concurso y todas sus relaciones asociadas (categorías, secciones, registros). Solo accesible para usuarios con rol de administrador.
+
+#### Headers
+```
+Authorization: Bearer <token>
+```
+
+#### Path Parameters
+- `id` (int, requerido): ID del concurso a eliminar
+
+#### Restricciones
+- **Solo administradores**: El usuario debe tener `role_id = 1`
+- **Sin inscripciones**: No se puede eliminar si existen registros en `profile_contest` asociados al concurso
+- **Sin fotografías**: No se puede eliminar si existen registros en `contest_result` asociados al concurso
+
+#### Comportamiento
+Todas las operaciones se ejecutan dentro de una **transacción**. Si alguna falla, se realiza rollback automático.
+
+**Orden de eliminación:**
+1. `contest_category` - Relaciones con categorías
+2. `contest_section` - Relaciones con secciones  
+3. `contests_records` - Registros del concurso
+4. `contest` - El concurso principal
+
+Se registra un log de operación con los detalles de la eliminación.
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Concurso \"Nombre del Concurso\" eliminado correctamente",
+  "details": {
+    "contest_id": 1,
+    "contest_name": "Nombre del Concurso",
+    "deleted_relations": {
+      "contest_category": 3,
+      "contest_section": 2,
+      "contests_records": 1
+    }
+  }
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "ID de concurso inválido"
+}
+```
+
+#### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado. Solo administradores pueden acceder a este recurso."
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "success": false,
+  "message": "Concurso no encontrado"
+}
+```
+
+#### Respuesta de Error (409) - Inscripciones existentes
+```json
+{
+  "success": false,
+  "message": "No se puede eliminar el concurso porque tiene 5 inscripción(es) asociada(s)",
+  "details": {
+    "profile_contest_count": 5
+  }
+}
+```
+
+#### Respuesta de Error (409) - Fotografías existentes
+```json
+{
+  "success": false,
+  "message": "No se puede eliminar el concurso porque tiene 10 fotografía(s) asociada(s)",
+  "details": {
+    "contest_result_count": 10
+  }
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "success": false,
+  "message": "Error interno del servidor al eliminar el concurso",
+  "error": "Detalles del error"
+}
+```
+
+#### Ejemplo de Uso
+```bash
+curl -X DELETE "https://gfc.prod-api.greenborn.com.ar/api/contest/1" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### Seguridad
+- Permisos: Solo administrador (`role_id == '1'`)
+- Transaccional: Garantiza integridad de datos
+
+---
+
 ## 4. Logs de Operaciones
 
 ### 4.1 Obtener Logs
