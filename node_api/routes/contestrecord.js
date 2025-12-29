@@ -155,7 +155,15 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     if (global.knex.client && global.knex.client.config && global.knex.client.config.client === 'pg') {
       // PostgreSQL
       const inserted = await global.knex('contests_records').insert(data).returning('id');
-      newId = Array.isArray(inserted) ? (inserted[0]?.id || inserted[0]) : inserted;
+      if (Array.isArray(inserted)) {
+        if (typeof inserted[0] === 'object' && inserted[0] !== null && 'id' in inserted[0]) {
+          newId = inserted[0].id;
+        } else {
+          newId = inserted[0];
+        }
+      } else {
+        newId = inserted;
+      }
     } else {
       // MySQL, SQLite, etc.
       newId = await global.knex('contests_records').insert(data);
