@@ -4,6 +4,10 @@
 
 Esta documentación describe todos los endpoints disponibles en la API Node.js del sistema GFC-Back, incluyendo parámetros, respuestas y ejemplos de uso.
 
+## Documentación Específica por Módulo
+
+- [Contest Records (contests_records)](endpoint_contest_record.md) - CRUD completo para registros de concursos
+
 ## Información General
 
 ### Base URL
