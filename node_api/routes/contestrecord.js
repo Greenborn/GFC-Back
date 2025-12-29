@@ -149,25 +149,24 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       temporada: temporada || new Date().getFullYear()
     };
 
-
     // Insertar registro y obtener el ID de forma compatible
     let newId;
-    if (global.knex.client && global.knex.client.config && global.knex.client.config.client === 'pg') {
-      // PostgreSQL
+    const clientName = global.knex.client?.config?.client || '';
+    const isPostgres = clientName === 'pg' || clientName === 'postgresql' || clientName === 'postgres';
+    
+    if (isPostgres) {
+      // PostgreSQL - usar returning('id')
       const inserted = await global.knex('contests_records').insert(data).returning('id');
-      if (Array.isArray(inserted)) {
-        if (typeof inserted[0] === 'object' && inserted[0] !== null && 'id' in inserted[0]) {
-          newId = inserted[0].id;
-        } else {
-          newId = inserted[0];
-        }
+      if (Array.isArray(inserted) && inserted.length > 0) {
+        const first = inserted[0];
+        newId = (typeof first === 'object' && first !== null && 'id' in first) ? first.id : first;
       } else {
         newId = inserted;
       }
     } else {
       // MySQL, SQLite, etc.
-      newId = await global.knex('contests_records').insert(data);
-      if (Array.isArray(newId)) newId = newId[0];
+      const result = await global.knex('contests_records').insert(data);
+      newId = Array.isArray(result) ? result[0] : result;
     }
 
     // Obtener el registro creado
