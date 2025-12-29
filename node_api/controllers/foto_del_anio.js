@@ -262,10 +262,17 @@ class FotoDelAnioController {
                 thumbnails: thumbnailsMap[foto.id_foto] || []
             }));
 
+            // Obtener URL de grabación desde contests_records si existe
+            const contestRecord = await global.knex('contests_records')
+                .where('type', 'FOTO_DEL_ANIO')
+                .andWhere('temporada', temporada)
+                .first();
+
             return res.json({
                 success: true,
                 data: fotosConThumbnails,
-                total: fotosConThumbnails.length
+                total: fotosConThumbnails.length,
+                url_grabacion: contestRecord?.url || null
             });
 
         } catch (error) {
@@ -311,12 +318,30 @@ class FotoDelAnioController {
                 thumbnails: thumbnailsMap[foto.id_foto] || []
             }));
 
-            // Agrupar por temporada
+            // Obtener temporadas únicas
+            const temporadas = [...new Set(fotos.map(f => f.temporada))];
+
+            // Obtener URLs de grabación desde contests_records para todas las temporadas
+            const contestRecords = await global.knex('contests_records')
+                .where('type', 'FOTO_DEL_ANIO')
+                .whereIn('temporada', temporadas)
+                .select('temporada', 'url');
+
+            // Crear mapa de URLs por temporada
+            const urlsMap = {};
+            contestRecords.forEach(record => {
+                urlsMap[record.temporada] = record.url;
+            });
+
+            // Agrupar por temporada incluyendo url_grabacion
             const fotosPorTemporada = fotosConThumbnails.reduce((acc, foto) => {
                 if (!acc[foto.temporada]) {
-                    acc[foto.temporada] = [];
+                    acc[foto.temporada] = {
+                        fotos: [],
+                        url_grabacion: urlsMap[foto.temporada] || null
+                    };
                 }
-                acc[foto.temporada].push(foto);
+                acc[foto.temporada].fotos.push(foto);
                 return acc;
             }, {});
 

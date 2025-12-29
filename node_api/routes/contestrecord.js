@@ -149,6 +149,24 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       temporada: temporada || new Date().getFullYear()
     };
 
+    // Si el tipo es FOTO_DEL_ANIO, borrar registros existentes del mismo tipo y temporada
+    if (data.type === 'FOTO_DEL_ANIO') {
+      const deletedCount = await global.knex('contests_records')
+        .where('type', 'FOTO_DEL_ANIO')
+        .andWhere('temporada', data.temporada)
+        .del();
+      
+      if (deletedCount > 0) {
+        // Log de operación de borrado
+        await LogOperacion(
+          req.user.id,
+          `Borrado de contest_records FOTO_DEL_ANIO temporada ${data.temporada} - ${req.user.username}`,
+          JSON.stringify({ type: 'FOTO_DEL_ANIO', temporada: data.temporada, registros_eliminados: deletedCount }),
+          new Date()
+        );
+      }
+    }
+
     // Insertar registro y obtener el ID de forma compatible
     let newId;
     const clientName = global.knex.client?.config?.client || '';
