@@ -1,6 +1,6 @@
 {
   "name": "gfc-node-api",
-  "version": "1.22.24",
+  "version": "1.22.25",
   "description": "API Node.js complementaria para el sistema GFC-Back - WebSockets, procesamiento de archivos y operaciones auxiliares",
   "main": "server.js",
   "scripts": {
