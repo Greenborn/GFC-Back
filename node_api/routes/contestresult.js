@@ -256,9 +256,16 @@ router.get('/foto-del-anio', async (req, res) => {
       thumbnails: thumbnailsMap[foto.id_foto] || []
     }));
 
+    // Obtener URL de grabación desde contests_records si existe
+    const contestRecord = await global.knex('contests_records')
+      .where('type', 'FOTO_DEL_ANIO')
+      .andWhere('temporada', maxTemporada)
+      .first();
+
     res.json({
       items: itemsConThumbnails,
-      temporada: maxTemporada
+      temporada: maxTemporada,
+      url_grabacion: contestRecord?.url || null
     });
   } catch (error) {
     console.error(error);
