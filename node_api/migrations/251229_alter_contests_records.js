@@ -1,5 +1,5 @@
 exports.up = async (knex) => {
-    await knex.schema.alterTable('contest_result', (table) => {
+    await knex.schema.alterTable('contests_records', (table) => {
         // Agregar campo type (string, nullable)
         table.string('type').nullable();
         
@@ -12,7 +12,7 @@ exports.up = async (knex) => {
 };
 
 exports.down = async (knex) => {
-    await knex.schema.alterTable('contest_result', (table) => {
+    await knex.schema.alterTable('contests_records', (table) => {
         // Eliminar campo type
         table.dropColumn('type');
         
