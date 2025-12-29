@@ -5,7 +5,7 @@ Endpoints CRUD para gestionar registros de la tabla `contests_records`. Esta tab
 
 ## Base URL
 ```
-https://gfc.prod-api.greenborn.com.ar/api
+http://localhost:3000/api
 ```
 
 ## Seguridad
@@ -38,8 +38,8 @@ Authorization: Bearer <access_token>
 
 ### Ejemplo de Solicitud
 ```bash
-curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/contest-record?page=1&per-page=10&filter[contest_id]=36" \
-  -H "Authorization: Bearer yeCk1wTui-819R7E1LkWVamHsohSns_a"
+curl -X GET "http://localhost:3000/api/contest-record?page=1&per-page=10&filter[contest_id]=36" \
+  -H "Authorization: Bearer <token>"
 ```
 
 ### Respuesta Exitosa (200)
@@ -98,8 +98,8 @@ Authorization: Bearer <access_token>
 
 ### Ejemplo de Solicitud
 ```bash
-curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/contest-record/1" \
-  -H "Authorization: Bearer yeCk1wTui-819R7E1LkWVamHsohSns_a"
+curl -X GET "http://localhost:3000/api/contest-record/1" \
+  -H "Authorization: Bearer <token>"
 ```
 
 ### Respuesta Exitosa (200)
@@ -154,8 +154,8 @@ Content-Type: application/json
 
 ### Ejemplo de Solicitud
 ```bash
-curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/contest-record" \
-  -H "Authorization: Bearer yeCk1wTui-819R7E1LkWVamHsohSns_a" \
+curl -X POST "http://localhost:3000/api/contest-record" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "contest_id": 36,
@@ -233,8 +233,8 @@ Content-Type: application/json
 
 ### Ejemplo de Solicitud
 ```bash
-curl -X PUT "https://gfc.prod-api.greenborn.com.ar/api/contest-record/3" \
-  -H "Authorization: Bearer yeCk1wTui-819R7E1LkWVamHsohSns_a" \
+curl -X PUT "http://localhost:3000/api/contest-record/3" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "contest_id": 36,
@@ -305,8 +305,8 @@ Content-Type: application/json
 
 ### Ejemplo de Solicitud
 ```bash
-curl -X PATCH "https://gfc.prod-api.greenborn.com.ar/api/contest-record/3" \
-  -H "Authorization: Bearer yeCk1wTui-819R7E1LkWVamHsohSns_a" \
+curl -X PATCH "http://localhost:3000/api/contest-record/3" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://example.com/nuevo_url.json"
@@ -367,8 +367,8 @@ Authorization: Bearer <access_token>
 
 ### Ejemplo de Solicitud
 ```bash
-curl -X DELETE "https://gfc.prod-api.greenborn.com.ar/api/contest-record/3" \
-  -H "Authorization: Bearer yeCk1wTui-819R7E1LkWVamHsohSns_a"
+curl -X DELETE "http://localhost:3000/api/contest-record/3" \
+  -H "Authorization: Bearer <token>"
 ```
 
 ### Respuesta Exitosa (200)
@@ -444,17 +444,15 @@ Los endpoints de modificación (POST, PUT, PATCH, DELETE) están protegidos por:
 
 ### Crear un registro para un concurso
 ```bash
-# 1. Autenticarse
-curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/auth/login" \
+curl -X POST "http://localhost:3000/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
     "username": "admin",
     "password": "password123"
   }'
 
-# 2. Crear registro
-curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/contest-record" \
-  -H "Authorization: Bearer TOKEN_RECIBIDO" \
+curl -X POST "http://localhost:3000/api/contest-record" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "contest_id": 51,
@@ -465,14 +463,14 @@ curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/contest-record" \
 
 ### Listar registros de un concurso específico
 ```bash
-curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/contest-record?filter[contest_id]=51&page=1&per-page=20" \
-  -H "Authorization: Bearer TOKEN"
+curl -X GET "http://localhost:3000/api/contest-record?filter[contest_id]=51&page=1&per-page=20" \
+  -H "Authorization: Bearer <token>"
 ```
 
 ### Actualizar solo la URL de un registro
 ```bash
-curl -X PATCH "https://gfc.prod-api.greenborn.com.ar/api/contest-record/5" \
-  -H "Authorization: Bearer TOKEN" \
+curl -X PATCH "http://localhost:3000/api/contest-record/5" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://gfc-assets.com/resultados/concurso_51_updated.json"
@@ -481,6 +479,6 @@ curl -X PATCH "https://gfc.prod-api.greenborn.com.ar/api/contest-record/5" \
 
 ### Eliminar un registro
 ```bash
-curl -X DELETE "https://gfc.prod-api.greenborn.com.ar/api/contest-record/5" \
-  -H "Authorization: Bearer TOKEN"
+curl -X DELETE "http://localhost:3000/api/contest-record/5" \
+  -H "Authorization: Bearer <token>"
 ```
