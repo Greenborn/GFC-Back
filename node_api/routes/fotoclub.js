@@ -13,8 +13,15 @@ router.get('/get_all', async (req, res) => {
         await LogOperacion(req.user.id, 'Consulta de Fotoclubes - ' + req.user.username, null, new Date()) 
       }
 
+      // Por defecto solo retorna fotoclubes habilitados
+      // Si se especifica inc_disabled=true, incluye también los deshabilitados
+      let query = global.knex('fotoclub');
+      if (req.query.inc_disabled !== 'true') {
+        query = query.where('enabled', true);
+      }
+
       res.json({ 
-        items: await global.knex('fotoclub'),
+        items: await query,
       });
     } catch (error) {
       console.error(error);
