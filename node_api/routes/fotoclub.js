@@ -22,6 +22,23 @@ router.get('/get_all', async (req, res) => {
     }
 })
 
+router.get('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const fotoclub = await global.knex('fotoclub').where('id', id).first();
+      
+      if (!fotoclub) {
+        return res.status(404).json({ message: 'Fotoclub no encontrado' });
+      }
+
+      res.json(fotoclub);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error al obtener el fotoclub' });
+    }
+})
+
 router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
   try {
     // Solo admin puede editar
