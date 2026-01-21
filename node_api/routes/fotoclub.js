@@ -13,12 +13,36 @@ router.get('/get_all', async (req, res) => {
         await LogOperacion(req.user.id, 'Consulta de Fotoclubes - ' + req.user.username, null, new Date()) 
       }
 
+      // Por defecto solo retorna fotoclubes habilitados
+      // Si se especifica inc_disabled=true, incluye también los deshabilitados
+      let query = global.knex('fotoclub');
+      if (req.query.inc_disabled !== 'true') {
+        query = query.where('enabled', true);
+      }
+
       res.json({ 
-        items: await global.knex('fotoclub'),
+        items: await query,
       });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Error al obtener registros' });
+    }
+})
+
+router.get('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const fotoclub = await global.knex('fotoclub').where('id', id).first();
+      
+      if (!fotoclub) {
+        return res.status(404).json({ message: 'Fotoclub no encontrado' });
+      }
+
+      res.json(fotoclub);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error al obtener el fotoclub' });
     }
 })
 
@@ -28,7 +52,7 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
     if (!req.user || req.user.role_id != '1') {
       return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden editar fotoclubs' });
     }
-    const { id, name, description, facebook, instagram, email, image } = req.body;
+    const { id, name, description, facebook, instagram, email, image, enabled } = req.body;
 
     // Validar que el campo name esté presente
     if (!name) {
@@ -65,7 +89,8 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
       facebook,
       instagram,
       email,
-      photo_url
+      photo_url,
+      enabled
     };
 
     // Actualizar el registro en la base de datos
@@ -165,6 +190,68 @@ router.post('/create', authMiddleware, async (req, res) => {
       new Date()
     );
     res.status(500).json({ stat: false, text: 'Ocurrió un error al crear el fotoclub.' });
+  }
+});
+
+router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    // Solo admin puede eliminar
+    if (!req.user || req.user.role_id != '1') {
+      return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden eliminar fotoclubs' });
+    }
+
+    const { id } = req.params;
+
+    // Verificar que el fotoclub existe
+    const fotoclub = await global.knex('fotoclub').where('id', id).first();
+    if (!fotoclub) {
+      return res.status(404).json({ stat: false, text: 'Fotoclub no encontrado' });
+    }
+
+    // Verificar que no tenga perfiles vinculados
+    const profiles = await global.knex('profile').where('fotoclub_id', id);
+    if (profiles.length > 0) {
+      return res.status(400).json({ stat: false, text: 'No se puede eliminar el fotoclub porque tiene perfiles vinculados' });
+    }
+
+    // Eliminar imagen si existe
+    if (fotoclub.photo_url) {
+      try {
+        const uploadsBasePath = process.env.UPLOADS_BASE_PATH;
+        const imagePath = path.join(uploadsBasePath, fotoclub.photo_url);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      } catch (err) {
+        console.error('Error eliminando imagen:', err);
+        // No fallar por esto, continuar
+      }
+    }
+
+    // Eliminar el registro
+    const result = await global.knex('fotoclub').where('id', id).del();
+
+    await LogOperacion(
+      req.user.id,
+      'Eliminación de Fotoclub - ' + req.user.username,
+      { deleted: fotoclub },
+      new Date()
+    );
+
+    if (result === 1) {
+      return res.json({ stat: true, text: 'Fotoclub eliminado correctamente' });
+    } else {
+      return res.status(500).json({ stat: false, text: 'Error al eliminar el fotoclub' });
+    }
+  } catch (error) {
+    console.error(error);
+    await LogOperacion(
+      req.user?.id || null,
+      'Error al eliminar Fotoclub',
+      { error: error.message },
+      new Date()
+    );
+    res.status(500).json({ stat: false, text: 'Ocurrió un error interno, contacte con soporte.' });
   }
 });
 

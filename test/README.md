@@ -37,4 +37,21 @@ El script:
 ## Variables de entorno
 - `API_BASE_URL`: URL base de la API PHP (ej: https://api.gfc-back.com/v1)
 - `ADMIN_USERNAME`: Usuario admin para login
-- `ADMIN_PASSWORD`: Contraseña del usuario admin 
+- `ADMIN_PASSWORD`: Contraseña del usuario admin
+
+## Tests de API Node.js
+
+### test_fotoclub_list_enabled.js
+Prueba el comportamiento del filtro de fotoclubes habilitados/deshabilitados en el endpoint `GET /api/fotoclub/get_all`.
+
+**Funcionalidad probada:**
+- Por defecto retorna solo fotoclubes con `enabled = true`
+- Con parámetro `inc_disabled=true` retorna todos los fotoclubes
+
+**Uso:**
+```bash
+node test_fotoclub_list_enabled.js
+```
+
+**Variables de entorno requeridas:**
+- `NODE_API_BASE_URL`: URL base de la API Node.js (ej: http://localhost:3000) 
