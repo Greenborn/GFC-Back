@@ -52,7 +52,7 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
     if (!req.user || req.user.role_id != '1') {
       return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden editar fotoclubs' });
     }
-    const { id, name, description, facebook, instagram, email, image } = req.body;
+    const { id, name, description, facebook, instagram, email, image, enabled } = req.body;
 
     // Validar que el campo name esté presente
     if (!name) {
@@ -89,7 +89,8 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
       facebook,
       instagram,
       email,
-      photo_url
+      photo_url,
+      enabled
     };
 
     // Actualizar el registro en la base de datos
