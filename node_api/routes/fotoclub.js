@@ -192,4 +192,66 @@ router.post('/create', authMiddleware, async (req, res) => {
   }
 });
 
+router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    // Solo admin puede eliminar
+    if (!req.user || req.user.role_id != '1') {
+      return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden eliminar fotoclubs' });
+    }
+
+    const { id } = req.params;
+
+    // Verificar que el fotoclub existe
+    const fotoclub = await global.knex('fotoclub').where('id', id).first();
+    if (!fotoclub) {
+      return res.status(404).json({ stat: false, text: 'Fotoclub no encontrado' });
+    }
+
+    // Verificar que no tenga perfiles vinculados
+    const profiles = await global.knex('profile').where('fotoclub_id', id);
+    if (profiles.length > 0) {
+      return res.status(400).json({ stat: false, text: 'No se puede eliminar el fotoclub porque tiene perfiles vinculados' });
+    }
+
+    // Eliminar imagen si existe
+    if (fotoclub.photo_url) {
+      try {
+        const uploadsBasePath = process.env.UPLOADS_BASE_PATH;
+        const imagePath = path.join(uploadsBasePath, fotoclub.photo_url);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      } catch (err) {
+        console.error('Error eliminando imagen:', err);
+        // No fallar por esto, continuar
+      }
+    }
+
+    // Eliminar el registro
+    const result = await global.knex('fotoclub').where('id', id).del();
+
+    await LogOperacion(
+      req.user.id,
+      'Eliminación de Fotoclub - ' + req.user.username,
+      { deleted: fotoclub },
+      new Date()
+    );
+
+    if (result === 1) {
+      return res.json({ stat: true, text: 'Fotoclub eliminado correctamente' });
+    } else {
+      return res.status(500).json({ stat: false, text: 'Error al eliminar el fotoclub' });
+    }
+  } catch (error) {
+    console.error(error);
+    await LogOperacion(
+      req.user?.id || null,
+      'Error al eliminar Fotoclub',
+      { error: error.message },
+      new Date()
+    );
+    res.status(500).json({ stat: false, text: 'Ocurrió un error interno, contacte con soporte.' });
+  }
+});
+
 module.exports = router;
