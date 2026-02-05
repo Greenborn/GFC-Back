@@ -156,7 +156,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     }
 
     // Crear fotoclub en la base de datos
-    const [fotoclubId] = await global.knex('fotoclub').insert({
+    let insertQuery = global.knex('fotoclub').insert({
       name,
       description,
       facebook,
@@ -165,9 +165,19 @@ router.post('/create', authMiddleware, async (req, res) => {
       photo_url,
       mostrar_en_ranking,
       organization_type
-    }).returning('id');
+    });
 
-    const newFotoclub = await global.knex('fotoclub').where('id', fotoclubId).first();
+    let result;
+    if (global.knex.client.config.client === 'pg') {
+      result = await insertQuery.returning('id');
+      const fotoclubId = result[0].id;
+      const newFotoclub = await global.knex('fotoclub').where('id', fotoclubId).first();
+    } else {
+      // Para MySQL/MariaDB
+      result = await insertQuery;
+      const fotoclubId = result[0];
+      const newFotoclub = await global.knex('fotoclub').where('id', fotoclubId).first();
+    }
 
     await LogOperacion(
       req.user.id,
