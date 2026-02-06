@@ -171,7 +171,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     await LogOperacion(
       req.user.id,
       'Creación de Fotoclub - ' + req.user.username,
-      { new: newFotoclub },
+      { new: REGISTRO },
       new Date()
     );
 
