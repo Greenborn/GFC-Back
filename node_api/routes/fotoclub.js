@@ -64,7 +64,7 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
     let photo_url = oldFotoclub.photo_url;
     if (image) {
       try {
-        const uploadsBasePath = process.env.UPLOADS_BASE_PATH;
+        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
         const year = new Date().getFullYear();
         const dir = path.join(uploadsBasePath, year.toString());
         if (!fs.existsSync(dir)) {
@@ -131,7 +131,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     let photo_url = null;
     if (image) {
       try {
-        const uploadsBasePath = process.env.UPLOADS_BASE_PATH;
+        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
         const year = new Date().getFullYear();
         const dir = path.join(uploadsBasePath, year.toString());
         if (!fs.existsSync(dir)) {
@@ -216,7 +216,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     // Eliminar imagen si existe
     if (fotoclub.photo_url) {
       try {
-        const uploadsBasePath = process.env.UPLOADS_BASE_PATH;
+        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
         const imagePath = path.join(uploadsBasePath, fotoclub.photo_url);
         if (fs.existsSync(imagePath)) {
           fs.unlinkSync(imagePath);
