@@ -21,7 +21,7 @@ async function actualizarRanking() {
     .select('id')
     .where({ organization_type: 'INTERNO', judged: true })
     .andWhere('end_date', '>=', startOfYear);
-
+  console.log(`Concursos juzgados del año actual encontrados: ${contests.length}`, startOfYear);
   const contestIds = contests.map(c => c.id);
   if (contestIds.length === 0) {
     // Aún así vaciamos tablas por consistencia
