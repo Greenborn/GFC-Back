@@ -130,7 +130,7 @@ interface Fotoclub {
   facebook: string;
   instagram: string;
   mostrar_en_ranking: number; // 0 o 1
-  organization_type: 'INTERNO' | 'EXTERNO';
+  organization_type: 'INTERNO' | 'EXTERNO' | 'EXTERNO_0' | 'EXTERNO_UNICEN'; // valores permitidos (ver utils/organizationType.js)
   status: 'active' | 'inactive';
   created_at: timestamp;
   updated_at: timestamp;
@@ -143,7 +143,7 @@ interface MetricAbm {
   id: number;
   prize: string;
   score: number;
-  organization_type: 'INTERNO' | 'EXTERNO';
+  organization_type: 'INTERNO' | 'EXTERNO' | 'EXTERNO_0' | 'EXTERNO_UNICEN'; // valores permitidos (ver utils/organizationType.js)
   created_at: timestamp;
   updated_at: timestamp;
 }
@@ -666,7 +666,7 @@ interface FotoclubCreateData {
   email?: string;
   image?: string; // Base64 data URI
   mostrar_en_ranking?: number;
-  organization_type?: 'INTERNO' | 'EXTERNO';
+  organization_type?: 'INTERNO' | 'EXTERNO' | 'EXTERNO_0' | 'EXTERNO_UNICEN'; // valores permitidos (ver utils/organizationType.js)
 }
 
 interface FotoclubUpdateData extends FotoclubCreateData {

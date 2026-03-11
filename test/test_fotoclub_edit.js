@@ -98,14 +98,30 @@ async function editFotoclub(token, fotoclub) {
         console.log('Fotoclub original:', original);
 
         // 2. Editar el primer registro
-        const editado = { ...original, name: original.name + ' [EDITADO]', description: 'Descripción de prueba', facebook: 'https://fb.com/test', instagram: 'https://ig.com/test', email: 'test@edit.com' };
+        // include new fields in the edit payload
+        const editado = {
+          ...original,
+          name: original.name + ' [EDITADO]',
+          description: 'Descripción de prueba',
+          facebook: 'https://fb.com/test',
+          instagram: 'https://ig.com/test',
+          email: 'test@edit.com',
+          mostrar_en_ranking: original.mostrar_en_ranking ? 0 : 1,
+          organization_type: original.organization_type === 'INTERNO' ? 'EXTERNO_0' : 'INTERNO'
+        };
         await editFotoclub(token, editado);
         console.log('Fotoclub editado. Verificando...');
 
         // 3. Consultar y verificar edición
         let lista2 = await getFotoclubs(token);
         const modificado = lista2.find(f => f.id === original.id);
-        if (modificado && modificado.name === editado.name && modificado.description === editado.description) {
+        if (
+            modificado &&
+            modificado.name === editado.name &&
+            modificado.description === editado.description &&
+            modificado.mostrar_en_ranking === editado.mostrar_en_ranking &&
+            modificado.organization_type === editado.organization_type
+        ) {
             console.log('✔️ Edición verificada:', modificado);
         } else {
             throw new Error('No se reflejó la edición');

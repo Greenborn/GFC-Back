@@ -1,6 +1,7 @@
 const express      = require('express');
 const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
+const { isValidOrganizationType } = require('../utils/organizationType');
 
 router.get('/get_all', async (req, res) => {
     try {
@@ -29,9 +30,8 @@ router.put('/edit', async (req, res) => {
       return res.json({ stat: false, text: 'El score debe ser un número entero positivo' });
     }
 
-    // Validar que el organization_type sea uno de los valores permitidos
-    const allowedOrganizationTypes = ['INTERNO', 'EXTERNO', 'EXTERNO_UNICEN'];
-    if (!allowedOrganizationTypes.includes(organization_type)) {
+    // Validar que el organization_type sea uno de los valores permitidos (util central)
+    if (!isValidOrganizationType(organization_type)) {
       return res.json({ stat: false, text: 'El tipo de organización no es válido' });
     }
 
