@@ -54,4 +54,43 @@ node test_fotoclub_list_enabled.js
 ```
 
 **Variables de entorno requeridas:**
-- `NODE_API_BASE_URL`: URL base de la API Node.js (ej: http://localhost:3000) 
+- `NODE_API_BASE_URL`: URL base de la API Node.js (ej: http://localhost:3000)
+
+### test_fotoclub_edit.js
+Verifica que un admin pueda editar un fotoclub e incluir los campos `mostrar_en_ranking` y `organization_type`.
+
+**Funcionalidad probada:**
+- Autenticación de administrador
+- Edición de campos básicos y de los nuevos atributos
+- Restauración de los valores originales
+
+**Uso:**
+```bash
+node test_fotoclub_edit.js
+```
+
+### test_fotoclub_create.js
+Comprueba que un admin puede crear un fotoclub con `mostrar_en_ranking` y `organization_type`.
+
+**Funcionalidad probada:**
+- Autenticación de administrador
+- Creación de un registro con los campos adicionales
+- Búsqueda del registro recién creado en la lista
+
+**Uso:**
+```bash
+node test_fotoclub_create.js
+```
+
+### test_organization_type.js
+Valida la función centralizada que comprueba los tipos de organización válidos.
+
+**Funcionalidad probada:**
+- Permite todos los valores definidos en la lista de constantes
+- Rechaza entradas inválidas o ausentes
+
+**Uso:**
+```bash
+node test_organization_type.js
+```
+ 

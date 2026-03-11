@@ -210,12 +210,20 @@ module.exports = {
  * @param {boolean} [options.include_details] - Si true, retorna detalles por entidad.
  * @returns {Promise<Object>} JSON con stat, resumen y discrepancias.
  */
+const { isValidOrganizationType } = require('../utils/organizationType');
+
 async function validarRanking(options = {}) {
   const knex = global.knex;
   if (!knex) throw new Error('Conexión a base de datos (global.knex) no inicializada');
 
   const year = Number(options.year) || new Date().getFullYear();
   const organizationType = options.organization_type || 'INTERNO';
+
+  // validar organization_type
+  if (!isValidOrganizationType(organizationType)) {
+    throw new Error('organization_type inválido: ' + organizationType);
+  }
+
   const strict = !!options.strict;
   const includeDetails = options.include_details !== false; // default true
 

@@ -6,6 +6,7 @@ const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
 const writeProtection = require('../middleware/writeProtection.js');
 const authMiddleware = require('../middleware/authMiddleware');
+const { isValidOrganizationType } = require('../utils/organizationType');
 
 router.get('/get_all', async (req, res) => {
     try {
@@ -52,12 +53,19 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
     if (!req.user || req.user.role_id != '1') {
       return res.status(403).json({ stat: false, text: 'Acceso denegado: solo administradores pueden editar fotoclubs' });
     }
-    const { id, name, description, facebook, instagram, email, image, enabled } = req.body;
+    const { id, name, description, facebook, instagram, email, image, enabled, mostrar_en_ranking, organization_type } = req.body;
 
     // Validar que el campo name esté presente
     if (!name) {
       return res.json({ stat: false, text: 'El nombre es obligatorio' });
     }
+
+    // validar organización usando util centralizada
+    if (organization_type && !isValidOrganizationType(organization_type)) {
+      return res.json({ stat: false, text: 'organization_type inválido' });
+    }
+    // convertir mostrar_en_ranking a entero (0/1) si viene como booleano
+    const rankingFlag = mostrar_en_ranking === true || mostrar_en_ranking === '1' || mostrar_en_ranking === 1 ? 1 : 0;
 
     // Obtener el valor anterior antes de actualizar
     const oldFotoclub = await global.knex('fotoclub').where('id', id).first();
@@ -90,7 +98,9 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
       instagram,
       email,
       photo_url,
-      enabled
+      enabled,
+      mostrar_en_ranking: rankingFlag,
+      organization_type
     };
 
     // Actualizar el registro en la base de datos
@@ -155,6 +165,12 @@ router.post('/create', authMiddleware, async (req, res) => {
       return res.json({ stat: false, text: 'El nombre es obligatorio' });
     }
 
+    // validar organización usando util centralizada
+    if (organization_type && !isValidOrganizationType(organization_type)) {
+      return res.json({ stat: false, text: 'organization_type inválido' });
+    }
+    const rankingFlag = mostrar_en_ranking === true || mostrar_en_ranking === '1' || mostrar_en_ranking === 1 ? 1 : 0;
+
     // Crear fotoclub en la base de datos
     const REGISTRO = {
       name,
@@ -163,7 +179,7 @@ router.post('/create', authMiddleware, async (req, res) => {
       instagram,
       email,
       photo_url,
-      mostrar_en_ranking,
+      mostrar_en_ranking: rankingFlag,
       organization_type
     }
     await global.knex('fotoclub').insert(REGISTRO)
