@@ -95,6 +95,7 @@ app_admin.use('/api/log', require('./routes/log.js'));
 app_admin.use('/api/results', require('./routes/results.js'));
 app_admin.use('/api/ranking', require('./routes/ranking.js'));
 app_admin.use('/api/foto-del-anio', require('./routes/foto_del_anio.js'));
+app_admin.use('/api/footer', require('./routes/footer.js'));
 
 // Manejo de errores global
 app_admin.use((err, req, res, next) => {

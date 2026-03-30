@@ -283,6 +283,122 @@ curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/disable_user" \
 
 ---
 
+## 2.4 Footer
+
+### 2.4.1 Obtener datos del Footer
+**GET** `/footer/get`
+
+Obtiene un registro de footer por ID.
+
+#### Headers
+```
+Authorization: Bearer <token_admin>
+```
+
+#### Query Parameters
+- `id` (int, obligatorio): ID del registro de footer.
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "stat": true,
+  "item": {
+    "id": 1,
+    "email": "contacto@example.com",
+    "facebook": "https://facebook.com/gfc",
+    "instagram": "https://instagram.com/gfc",
+    "youtube": "https://youtube.com/gfc"
+  }
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "stat": false,
+  "text": "El parámetro id es obligatorio"
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "stat": false,
+  "text": "Registro no encontrado"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "stat": false,
+  "text": "Error al obtener el registro"
+}
+```
+
+### 2.4.2 Editar datos del Footer
+**PUT** `/footer/edit`
+
+Actualiza un registro de footer existente. Requiere permisos de administrador (`adminMiddleware`).
+
+#### Headers
+```
+Authorization: Bearer <token_admin>
+Content-Type: application/json
+```
+
+#### Body JSON
+- `id` (int, obligatorio): ID del registro a actualizar.
+- `email` (string, opcional): Email de contacto.
+- `facebook` (string, opcional): URL de Facebook.
+- `instagram` (string, opcional): URL de Instagram.
+- `youtube` (string, opcional): URL de YouTube.
+
+#### Ejemplo Request
+```json
+{
+  "id": 1,
+  "email": "nuevo@ejemplo.com",
+  "facebook": "https://facebook.com/nuevo",
+  "instagram": "https://instagram.com/nuevo",
+  "youtube": "https://youtube.com/nuevo"
+}
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "stat": true,
+  "text": "Registro actualizado correctamente"
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "stat": false,
+  "text": "El campo id es obligatorio"
+}
+```
+
+#### Respuesta de Error (200) - Registro no encontrado
+```json
+{
+  "stat": false,
+  "text": "No se encontró el registro para actualizar"
+}
+```
+
+#### Respuesta de Error (500)
+```json
+{
+  "stat": false,
+  "text": "Error al actualizar el registro"
+}
+```
+
+---
+
 ## 3. Concursos
 
 ### 3.1 Obtener Lista de Concursos
