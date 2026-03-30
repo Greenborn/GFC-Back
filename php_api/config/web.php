@@ -144,10 +144,6 @@ $config = [
                     'pluralize' => false,
                 ],
                 [ 'class' => 'yii\rest\UrlRule',
-                    'controller' => 'footer',
-                    'pluralize' => false,
-                ],
-                [ 'class' => 'yii\rest\UrlRule',
                     'controller' => 'stadistics',
                     'pluralize' => false,
                 ],[
