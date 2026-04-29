@@ -16,13 +16,27 @@ router.get('/', authMiddleware, async (req, res) => {
         );
 
         // Parámetros de consulta
-        const { expand, sort, page = 1, 'per-page': perPage = 20 } = req.query;
+        const { expand, sort, page = 1, 'per-page': perPage = 20, search } = req.query;
         const currentPage = parseInt(page);
         const itemsPerPage = parseInt(perPage);
         const offset = (currentPage - 1) * itemsPerPage;
 
         // Construir query base para contests
         let contestQuery = global.knex('contest').select('*');
+        let countQuery = global.knex('contest').count('id as count').first();
+
+        // Filtro de búsqueda en los campos name y description
+        if (search && search.trim()) {
+            const searchTerm = `%${search.trim().toLowerCase()}%`;
+            contestQuery = contestQuery.where(function () {
+                this.whereRaw('LOWER(name) LIKE ?', [searchTerm])
+                    .orWhereRaw('LOWER(description) LIKE ?', [searchTerm]);
+            });
+            countQuery = countQuery.where(function () {
+                this.whereRaw('LOWER(name) LIKE ?', [searchTerm])
+                    .orWhereRaw('LOWER(description) LIKE ?', [searchTerm]);
+            });
+        }
 
         // Aplicar ordenamiento
         if (sort) {
@@ -39,7 +53,7 @@ router.get('/', authMiddleware, async (req, res) => {
         }
 
         // Obtener total de registros para paginación
-        const totalCountResult = await global.knex('contest').count('id as count').first();
+        const totalCountResult = await countQuery;
         const totalCount = parseInt(totalCountResult.count);
         const pageCount = Math.ceil(totalCount / itemsPerPage);
 
