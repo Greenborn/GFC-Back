@@ -142,6 +142,62 @@ async function testNodeContestList(token) {
     }
 }
 
+// Función para probar búsqueda de concursos en API Node.js
+async function testNodeContestSearch(token) {
+    try {
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+        };
+
+        const listUrl = `${NODE_API_BASE_URL}/contest?expand=categories,sections&sort=-id&page=1&per-page=1`;
+        console.log(`\n[TEST NODE SEARCH] Obteniendo un concurso para construir el término de búsqueda: ${listUrl}`);
+
+        const listRes = await axios.get(listUrl, { headers });
+        if (!listRes.data || !Array.isArray(listRes.data.items) || listRes.data.items.length === 0) {
+            console.log('⚠️ No hay concursos disponibles para generar término de búsqueda. Se omite la prueba de búsqueda.');
+            return { success: true, skipped: true };
+        }
+
+        const firstContest = listRes.data.items[0];
+        const searchTerm = firstContest.name ? firstContest.name.split(' ')[0] : firstContest.description?.split(' ')[0] || '';
+        if (!searchTerm) {
+            console.log('⚠️ El primer concurso no tiene nombre ni descripción válidos para generar la búsqueda. Se omite la prueba de búsqueda.');
+            return { success: true, skipped: true };
+        }
+
+        const searchUrl = `${NODE_API_BASE_URL}/contest?search=${encodeURIComponent(searchTerm)}&expand=categories,sections&sort=-id`;
+        console.log(`[TEST NODE SEARCH] ${searchUrl}`);
+
+        const res = await axios.get(searchUrl, { headers });
+        if (res.status === 200 && res.data && res.data.items) {
+            console.log('✅ API Node.js - Búsqueda de concursos exitosa');
+            console.log(`🔎 Término de búsqueda: ${searchTerm}`);
+            console.log(`📊 Concursos encontrados: ${res.data.items.length}`);
+
+            if (res.data.items.length === 0) {
+                throw new Error('La búsqueda no devolvió resultados, aunque se usó un término existente');
+            }
+
+            return {
+                success: true,
+                totalItems: res.data.items.length,
+                searchTerm,
+                data: res.data
+            };
+        }
+
+        throw new Error('Respuesta inválida de la API Node.js en búsqueda');
+    } catch (error) {
+        console.error('❌ Error en test de búsqueda Node.js API:', error.message);
+        if (error.response) {
+            console.error('📋 Status:', error.response.status);
+            console.error('📋 Data:', error.response.data);
+        }
+        return { success: false, error: error.message };
+    }
+}
+
 // Función para comparar respuestas entre APIs
 function compareResponses(phpResult, nodeResult) {
     console.log('\n🔍 COMPARACIÓN DE RESULTADOS:');
@@ -208,6 +264,13 @@ async function runTests() {
         console.log('\n🧪 PROBANDO NODE.JS API...');
         const nodeToken = await loginNodeApi();
         const nodeResult = await testNodeContestList(nodeToken);
+
+        // Test de búsqueda en Node.js API
+        console.log('\n🧪 PROBANDO BÚSQUEDA EN NODE.JS API...');
+        const nodeSearchResult = await testNodeContestSearch(nodeToken);
+        if (!nodeSearchResult.success) {
+            console.log('❌ Falló la prueba de búsqueda en Node.js API');
+        }
         
         // Comparar resultados
         compareResponses(phpResult, nodeResult);
@@ -221,8 +284,9 @@ async function runTests() {
         // Resumen final
         const phpSuccess = phpResult.success;
         const nodeSuccess = nodeResult.success;
+        const nodeSearchSuccess = nodeSearchResult.success;
         
-        if (phpSuccess && nodeSuccess) {
+        if (phpSuccess && nodeSuccess && nodeSearchSuccess) {
             console.log('🎉 TODAS LAS PRUEBAS EXITOSAS');
             process.exit(0);
         } else {
@@ -244,5 +308,6 @@ if (require.main === module) {
 module.exports = {
     runTests,
     testPhpContestList,
-    testNodeContestList
+    testNodeContestList,
+    testNodeContestSearch
 };

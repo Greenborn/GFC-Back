@@ -34,10 +34,17 @@ Authorization: Bearer <access_token>
 | `sort` | string | No | Campo de ordenamiento. Ej: `-id` para descendente, `id` para ascendente | - |
 | `page` | integer | No | Número de página | 1 |
 | `per-page` | integer | No | Elementos por página | 20 |
+| `search` | string | No | Término de búsqueda para filtrar concursos cuyo `name` o `description` contienen el valor | - |
 
 ### Ejemplo de Solicitud
 ```bash
 curl -X GET "http://localhost:3000/api/contest?expand=categories,sections&sort=-id&page=1&per-page=20" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Ejemplo de Búsqueda
+```bash
+curl -X GET "http://localhost:3000/api/contest?search=verano&expand=categories,sections&sort=-id&page=1&per-page=20" \
   -H "Authorization: Bearer <token>"
 ```
 
@@ -81,4 +88,5 @@ curl -X GET "http://localhost:3000/api/contest?expand=categories,sections&sort=-
 - El endpoint retorna un objeto `items` con los concursos.
 - La paginación se controla con `page` y `per-page`.
 - La expansión de `categories` y `sections` se realiza solo si se incluye el parámetro `expand`.
+- El parámetro `search` filtra concursos cuyo `name` o `description` contienen el término ingresado.
 - El parámetro `sort=-id` ordena los concursos del más reciente al más antiguo.
