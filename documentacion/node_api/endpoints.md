@@ -256,6 +256,60 @@ Valores permitidos:
 }
 ```
 
+### 2.4 Actualizar contraseña de usuario (solo administradores)
+**PUT** `/user/:id/password`
+
+Actualiza la contraseña de un usuario existente. Este endpoint está restringido a usuarios administradores con `role_id == '1'`.
+
+#### Headers
+```
+Authorization: Bearer <token_admin>
+Content-Type: application/json
+```
+
+#### Body de Request
+```json
+{
+  "password": "nueva_contraseña_segura"
+}
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Contraseña actualizada correctamente"
+}
+```
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "Falta la contraseña nueva"
+}
+```
+
+#### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado. Solo administradores pueden acceder a este recurso."
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "success": false,
+  "message": "Usuario no encontrado"
+}
+```
+
+#### Notas
+- Utiliza un token válido y persistente obtenido desde `/auth/login`.
+- El cambio de contraseña se almacena como `password_hash` con bcrypt y es compatible con el esquema existente.
+
 #### Respuesta de Error (503)
 ```json
 {
@@ -283,9 +337,9 @@ curl -X POST "https://gfc.prod-api.greenborn.com.ar/api/disable_user" \
 
 ---
 
-## 2.4 Footer
+## 2.5 Footer
 
-### 2.4.1 Obtener datos del Footer
+### 2.5.1 Obtener datos del Footer
 **GET** `/footer/get`
 
 Obtiene un registro de footer por ID.
@@ -336,7 +390,7 @@ Authorization: Bearer <token_admin>
 }
 ```
 
-### 2.4.2 Editar datos del Footer
+### 2.5.2 Editar datos del Footer
 **PUT** `/footer/edit`
 
 Actualiza un registro de footer existente. Requiere permisos de administrador (`adminMiddleware`).
