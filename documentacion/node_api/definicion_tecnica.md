@@ -290,6 +290,7 @@ GET /user/get_all
 GET /user/{id}?expand=profile,profile.fotoclub,role
 GET /user/me
 PUT /user/{id}/password
+GET /profile?expand=user
 POST /disable_user
 ```
 

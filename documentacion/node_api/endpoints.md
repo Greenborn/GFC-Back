@@ -208,6 +208,53 @@ Authorization: Bearer <token>
 }
 ```
 
+### 2.3 Obtener Perfiles
+**GET** `/profile`
+
+Obtiene la lista de perfiles. El endpoint admite los filtros estándar de `filter[...]` y permite expandir el usuario asociado con `expand=user`.
+
+#### Permisos
+- Requiere token Bearer en el header `Authorization`.
+- Si el usuario actual tiene `role_id == 2` (delegado), la respuesta se restringe a:
+  - perfiles del mismo `fotoclub_id` que el delegado
+  - perfiles cuyo usuario asociado tiene `role_id == 3`
+- Otros roles reciben la lista completa de perfiles según filtros aplicados.
+
+#### Query Parameters
+- `expand` (string): `user` para incluir el objeto `user` dentro de cada perfil.
+- `filter[id]=X` o `filter[profile.id]=X`: filtrar por ID de perfil.
+- `filter[profile.id][in]=1,2,3`: filtrar por múltiples IDs.
+- `filter[profile.id][between]=A,B`: filtrar por rango.
+- `filter[profile.id][inside]=A,B`: filtrar por rango abierto.
+
+#### Headers
+```
+Authorization: Bearer <token>
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "items": [
+    {
+      "id": 58,
+      "name": "Pruebas",
+      "last_name": "Desarrollo",
+      "fotoclub_id": 10,
+      "img_url": "images/profile_58_1732245996.jpeg",
+      "user": {
+        "id": 68,
+        "username": "testlucho",
+        "email": "lucho.2012.tandil@gmail.com",
+        "role_id": 1,
+        "profile_id": 58,
+        "status": 1
+      }
+    }
+  ]
+}
+```
+
 ### 2.3 Deshabilitar/Habilitar Usuario
 **POST** `/disable_user`
 

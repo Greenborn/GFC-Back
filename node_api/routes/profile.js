@@ -1,0 +1,115 @@
+const express = require('express');
+const router = express.Router();
+const authMiddleware = require('../middleware/authMiddleware');
+const LogOperacion = require('../controllers/log_operaciones.js');
+
+function normalizeFilterValue(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.includes(',')) {
+    return value.split(',').map(item => item.trim()).filter(Boolean);
+  }
+  return value;
+}
+
+function applyFilterObject(query, filter) {
+  if (!filter || typeof filter !== 'object') return;
+
+  for (const [key, value] of Object.entries(filter)) {
+    if (value == null) continue;
+
+    if (key === 'profile' && typeof value === 'object') {
+      applyFilterObject(query, value);
+      continue;
+    }
+
+    const filterKey = key.replace(/^profile\./, '');
+
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      if (value.in != null) {
+        const normalized = normalizeFilterValue(value.in);
+        query.whereIn(filterKey, Array.isArray(normalized) ? normalized : [normalized]);
+        continue;
+      }
+      if (value.between != null) {
+        const normalized = normalizeFilterValue(value.between);
+        if (Array.isArray(normalized) && normalized.length === 2) {
+          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
+          query.whereBetween(filterKey, [a, b]);
+        }
+        continue;
+      }
+      if (value.inside != null) {
+        const normalized = normalizeFilterValue(value.inside);
+        if (Array.isArray(normalized) && normalized.length === 2) {
+          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
+          query.where(filterKey, '>', a).andWhere(filterKey, '<', b);
+        }
+        continue;
+      }
+    }
+
+    const normalized = normalizeFilterValue(value);
+
+    if (Array.isArray(normalized)) {
+      query.whereIn(filterKey, normalized);
+    } else {
+      query.where(filterKey, normalized);
+    }
+  }
+}
+
+router.get('/', authMiddleware, async (req, res) => {
+  try {
+    const expand = req.query.expand ? req.query.expand.split(',').map(s => s.trim()) : [];
+    const filterParams = req.query.filter || {};
+    const profileId = req.query['filter[profile.id]'] || req.query['filter[id]'] || filterParams['profile.id'] || filterParams.id || (filterParams.profile && filterParams.profile.id);
+
+    let query = global.knex('profile').orderBy('id', 'asc');
+
+    if (profileId != null) {
+      query.where('id', profileId);
+    }
+
+    applyFilterObject(query, filterParams);
+
+    if (req.user.role_id == '2' || req.user.role_id === 2 || req.user.role_id === '2') {
+      const currentProfile = await global.knex('profile').where({ id: req.user.profile_id }).first();
+      const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
+
+      if (fotoclubId) {
+        query
+          .where('fotoclub_id', fotoclubId)
+          .whereIn('id', function () {
+            this.select('profile_id').from('user').where('role_id', 3);
+          });
+      } else {
+        query
+          .where('fotoclub_id', -1)
+          .whereIn('id', function () {
+            this.select('profile_id').from('user').where('role_id', 3);
+          });
+      }
+    }
+
+    const profiles = await query;
+    const items = profiles.map(profile => ({ ...profile }));
+
+    if (expand.includes('user')) {
+      const profileIds = items.map(profile => profile.id);
+      const users = await global.knex('user').whereIn('profile_id', profileIds).select('*');
+      const usersByProfileId = new Map(users.map(user => [user.profile_id, user]));
+
+      for (const profile of items) {
+        profile.user = usersByProfileId.get(profile.id) || null;
+      }
+    }
+
+    await LogOperacion(req.user.id, `Consulta de perfiles${expand.includes('user') ? ' con user expandido' : ''} - ${req.user.username}`, null, new Date());
+    res.json({ items });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al obtener perfiles' });
+  }
+});
+
+module.exports = router;
