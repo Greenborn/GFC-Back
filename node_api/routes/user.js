@@ -105,9 +105,12 @@ router.get('/:id', authMiddleware, async (req, res) => {
     // Obtener role
     const role = await global.knex('role').where('id', user.role_id).first();
 
+    // Filtrar campos sensibles
+    const { password_hash, password_reset_token, access_token, updated_at, sign_up_verif_code, sign_up_verif_token, ...safeUser } = user;
+
     // Armar respuesta
     const response = {
-      ...user,
+      ...safeUser,
       profile: profile ? {
         ...profile,
         fotoclub: fotoclub || null
