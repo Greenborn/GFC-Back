@@ -79,6 +79,68 @@ router.put('/:id/password', adminMiddleware, async (req, res) => {
   }
 });
 
+// PUT /user/:id
+router.put('/:id', authMiddleware, async (req, res) => {
+  const userId = req.params.id;
+  const payload = req.body || {};
+
+  try {
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+
+    if (!isAdmin && !isDelegate && String(currentUser.id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo puede editar su propio usuario.' });
+    }
+
+    const user = await global.knex('user').where({ id: userId }).first();
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    const forbiddenFields = ['password', 'password_hash', 'password_reset_token', 'access_token', 'sign_up_verif_code', 'sign_up_verif_token', 'created_at', 'updated_at'];
+    for (const field of forbiddenFields) {
+      if (Object.prototype.hasOwnProperty.call(payload, field)) {
+        return res.status(403).json({ success: false, message: `No se puede editar el campo '${field}' en este endpoint` });
+      }
+    }
+
+    if (!isAdmin && !isDelegate) {
+      const adminOnlyFields = ['role_id', 'profile_id'];
+      for (const field of adminOnlyFields) {
+        if (Object.prototype.hasOwnProperty.call(payload, field)) {
+          return res.status(403).json({ success: false, message: `Solo admin o delegado pueden editar '${field}'` });
+        }
+      }
+    }
+
+    const allowedFields = isAdmin || isDelegate
+      ? ['username', 'email', 'status', 'role_id', 'profile_id', 'dni']
+      : ['username', 'email', 'dni'];
+
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(payload, field) && payload[field] !== null) {
+        updateData[field] = payload[field];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, message: 'No se proporcionaron campos válidos para actualizar' });
+    }
+
+    await global.knex('user').where({ id: userId }).update(updateData);
+    const updatedUser = await global.knex('user').where({ id: userId }).first();
+    const { password_hash, password_reset_token, access_token, updated_at, sign_up_verif_code, sign_up_verif_token, ...safeUser } = updatedUser;
+
+    await LogOperacion(currentUser.id, `Actualización de usuario ${userId}`, JSON.stringify({ targetUserId: userId, updateData }), new Date());
+    return res.json({ success: true, user: safeUser });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar usuario' });
+  }
+});
+
 // GET /user/:id?expand=profile,profile.fotoclub,role
 router.get('/:id', authMiddleware, async (req, res) => {
   const userId = req.params.id;
