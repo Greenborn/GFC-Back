@@ -58,6 +58,54 @@ function applyFilterObject(query, filter) {
   }
 }
 
+router.get('/:id', authMiddleware, async (req, res) => {
+  const profileId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(profileId) || profileId <= 0) {
+    return res.status(400).json({ message: 'ID de perfil inválido' });
+  }
+
+  try {
+    const profile = await global.knex('profile').where({ id: profileId }).first();
+    if (!profile) {
+      return res.status(404).json({ message: 'Perfil no encontrado' });
+    }
+
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+
+    if (!isAdmin && !isDelegate && currentUser.profile_id !== profileId) {
+      return res.status(403).json({ message: 'No tiene permisos para ver este perfil' });
+    }
+
+    if (isDelegate) {
+      const currentProfile = await global.knex('profile').where({ id: currentUser.profile_id }).first();
+      const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
+      if (!fotoclubId || profile.fotoclub_id !== fotoclubId) {
+        return res.status(403).json({ message: 'No tiene permisos para ver este perfil' });
+      }
+
+      const profileUser = await global.knex('user').where({ profile_id: profileId }).first();
+      if (!profileUser || String(profileUser.role_id) !== '3') {
+        return res.status(403).json({ message: 'No tiene permisos para ver este perfil' });
+      }
+    }
+
+    const expand = req.query.expand ? req.query.expand.split(',').map(s => s.trim()) : [];
+    const response = { ...profile };
+
+    if (expand.includes('user')) {
+      response.user = await global.knex('user').where({ profile_id: profileId }).first() || null;
+    }
+
+    await LogOperacion(currentUser.id, `Consulta de perfil ${profileId}${expand.includes('user') ? ' con user expandido' : ''} - ${currentUser.username}`, null, new Date());
+    return res.json(response);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error al obtener perfil' });
+  }
+});
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const expand = req.query.expand ? req.query.expand.split(',').map(s => s.trim()) : [];
