@@ -106,6 +106,65 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+router.put('/:id', authMiddleware, async (req, res) => {
+  const profileId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(profileId) || profileId <= 0) {
+    return res.status(400).json({ message: 'ID de perfil inválido' });
+  }
+
+  try {
+    const profile = await global.knex('profile').where({ id: profileId }).first();
+    if (!profile) {
+      return res.status(404).json({ message: 'Perfil no encontrado' });
+    }
+
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+
+    if (!isAdmin && !isDelegate && currentUser.profile_id !== profileId) {
+      return res.status(403).json({ message: 'No tiene permisos para editar este perfil' });
+    }
+
+    const allowedFields = ['name', 'last_name', 'fotoclub_id', 'img_url', 'dni'];
+    const adminFields = ['executive', 'executive_rol'];
+    const updateData = {};
+
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    if (isAdmin || isDelegate) {
+      for (const field of adminFields) {
+        if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+          updateData[field] = req.body[field];
+        }
+      }
+    } else {
+      for (const field of adminFields) {
+        if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+          return res.status(403).json({ message: `Solo admin o delegado pueden modificar '${field}'` });
+        }
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No se proporcionaron campos válidos para actualizar' });
+    }
+
+    await global.knex('profile').where({ id: profileId }).update(updateData);
+    const updatedProfile = await global.knex('profile').where({ id: profileId }).first();
+
+    await LogOperacion(currentUser.id, `Actualización de perfil ${profileId} - ${currentUser.username}`, JSON.stringify({ profileId, updateData }), new Date());
+    return res.json({ success: true, profile: updatedProfile });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error al actualizar perfil' });
+  }
+});
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const expand = req.query.expand ? req.query.expand.split(',').map(s => s.trim()) : [];
