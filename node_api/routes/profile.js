@@ -126,25 +126,26 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'No tiene permisos para editar este perfil' });
     }
 
+    const requestBody = req.body || {};
     const allowedFields = ['name', 'last_name', 'fotoclub_id', 'img_url', 'dni'];
     const adminFields = ['executive', 'executive_rol'];
     const updateData = {};
 
     for (const field of allowedFields) {
-      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
-        updateData[field] = req.body[field];
+      if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] !== null) {
+        updateData[field] = requestBody[field];
       }
     }
 
     if (isAdmin || isDelegate) {
       for (const field of adminFields) {
-        if (Object.prototype.hasOwnProperty.call(req.body, field)) {
-          updateData[field] = req.body[field];
+        if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] !== null) {
+          updateData[field] = requestBody[field];
         }
       }
     } else {
       for (const field of adminFields) {
-        if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        if (Object.prototype.hasOwnProperty.call(requestBody, field)) {
           return res.status(403).json({ message: `Solo admin o delegado pueden modificar '${field}'` });
         }
       }
