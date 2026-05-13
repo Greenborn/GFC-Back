@@ -286,13 +286,10 @@ POST /auth/verify-email
 
 #### Usuarios
 ```
-GET /users
-GET /users/{id}
-POST /users
-PUT /users/{id}
-DELETE /users/{id}
-GET /users/{id}/profile
-PUT /users/{id}/profile
+GET /user/get_all
+GET /user/{id}?expand=profile,profile.fotoclub,role
+GET /user/me
+PUT /user/{id}/password
 POST /disable_user
 ```
 
