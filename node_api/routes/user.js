@@ -83,6 +83,14 @@ router.put('/:id/password', adminMiddleware, async (req, res) => {
 router.get('/:id', authMiddleware, async (req, res) => {
   const userId = req.params.id;
   try {
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+
+    if (!isAdmin && !isDelegate && String(currentUser.id) !== String(userId)) {
+      return res.status(403).json({ message: 'Acceso denegado. Solo puede consultar su propio usuario.' });
+    }
+
     // Obtener usuario
     const user = await global.knex('user').where('id', userId).first();
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
