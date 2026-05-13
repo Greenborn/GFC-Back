@@ -131,16 +131,17 @@ Renueva el token JWT usando el refresh token.
 ## 2. Usuarios
 
 ### 2.1 Obtener Lista de Usuarios
-**GET** `/users`
+**GET** `/user/get_all`
 
-Obtiene una lista paginada de usuarios.
+Obtiene el listado completo de usuarios junto con datos auxiliares de `profile`, `role` y `fotoclub`.
 
-#### Query Parameters
-- `page` (int): Número de página (default: 1)
-- `limit` (int): Elementos por página (default: 20, max: 100)
-- `search` (string): Búsqueda por nombre o email
-- `role` (string): Filtrar por rol
-- `status` (string): Filtrar por estado
+#### Permisos
+- Requiere token Bearer en el header `Authorization`.
+- Todos los usuarios autenticados pueden llamar este endpoint.
+- Si el usuario actual tiene `role_id == 2` (delegado), la respuesta queda limitada a:
+  - usuarios con `role_id == 3`
+  - usuarios cuyo `profile.fotoclub_id` pertenece al mismo fotoclub que el delegado
+- Administradores (`role_id == 1`) y otros roles reciben el listado completo sin este filtro.
 
 #### Headers
 ```
@@ -150,25 +151,35 @@ Authorization: Bearer <token>
 #### Respuesta Exitosa (200)
 ```json
 {
-  "success": true,
-  "data": {
-    "users": [
-      {
-        "id": 1,
-        "username": "john_doe",
-        "email": "user@example.com",
-        "role": "participant",
-        "status": "active",
-        "created_at": "2024-01-01T00:00:00Z"
-      }
-    ],
-    "pagination": {
-      "current_page": 1,
-      "total_pages": 5,
-      "total_items": 100,
-      "items_per_page": 20
+  "items": [
+    {
+      "id": 1,
+      "username": "admin",
+      "email": "admin@example.com",
+      "role_id": 1,
+      "profile_id": 10,
+      "status": 1
     }
-  }
+  ],
+  "profile": [
+    {
+      "id": 10,
+      "name": "Admin",
+      "fotoclub_id": null
+    }
+  ],
+  "role": [
+    {
+      "id": 1,
+      "name": "Administrador"
+    }
+  ],
+  "fotoclub": [
+    {
+      "id": 5,
+      "name": "Fotoclub Central"
+    }
+  ]
 }
 ```
 

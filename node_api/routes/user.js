@@ -13,12 +13,29 @@ router.get('/me', authMiddleware, (req, res) => {
   res.json({ success: true, user: safeUser });
 });
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.session.user.id, 'Consulta de Usuarios - ' + req.session.user.username, null, new Date()) 
+      await LogOperacion(req.user.id, 'Consulta de Usuarios - ' + req.user.username, null, new Date());
 
-      res.json({ 
-        items: await global.knex('user'),
+      const usersQuery = global.knex('user').orderBy('id', 'asc');
+
+      if (req.user.role_id == '2' || req.user.role_id === 2) {
+        const currentProfile = await global.knex('profile').where({ id: req.user.profile_id }).first();
+        const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
+
+        if (fotoclubId) {
+          usersQuery
+            .where('role_id', 3)
+            .whereIn('profile_id', function () {
+              this.select('id').from('profile').where({ fotoclub_id: fotoclubId });
+            });
+        } else {
+          usersQuery.where('role_id', 3).where('profile_id', -1);
+        }
+      }
+
+      res.json({
+        items: await usersQuery,
         profile: await global.knex('profile'),
         role: await global.knex('role'),
         fotoclub: await global.knex('fotoclub')
