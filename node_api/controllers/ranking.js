@@ -28,6 +28,7 @@ async function actualizarRanking() {
     await knex.transaction(async (trx) => {
       await trx('profiles_ranking_category_section').del();
       await trx('fotoclub_ranking').del();
+      await trx('profiles_ranking').del();
     });
     return { stat: true, message: 'No hay concursos juzgados en el año actual', perfiles_insertados: 0, fotoclubs_insertados: 0 };
   }
@@ -58,6 +59,15 @@ async function actualizarRanking() {
     .join('metric as m', 'cr.metric_id', 'm.id')
     .join('image as i', 'cr.image_id', 'i.id')
     .whereIn('cr.contest_id', contestIds);
+
+  const perfilesRankingTotal = new Map();
+  for (const r of resultados) {
+    const score = Number(r.metric_score) || 0;
+    perfilesRankingTotal.set(
+      r.profile_id,
+      (perfilesRankingTotal.get(r.profile_id) || 0) + score
+    );
+  }
 
   // Agregación por perfil/categoría/sección
   const agregadosPerfiles = new Map(); // key: `${category_id}|${section_id}|${profile_id}`
@@ -141,6 +151,15 @@ async function actualizarRanking() {
     // Limpiar tablas
     await trx('profiles_ranking_category_section').del();
     await trx('fotoclub_ranking').del();
+    await trx('profiles_ranking').del();
+
+    // Insertar ranking por perfil simple
+    for (const [profileId, puntuacion] of perfilesRankingTotal.entries()) {
+      await trx('profiles_ranking').insert({
+        id_profile: profileId,
+        puntuacion
+      });
+    }
 
     // Insertar ranking por perfil/categoría/sección
     for (const agg of agregadosPerfiles.values()) {

@@ -13,6 +13,7 @@ router.get('/', authMiddleware, async (req, res) => {
     );
 
     const profiles = await global.knex('profiles_ranking_category_section').select('*');
+    const profilesRanking = await global.knex('profiles_ranking').select('*');
     const fotoclubs = await global.knex('fotoclub_ranking').select('*');
     const sections = await global.knex('section').select('*');
     const categories = await global.knex('category').select('*').where('mostrar_en_ranking', 1);
@@ -20,6 +21,7 @@ router.get('/', authMiddleware, async (req, res) => {
     return res.json({
       items: {
         profiles,
+        profiles_ranking: profilesRanking,
         fotoclubs,
         Section: sections,
         Category: categories
