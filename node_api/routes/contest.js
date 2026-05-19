@@ -6,6 +6,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 const { isValidOrganizationType } = require('../utils/organizationType');
 
 const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
@@ -1002,9 +1003,6 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
         return res.status(500).json({ success: false, message: 'Error interno al compilar premiadas del año', error: error.message });
     }
 });
-
-// Middleware de administrador
-const adminMiddleware = require('../middleware/adminMiddleware');
 
 /**
  * DELETE /contest/:id
