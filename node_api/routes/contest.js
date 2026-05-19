@@ -432,6 +432,161 @@ router.get('/:id(\\d+)', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * PUT /contest/:id
+ * Actualiza un concurso existente.
+ * Solo administradores pueden usar este endpoint.
+ *
+ * Ejemplo curl compatible con API PHP:
+ * curl 'https://gfc.api2.greenborn.com.ar/api/contest/65?' \
+ *   --compressed \
+ *   -X PUT \
+ *   -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0' \
+ *   -H 'Accept: application/json, text/plain, * / *' \
+ *   -H 'Accept-Language: es-AR,es;q=0.8,en-US;q=0.5,en;q=0.3' \
+ *   -H 'Accept-Encoding: gzip, deflate, br, zstd' \
+ *   -H 'Authorization: Bearer d8f3650df32623b175d850c02d152068ad857a438746f82d09cc7a18229afa01' \
+ *   -H 'Content-Type: multipart/form-data; boundary=----geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98' \
+ *   -H 'Origin: http://localhost:4200' \
+ *   -H 'Connection: keep-alive' \
+ *   -H 'Referer: http://localhost:4200/' \
+ *   -H 'Sec-Fetch-Dest: empty' \
+ *   -H 'Sec-Fetch-Mode: cors' \
+ *   -H 'Sec-Fetch-Site: cross-site' \
+ *   -H 'Priority: u=0' \
+ *   -H 'Pragma: no-cache' \
+ *   -H 'Cache-Control: no-cache' \
+ *   -H 'TE: trailers' \
+ *   --data-binary \
+ *   $'------geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98\r\nContent-Disposition: form-data; name="name"\r\n\r\ntest 2\r\n------geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98\r\nContent-Disposition: form-data; name="sub_title"\r\n\r\ntest\r\n------geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98\r\nContent-Disposition: form-data; name="description"\r\n\r\ntest\r\n------geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98\r\nContent-Disposition: form-data; name="max_img_section"\r\n\r\n3\r\n------geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98\r\nContent-Disposition: form-data; name="organization_type"\r\n\r\nEXTERNO_0\r\n------geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98\r\nContent-Disposition: form-data; name="start_date"\r\n\r\n2026-02-01T00:00:00.000Z\r\n------geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98\r\nContent-Disposition: form-data; name="end_date"\r\n\r\n2027-01-01T00:00:00.000Z\r\n------geckoformboundary9db6d7fdc099b7883b46c0db8ff68a98--\r\'
+ */
+router.put('/:id', adminMiddleware, upload.fields([
+    { name: 'image_file', maxCount: 1 },
+    { name: 'rules_file', maxCount: 1 }
+]), async (req, res) => {
+    try {
+        const contestId = parseInt(req.params.id, 10);
+        if (isNaN(contestId) || contestId <= 0) {
+            return res.status(400).json({ success: false, message: 'ID de concurso inválido' });
+        }
+
+        const existingContest = await global.knex('contest').where({ id: contestId }).first();
+        if (!existingContest) {
+            return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+        }
+
+        const {
+            name,
+            description,
+            sub_title,
+            max_img_section,
+            start_date,
+            end_date,
+            organization_type,
+            judged
+        } = req.body;
+
+        const updateData = {};
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'name')) {
+            const value = name ? String(name).trim() : '';
+            if (!value) {
+                return res.status(400).json({ success: false, message: 'El nombre del concurso no puede ser vacío.' });
+            }
+            updateData.name = value;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'description')) {
+            updateData.description = description && String(description).trim() !== '' ? String(description) : null;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'sub_title')) {
+            updateData.sub_title = sub_title && String(sub_title).trim() !== '' ? String(sub_title) : null;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'max_img_section')) {
+            const parsedValue = String(max_img_section).trim();
+            if (parsedValue === '') {
+                updateData.max_img_section = null;
+            } else {
+                const parsedInt = parseInt(parsedValue, 10);
+                if (Number.isNaN(parsedInt)) {
+                    return res.status(400).json({ success: false, message: 'max_img_section debe ser un número válido.' });
+                }
+                updateData.max_img_section = parsedInt;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'start_date')) {
+            updateData.start_date = String(start_date).trim() === '' ? null : String(start_date);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'end_date')) {
+            updateData.end_date = String(end_date).trim() === '' ? null : String(end_date);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'organization_type')) {
+            const orgType = String(organization_type).trim();
+            if (orgType === '') {
+                updateData.organization_type = null;
+            } else if (!isValidOrganizationType(orgType) || !ALLOWED_CONTEST_ORG_TYPES.includes(orgType)) {
+                return res.status(400).json({ success: false, message: 'organization_type inválido. Valores permitidos: INTERNO, EXTERNO_0, EXTERNO_UNICEN.' });
+            } else {
+                updateData.organization_type = orgType;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'judged')) {
+            const judgedValue = String(judged).toLowerCase();
+            updateData.judged = ['1', 'true', 'yes', 'on'].includes(judgedValue);
+        }
+
+        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
+        const imagesDir = path.join(uploadsBasePath, 'images');
+        if (!fs.existsSync(imagesDir)) {
+            fs.mkdirSync(imagesDir, { recursive: true });
+        }
+
+        if (req.files && req.files.image_file && req.files.image_file.length > 0) {
+            const image = req.files.image_file[0];
+            const ext = path.extname(image.originalname) || `.${(image.mimetype || 'jpeg').split('/').pop()}`;
+            const filename = `contest_title_${Date.now()}${ext}`;
+            const filepath = path.join(imagesDir, filename);
+            fs.writeFileSync(filepath, image.buffer);
+            updateData.img_url = path.posix.join('images', filename);
+        }
+
+        if (req.files && req.files.rules_file && req.files.rules_file.length > 0) {
+            const rulesFile = req.files.rules_file[0];
+            const ext = path.extname(rulesFile.originalname) || `.${(rulesFile.mimetype || 'pdf').split('/').pop()}`;
+            const filename = `rules_${Date.now()}${ext}`;
+            const filepath = path.join(imagesDir, filename);
+            fs.writeFileSync(filepath, rulesFile.buffer);
+            updateData.rules_url = path.posix.join('images', filename);
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ success: false, message: 'No se enviaron datos para actualizar.' });
+        }
+
+        await global.knex('contest')
+            .where({ id: contestId })
+            .update(updateData);
+
+        await LogOperacion(
+            req.user.id,
+            `Actualización de Concurso - ${req.user.username}`,
+            { before: existingContest, after: updateData },
+            new Date()
+        );
+
+        return res.json({ success: true, id: contestId, ...updateData });
+    } catch (error) {
+        console.error('Error al actualizar concurso:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al actualizar concurso', error: error.message });
+    }
+});
+
 router.get('/compressed-photos', authMiddleware, async (req, res) => {
     // Recibe el id del concurso por req.query.id
     const contestId = parseInt(req.query.id);
