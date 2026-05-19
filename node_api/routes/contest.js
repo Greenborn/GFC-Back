@@ -336,6 +336,91 @@ router.get('/participants', authMiddleware, async (req, res) => {
     }
 });
 
+router.get('/:id(\\d+)', authMiddleware, async (req, res) => {
+    try {
+        const contestId = parseInt(req.params.id, 10);
+        if (!contestId || Number.isNaN(contestId)) {
+            return res.status(400).json({ message: 'ID de concurso inválido' });
+        }
+
+        const contest = await global.knex('contest').where({ id: contestId }).first();
+        if (!contest) {
+            return res.status(404).json({ message: 'Concurso no encontrado' });
+        }
+
+        const expand = req.query.expand
+            ? String(req.query.expand).split(',').map(v => v.trim()).filter(Boolean)
+            : [];
+        const includeCountContestResults = expand.includes('countContestResults');
+        const includeCountProfileContests = expand.includes('countProfileContests');
+        const includeContestRecords = expand.includes('contestRecords');
+
+        const response = {
+            id: contest.id,
+            name: contest.name,
+            description: contest.description,
+            start_date: contest.start_date,
+            end_date: contest.end_date,
+            max_img_section: contest.max_img_section,
+            img_url: contest.img_url,
+            rules_url: contest.rules_url,
+            sub_title: contest.sub_title || '',
+            organization_type: contest.organization_type,
+            judged: contest.judged === 1 || contest.judged === true || String(contest.judged) === '1',
+            active: (() => {
+                const now = new Date();
+                const endDate = new Date(contest.end_date);
+                return endDate > now;
+            })()
+        };
+
+        const promises = [];
+        if (includeCountContestResults) {
+            promises.push(
+                global.knex('contest_result')
+                    .where('contest_id', contestId)
+                    .count('* as total')
+                    .first()
+            );
+        }
+        if (includeCountProfileContests) {
+            promises.push(
+                global.knex('profile_contest')
+                    .where('contest_id', contestId)
+                    .count('* as total')
+                    .first()
+            );
+        }
+        if (includeContestRecords) {
+            promises.push(
+                global.knex('contests_records')
+                    .where('contest_id', contestId)
+                    .select('id', 'url', 'object', 'contest_id', 'type', 'temporada')
+            );
+        }
+
+        const results = await Promise.all(promises);
+        let resultIndex = 0;
+
+        if (includeCountContestResults) {
+            const row = results[resultIndex++] || { total: 0 };
+            response.countContestResults = parseInt(row.total, 10) || 0;
+        }
+        if (includeCountProfileContests) {
+            const row = results[resultIndex++] || { total: 0 };
+            response.countProfileContests = parseInt(row.total, 10) || 0;
+        }
+        if (includeContestRecords) {
+            response.contestRecords = results[resultIndex++] || [];
+        }
+
+        return res.json(response);
+    } catch (error) {
+        console.error('Error al obtener concurso por id:', error);
+        return res.status(500).json({ message: 'Error interno al obtener concurso' });
+    }
+});
+
 router.get('/compressed-photos', authMiddleware, async (req, res) => {
     // Recibe el id del concurso por req.query.id
     const contestId = parseInt(req.query.id);
