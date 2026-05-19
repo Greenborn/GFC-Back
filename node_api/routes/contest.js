@@ -72,8 +72,13 @@ router.post('/', authMiddleware, upload.fields([
             organization_type: organization_type || null
         };
 
-        const insertResult = await global.knex('contest').insert(contestData);
-        const contestId = Array.isArray(insertResult) ? insertResult[0] : insertResult;
+        const insertResult = await global.knex('contest')
+            .insert(contestData)
+            .returning('id');
+
+        const contestId = Array.isArray(insertResult)
+            ? (insertResult[0] && typeof insertResult[0] === 'object' ? insertResult[0].id : insertResult[0])
+            : insertResult;
 
         await LogOperacion(
             req.user.id,
