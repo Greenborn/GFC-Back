@@ -1,8 +1,97 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const authMiddleware = require('../middleware/authMiddleware');
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Endpoint para crear concursos (compatible con API PHP)
+router.post('/', authMiddleware, upload.fields([
+    { name: 'image_file', maxCount: 1 },
+    { name: 'rules_file', maxCount: 1 }
+]), async (req, res) => {
+    try {
+        if (!req.user || req.user.role_id != '1') {
+            return res.status(403).json({ success: false, message: 'Acceso denegado. Solo administradores pueden crear concursos.' });
+        }
+
+        const {
+            name,
+            description,
+            sub_title,
+            max_img_section,
+            start_date,
+            end_date,
+            organization_type
+        } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'El nombre del concurso es obligatorio.' });
+        }
+
+        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
+        const imagesDir = path.join(uploadsBasePath, 'images');
+        if (!fs.existsSync(imagesDir)) {
+            fs.mkdirSync(imagesDir, { recursive: true });
+        }
+
+        let img_url = null;
+        let rules_url = null;
+
+        if (req.files && req.files.image_file && req.files.image_file.length > 0) {
+            const image = req.files.image_file[0];
+            const ext = path.extname(image.originalname) || `.${(image.mimetype || 'jpeg').split('/').pop()}`;
+            const filename = `contest_title_${Date.now()}${ext}`;
+            const filepath = path.join(imagesDir, filename);
+            fs.writeFileSync(filepath, image.buffer);
+            img_url = path.posix.join('images', filename);
+        }
+
+        if (req.files && req.files.rules_file && req.files.rules_file.length > 0) {
+            const rulesFile = req.files.rules_file[0];
+            const ext = path.extname(rulesFile.originalname) || `.${(rulesFile.mimetype || 'pdf').split('/').pop()}`;
+            const filename = `rules_${Date.now()}${ext}`;
+            const filepath = path.join(imagesDir, filename);
+            fs.writeFileSync(filepath, rulesFile.buffer);
+            rules_url = path.posix.join('images', filename);
+        }
+
+        const contestData = {
+            name,
+            description: description || null,
+            sub_title: sub_title || null,
+            max_img_section: max_img_section ? parseInt(max_img_section, 10) : null,
+            start_date: start_date || null,
+            end_date: end_date || null,
+            img_url,
+            rules_url,
+            organization_type: organization_type || null
+        };
+
+        const insertResult = await global.knex('contest').insert(contestData);
+        const contestId = Array.isArray(insertResult) ? insertResult[0] : insertResult;
+
+        await LogOperacion(
+            req.user.id,
+            `Creación de Concurso - ${req.user.username}`,
+            { new: contestData },
+            new Date()
+        );
+
+        return res.status(201).json({
+            success: true,
+            id: contestId,
+            ...contestData
+        });
+    } catch (error) {
+        console.error('Error al crear concurso:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al crear concurso', error: error.message });
+    }
+});
 
 // Endpoint para listar concursos con expansión de categorías y secciones (compatible con API PHP)
 router.get('/', authMiddleware, async (req, res) => {
