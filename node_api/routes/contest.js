@@ -79,7 +79,8 @@ router.post('/', authMiddleware, upload.fields([
             end_date: end_date || null,
             img_url,
             rules_url,
-            organization_type: organization_type || null
+            organization_type: organization_type || null,
+            judged: false
         };
 
         const insertResult = await global.knex('contest')
