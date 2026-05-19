@@ -6,7 +6,9 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const authMiddleware = require('../middleware/authMiddleware');
+const { isValidOrganizationType } = require('../utils/organizationType');
 
+const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Endpoint para crear concursos (compatible con API PHP)
@@ -31,6 +33,14 @@ router.post('/', authMiddleware, upload.fields([
 
         if (!name) {
             return res.status(400).json({ success: false, message: 'El nombre del concurso es obligatorio.' });
+        }
+
+        if (!organization_type) {
+            return res.status(400).json({ success: false, message: 'El tipo de organización es obligatorio.' });
+        }
+
+        if (!isValidOrganizationType(organization_type) || !ALLOWED_CONTEST_ORG_TYPES.includes(organization_type)) {
+            return res.status(400).json({ success: false, message: 'organization_type inválido. Valores permitidos: INTERNO, EXTERNO_0, EXTERNO_UNICEN.' });
         }
 
         const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
