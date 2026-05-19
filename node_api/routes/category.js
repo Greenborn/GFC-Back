@@ -1,7 +1,68 @@
 const express      = require('express');
 const router       = express.Router();
 const LogOperacion = require('../controllers/log_operaciones.js');
+const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
+
+/**
+ * GET /category
+ * Lista las categorías para todos los usuarios autenticados.
+ *
+ * Ejemplo curl equivalente a API PHP:
+ * curl 'https://gfc.prod-api.greenborn.com.ar/category?' \
+ *   --compressed \
+ *   -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0' \
+ *   -H 'Accept: application/json, text/plain, * / *' \
+ *   -H 'Accept-Language: es-AR,es;q=0.8,en-US;q=0.5,en;q=0.3' \
+ *   -H 'Accept-Encoding: gzip, deflate, br, zstd' \
+ *   -H 'Authorization: Bearer d8f3650df32623b175d850c02d152068ad857a438746f82d09cc7a18229afa01' \
+ *   -H 'Origin: http://localhost:4200' \
+ *   -H 'Connection: keep-alive' \
+ *   -H 'Referer: http://localhost:4200/' \
+ *   -H 'Sec-Fetch-Dest: empty' \
+ *   -H 'Sec-Fetch-Mode: cors' \
+ *   -H 'Sec-Fetch-Site: cross-site' \
+ *   -H 'Pragma: no-cache' \
+ *   -H 'Cache-Control: no-cache' \
+ *   -H 'TE: trailers'
+ */
+router.get('/', authMiddleware, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page, 10) || 1;
+        const perPage = parseInt(req.query['per-page'] || req.query.per_page || 20, 10) || 20;
+        const offset = (page - 1) * perPage;
+
+        const [totalResult] = await global.knex('category').count('id as count');
+        const totalCount = parseInt(totalResult.count, 10) || 0;
+        const pageCount = Math.max(1, Math.ceil(totalCount / perPage));
+
+        const items = await global.knex('category')
+            .select('*')
+            .limit(perPage)
+            .offset(offset);
+
+        const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+        const buildHref = (pageNumber) => `${baseUrl}?${new URLSearchParams({ ...req.query, page: pageNumber }).toString()}`;
+
+        return res.json({
+            items,
+            _links: {
+                self: { href: buildHref(page) },
+                first: { href: buildHref(1) },
+                last: { href: buildHref(pageCount) }
+            },
+            _meta: {
+                totalCount,
+                pageCount,
+                currentPage: page,
+                perPage
+            }
+        });
+    } catch (error) {
+        console.error('Error al obtener categorías:', error);
+        res.status(500).json({ message: 'Error al obtener registros' });
+    }
+});
 
 router.get('/get_all', async (req, res) => {
     try {
