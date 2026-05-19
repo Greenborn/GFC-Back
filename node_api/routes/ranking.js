@@ -3,6 +3,35 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const LogOperacion = require('../controllers/log_operaciones.js');
 
+router.get('/', authMiddleware, async (req, res) => {
+  try {
+    await LogOperacion(
+      req.user?.id || 0,
+      'Consulta ranking general',
+      null,
+      new Date()
+    );
+
+    const profiles = await global.knex('profiles_ranking_category_section').select('*');
+    const profilesRanking = await global.knex('profiles_ranking').select('*');
+    const fotoclubs = await global.knex('fotoclub_ranking').select('*');
+    const sections = await global.knex('section').select('*');
+    const categories = await global.knex('category').select('*').where('mostrar_en_ranking', 1);
+
+    return res.json({
+      items: {
+        profiles,
+        profiles_ranking: profilesRanking,
+        fotoclubs,
+        Section: sections,
+        Category: categories
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+  }
+});
+
 router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) => {
   try {
     const contestId = parseInt(req.params.contest_id);

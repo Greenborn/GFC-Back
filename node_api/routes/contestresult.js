@@ -6,9 +6,7 @@ const LogOperacion = require('../controllers/log_operaciones.js');
 
 // GET /contest-result?expand=profile,profile.user,profile.fotoclub,image.profile,image.thumbnail&filter[contest_id]=51
 router.get('/contest-result', authMiddleware, async (req, res) => {
-
   try {
-    // Permitir contest_id como filter[contest_id] o filter.contest_id
     let contestId = req.query['filter[contest_id]'];
     if (!contestId && req.query.filter && typeof req.query.filter === 'object') {
       contestId = req.query.filter.contest_id;
@@ -17,129 +15,211 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Falta contest_id en el filtro' });
     }
 
-    // Parse expand (no se usa en la query, pero se puede parsear para futuro)
-    const expand = req.query.expand ? req.query.expand.split(',') : [];
+    const expand = req.query.expand ? req.query.expand.split(',').map(v => v.trim()).filter(Boolean) : [];
+    const expandImageProfile = expand.includes('image.profile') || expand.includes('profile');
+    const expandImageThumbnail = expand.includes('image.thumbnail') || expand.includes('thumbnail');
+    const expandProfileUser = expand.includes('profile.user');
+    const expandProfileFotoclub = expand.includes('profile.fotoclub');
 
-  // Parámetros de paginación
-  const page = parseInt(req.query.page, 10) > 0 ? parseInt(req.query.page, 10) : 1;
-    // Solo soporta per-page
-    const perPage = parseInt(req.query['per-page'] || 20);
+    const page = parseInt(req.query.page, 10) > 0 ? parseInt(req.query.page, 10) : 1;
+    const perPage = parseInt(req.query['per-page'], 10) > 0 ? parseInt(req.query['per-page'], 10) : 20;
 
-  // Query principal: contest_result + joins
-
-  // Selección explícita de columnas para evitar ambigüedad
-  let selectColumns = [
-      'contest_result.id as contest_result_id',
+    const selectColumns = [
+      'contest_result.id as id',
       'contest_result.contest_id',
-      'contest_result.image_id as contest_result_image_id',
-      'contest_result.metric_id as contest_result_metric_id',
-      'contest_result.section_id as contest_result_section_id',
+      'contest_result.image_id',
+      'contest_result.metric_id',
+      'contest_result.section_id',
+      global.knex.raw('NULL as type'),
+      global.knex.raw('NULL as temporada'),
       'image.id as image_id',
-      'image.profile_id as image_profile_id',
-      'image.url as image_url',
-      'image.title as image_title',
       'image.code as image_code',
+      'image.title as image_title',
+      'image.url as image_url',
+      'image.profile_id as image_profile_id',
       'metric.id as metric_id',
       'metric.prize as metric_prize',
       'metric.score as metric_score',
+      'metric.dni as metric_dni',
       'thumbnail.id as thumbnail_id',
       'thumbnail.url as thumbnail_url',
-      'thumbnail.thumbnail_type as thumbnail_type',
-      'contest_section.id as contest_section_id',
-      'contest_section.section_id as contest_section_section_id',
-      'section.id as section_id',
-      'section.name as section_name'
+      'thumbnail.thumbnail_type as thumbnail_type'
     ];
+
+    if (expandImageProfile) {
+      selectColumns.push(
+        'profile.id as profile_id',
+        'profile.name as profile_name',
+        'profile.last_name as profile_last_name',
+        'profile.fotoclub_id as profile_fotoclub_id',
+        'profile.img_url as profile_img_url',
+        'profile.executive as profile_executive',
+        'profile.executive_rol as profile_executive_rol',
+        'profile.dni as profile_dni'
+      );
+    }
+    if (expandProfileUser) {
+      selectColumns.push(
+        'user.id as user_id',
+        'user.username as user_username',
+        'user.email as user_email',
+        'user.dni as user_dni'
+      );
+    }
+    if (expandProfileFotoclub) {
+      selectColumns.push(
+        'fotoclub.id as fotoclub_id',
+        'fotoclub.name as fotoclub_name',
+        'fotoclub.photo_url as fotoclub_photo_url'
+      );
+    }
 
     let query = global.knex('contest_result')
       .where('contest_result.contest_id', contestId)
       .leftJoin('image', 'contest_result.image_id', 'image.id')
       .leftJoin('metric', 'contest_result.metric_id', 'metric.id')
-      .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id')
-      .leftJoin('contest_section', 'contest_result.section_id', 'contest_section.section_id')
-      .leftJoin('section', 'contest_result.section_id', 'section.id');
+      .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id');
 
-    if (expand.includes('profile')) {
+    if (expandImageProfile) {
       query = query.leftJoin('profile', 'image.profile_id', 'profile.id');
-      selectColumns = selectColumns.concat([
-        'profile.id as profile_id',
-        'profile.name as profile_name',
-        'profile.last_name as profile_last_name',
-        'profile.fotoclub_id as profile_fotoclub_id'
-      ]);
+    }
+    if (expandProfileUser) {
+      query = query.leftJoin('user', 'profile.id', 'user.profile_id');
+    }
+    if (expandProfileFotoclub) {
+      query = query.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
     }
 
-  // Obtener todos los resultados sin paginación SQL
-  query = query.select(selectColumns);
+    const itemsRaw = await query.select(selectColumns);
 
-    // Obtener el total de elementos sin paginación
-    const totalCountQuery = global.knex('contest_result')
-      .where('contest_result.contest_id', contestId)
-      .count('id as total');
-
-    const [itemsRaw, totalCountResult] = await Promise.all([
-      query,
-      totalCountQuery
-    ]);
-    const totalCount = totalCountResult[0]?.total || 0;
-
-    // Agrupar thumbnails en array por contest_result_id
     const grouped = {};
     for (const item of itemsRaw) {
       const {
-        image_id, image_profile_id, image_url, image_title, image_code,
-        thumbnail_id, thumbnail_url, thumbnail_type,
-        metric_id, metric_prize, metric_score,
-        profile_id, profile_name, profile_last_name, profile_fotoclub_id,
-        section_id, section_name, section_description,
-        contest_result_id,
+        id,
+        contest_id,
+        image_id,
+        metric_id,
+        section_id,
+        type,
+        temporada,
+        image_code,
+        image_title,
+        image_url,
+        image_profile_id,
+        metric_prize,
+        metric_score,
+        metric_dni,
+        thumbnail_id,
+        thumbnail_url,
+        thumbnail_type,
+        profile_id,
+        profile_name,
+        profile_last_name,
+        profile_fotoclub_id,
+        profile_img_url,
+        profile_executive,
+        profile_executive_rol,
+        profile_dni,
+        user_id,
+        user_username,
+        user_email,
+        user_dni,
+        fotoclub_id,
+        fotoclub_name,
+        fotoclub_photo_url,
         ...rest
       } = item;
-      if (!grouped[contest_result_id]) {
-        grouped[contest_result_id] = {
-          ...rest,
-          contest_result_id,
-          image: (image_id ? {
-            id: image_id,
-            profile_id: image_profile_id,
-            url: image_url,
-            title: image_title,
-            code: image_code
-          } : null),
-          metric: (metric_id ? {
-            id: metric_id,
-            prize: metric_prize,
-            score: metric_score
-          } : null),
-          thumbnails: [],
-          profile: (profile_id ? {
+
+      if (!grouped[id]) {
+        const image = image_id ? {
+          id: image_id,
+          code: image_code,
+          title: image_title,
+          profile_id: image_profile_id,
+          url: image_url
+        } : null;
+
+        if (expandImageProfile && profile_id && image) {
+          image.profile = {
             id: profile_id,
             name: profile_name,
             last_name: profile_last_name,
-            fotoclub_id: profile_fotoclub_id
-          } : null),
-          section: (section_id ? {
-            section_id: section_id,
-            name: section_name
-          } : null)
+            fotoclub_id: profile_fotoclub_id,
+            img_url: profile_img_url,
+            executive: profile_executive,
+            executive_rol: profile_executive_rol,
+            dni: profile_dni
+          };
+
+          if (expandProfileUser && user_id) {
+            image.profile.user = {
+              id: user_id,
+              username: user_username,
+              email: user_email,
+              dni: user_dni
+            };
+          }
+          if (expandProfileFotoclub && fotoclub_id) {
+            image.profile.fotoclub = {
+              id: fotoclub_id,
+              name: fotoclub_name,
+              photo_url: fotoclub_photo_url
+            };
+          }
+        }
+
+        grouped[id] = {
+          id,
+          contest_id,
+          image_id,
+          metric_id,
+          section_id,
+          type: null,
+          temporada: null,
+          image,
+          metric: metric_id ? {
+            id: metric_id,
+            prize: metric_prize,
+            score: metric_score,
+            dni: metric_dni
+          } : null
         };
       }
-      if (thumbnail_id) {
-        // Solo agregar thumbnails únicos por id
-        if (!grouped[contest_result_id].thumbnails.some(t => t.id === thumbnail_id)) {
-          grouped[contest_result_id].thumbnails.push({
+
+      if (thumbnail_id && grouped[id].image) {
+        const currentThumbnail = grouped[id].image.thumbnail;
+        if (!currentThumbnail || (thumbnail_type === 1 && currentThumbnail.thumbnail_type !== 1)) {
+          grouped[id].image.thumbnail = {
             id: thumbnail_id,
             url: thumbnail_url,
-            type: thumbnail_type
-          });
+            thumbnail_type: thumbnail_type
+          };
         }
       }
     }
-    // Paginar los elementos únicos agrupados
+
     const allItems = Object.values(grouped);
-    const pageCount = Math.ceil(allItems.length / perPage);
-    const currentPage = page;
-    const pagedItems = allItems.slice((page - 1) * perPage, page * perPage);
+    const pageCount = allItems.length > 0 ? Math.ceil(allItems.length / perPage) : 1;
+    const currentPage = page > pageCount ? pageCount : page;
+    const pagedItems = allItems.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+    const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+    const buildLink = (pageNumber) => {
+      const params = new URLSearchParams();
+      Object.entries(req.query).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          value.forEach(v => params.append(key, String(v)));
+        } else if (value !== undefined && value !== null) {
+          params.set(key, String(value));
+        }
+      });
+      params.set('page', String(pageNumber));
+      params.set('per-page', String(perPage));
+      if (!params.has('viewpage')) {
+        params.set('viewpage', 'contest-result');
+      }
+      return `${baseUrl}?${params.toString()}`;
+    };
 
     res.json({
       items: pagedItems,
@@ -148,6 +228,11 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         pageCount,
         currentPage,
         perPage
+      },
+      _links: {
+        self: { href: buildLink(currentPage) },
+        first: { href: buildLink(1) },
+        last: { href: buildLink(pageCount) }
       }
     });
   } catch (error) {

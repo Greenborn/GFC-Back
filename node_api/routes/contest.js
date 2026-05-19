@@ -1,8 +1,113 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const authMiddleware = require('../middleware/authMiddleware');
+const { isValidOrganizationType } = require('../utils/organizationType');
+
+const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Endpoint para crear concursos (compatible con API PHP)
+router.post('/', authMiddleware, upload.fields([
+    { name: 'image_file', maxCount: 1 },
+    { name: 'rules_file', maxCount: 1 }
+]), async (req, res) => {
+    try {
+        if (!req.user || req.user.role_id != '1') {
+            return res.status(403).json({ success: false, message: 'Acceso denegado. Solo administradores pueden crear concursos.' });
+        }
+
+        const {
+            name,
+            description,
+            sub_title,
+            max_img_section,
+            start_date,
+            end_date,
+            organization_type
+        } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'El nombre del concurso es obligatorio.' });
+        }
+
+        if (!organization_type) {
+            return res.status(400).json({ success: false, message: 'El tipo de organización es obligatorio.' });
+        }
+
+        if (!isValidOrganizationType(organization_type) || !ALLOWED_CONTEST_ORG_TYPES.includes(organization_type)) {
+            return res.status(400).json({ success: false, message: 'organization_type inválido. Valores permitidos: INTERNO, EXTERNO_0, EXTERNO_UNICEN.' });
+        }
+
+        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
+        const imagesDir = path.join(uploadsBasePath, 'images');
+        if (!fs.existsSync(imagesDir)) {
+            fs.mkdirSync(imagesDir, { recursive: true });
+        }
+
+        let img_url = null;
+        let rules_url = null;
+
+        if (req.files && req.files.image_file && req.files.image_file.length > 0) {
+            const image = req.files.image_file[0];
+            const ext = path.extname(image.originalname) || `.${(image.mimetype || 'jpeg').split('/').pop()}`;
+            const filename = `contest_title_${Date.now()}${ext}`;
+            const filepath = path.join(imagesDir, filename);
+            fs.writeFileSync(filepath, image.buffer);
+            img_url = path.posix.join('images', filename);
+        }
+
+        if (req.files && req.files.rules_file && req.files.rules_file.length > 0) {
+            const rulesFile = req.files.rules_file[0];
+            const ext = path.extname(rulesFile.originalname) || `.${(rulesFile.mimetype || 'pdf').split('/').pop()}`;
+            const filename = `rules_${Date.now()}${ext}`;
+            const filepath = path.join(imagesDir, filename);
+            fs.writeFileSync(filepath, rulesFile.buffer);
+            rules_url = path.posix.join('images', filename);
+        }
+
+        const contestData = {
+            name,
+            description: description || null,
+            sub_title: sub_title || null,
+            max_img_section: max_img_section ? parseInt(max_img_section, 10) : null,
+            start_date: start_date || null,
+            end_date: end_date || null,
+            img_url,
+            rules_url,
+            organization_type: organization_type || null,
+            judged: false
+        };
+
+        const insertResult = await global.knex('contest')
+            .insert(contestData)
+            .returning('id');
+
+        const contestId = Array.isArray(insertResult)
+            ? (insertResult[0] && typeof insertResult[0] === 'object' ? insertResult[0].id : insertResult[0])
+            : insertResult;
+
+        await LogOperacion(
+            req.user.id,
+            `Creación de Concurso - ${req.user.username}`,
+            { new: contestData },
+            new Date()
+        );
+
+        return res.status(201).json({
+            success: true,
+            id: contestId,
+            ...contestData
+        });
+    } catch (error) {
+        console.error('Error al crear concurso:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al crear concurso', error: error.message });
+    }
+});
 
 // Endpoint para listar concursos con expansión de categorías y secciones (compatible con API PHP)
 router.get('/', authMiddleware, async (req, res) => {
@@ -239,6 +344,91 @@ router.get('/participants', authMiddleware, async (req, res) => {
             success: false,
             message: 'Error interno del servidor al obtener participantes'
         });
+    }
+});
+
+router.get('/:id(\\d+)', authMiddleware, async (req, res) => {
+    try {
+        const contestId = parseInt(req.params.id, 10);
+        if (!contestId || Number.isNaN(contestId)) {
+            return res.status(400).json({ message: 'ID de concurso inválido' });
+        }
+
+        const contest = await global.knex('contest').where({ id: contestId }).first();
+        if (!contest) {
+            return res.status(404).json({ message: 'Concurso no encontrado' });
+        }
+
+        const expand = req.query.expand
+            ? String(req.query.expand).split(',').map(v => v.trim()).filter(Boolean)
+            : [];
+        const includeCountContestResults = expand.includes('countContestResults');
+        const includeCountProfileContests = expand.includes('countProfileContests');
+        const includeContestRecords = expand.includes('contestRecords');
+
+        const response = {
+            id: contest.id,
+            name: contest.name,
+            description: contest.description,
+            start_date: contest.start_date,
+            end_date: contest.end_date,
+            max_img_section: contest.max_img_section,
+            img_url: contest.img_url,
+            rules_url: contest.rules_url,
+            sub_title: contest.sub_title || '',
+            organization_type: contest.organization_type,
+            judged: contest.judged === 1 || contest.judged === true || String(contest.judged) === '1',
+            active: (() => {
+                const now = new Date();
+                const endDate = new Date(contest.end_date);
+                return endDate > now;
+            })()
+        };
+
+        const promises = [];
+        if (includeCountContestResults) {
+            promises.push(
+                global.knex('contest_result')
+                    .where('contest_id', contestId)
+                    .count('* as total')
+                    .first()
+            );
+        }
+        if (includeCountProfileContests) {
+            promises.push(
+                global.knex('profile_contest')
+                    .where('contest_id', contestId)
+                    .count('* as total')
+                    .first()
+            );
+        }
+        if (includeContestRecords) {
+            promises.push(
+                global.knex('contests_records')
+                    .where('contest_id', contestId)
+                    .select('id', 'url', 'object', 'contest_id', 'type', 'temporada')
+            );
+        }
+
+        const results = await Promise.all(promises);
+        let resultIndex = 0;
+
+        if (includeCountContestResults) {
+            const row = results[resultIndex++] || { total: 0 };
+            response.countContestResults = parseInt(row.total, 10) || 0;
+        }
+        if (includeCountProfileContests) {
+            const row = results[resultIndex++] || { total: 0 };
+            response.countProfileContests = parseInt(row.total, 10) || 0;
+        }
+        if (includeContestRecords) {
+            response.contestRecords = results[resultIndex++] || [];
+        }
+
+        return res.json(response);
+    } catch (error) {
+        console.error('Error al obtener concurso por id:', error);
+        return res.status(500).json({ message: 'Error interno al obtener concurso' });
     }
 });
 
