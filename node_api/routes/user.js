@@ -141,13 +141,45 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const updateData = {};
     for (const field of allowedFields) {
-      if (Object.prototype.hasOwnProperty.call(payload, field) && payload[field] !== null) {
-        updateData[field] = payload[field];
+      if (Object.prototype.hasOwnProperty.call(payload, field)) {
+        const value = payload[field];
+        if (value === null || value === undefined) {
+          return res.status(400).json({ success: false, message: `El campo '${field}' no puede ser vacío` });
+        }
+
+        if (['username', 'email', 'dni'].includes(field) && typeof value === 'string' && value.trim() === '') {
+          return res.status(400).json({ success: false, message: `El campo '${field}' no puede ser vacío` });
+        }
+
+        updateData[field] = value;
       }
     }
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ success: false, message: 'No se proporcionaron campos válidos para actualizar' });
+    }
+
+    // Validar unicidad de username, dni y email para otro usuario distinto
+    const uniqueChecks = [
+      { field: 'username', value: updateData.username, label: 'nombre de usuario' },
+      { field: 'dni', value: updateData.dni, label: 'DNI' },
+      { field: 'email', value: updateData.email, label: 'correo electrónico' }
+    ];
+
+    for (const check of uniqueChecks) {
+      if (check.value !== undefined) {
+        const existing = await global.knex('user')
+          .where({ [check.field]: check.value })
+          .andWhereNot({ id: userId })
+          .first();
+
+        if (existing) {
+          return res.status(400).json({
+            success: false,
+            message: `Ya existe otro usuario con el mismo ${check.label}`
+          });
+        }
+      }
     }
 
     await global.knex('user').where({ id: userId }).update(updateData);
