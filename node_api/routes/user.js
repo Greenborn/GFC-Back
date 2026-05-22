@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const knex = require('../knexfile');
 const authMiddleware = require('../middleware/authMiddleware');
-const adminMiddleware = require('../middleware/adminMiddleware');
 
 // Endpoint: GET /user/me
 router.get('/me', authMiddleware, (req, res) => {
@@ -47,8 +46,9 @@ router.get('/get_all', authMiddleware, async (req, res) => {
 })
 
 // PUT /user/:id/password
-// Solo administradores pueden actualizar la contraseña de un usuario
-router.put('/:id/password', adminMiddleware, async (req, res) => {
+// Admins y delegados pueden actualizar la contraseña de cualquier usuario.
+// Un usuario común solo puede actualizar su propia contraseña.
+router.put('/:id/password', authMiddleware, async (req, res) => {
   const userId = req.params.id;
   const { password } = req.body;
 
@@ -57,6 +57,14 @@ router.put('/:id/password', adminMiddleware, async (req, res) => {
   }
 
   try {
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+
+    if (!isAdmin && !isDelegate && String(currentUser.id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo puede cambiar su propia contraseña.' });
+    }
+
     const user = await global.knex('user').where({ id: userId }).first();
     if (!user) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
@@ -70,7 +78,7 @@ router.put('/:id/password', adminMiddleware, async (req, res) => {
       .update({ password_hash: hashedPassword })
       .where({ id: userId });
 
-    await LogOperacion(req.user.id, `Actualización de contraseña de usuario ${userId}`, JSON.stringify({ targetUserId: userId }), new Date());
+    await LogOperacion(currentUser.id, `Actualización de contraseña de usuario ${userId}`, JSON.stringify({ targetUserId: userId }), new Date());
 
     return res.json({ success: true, message: 'Contraseña actualizada correctamente' });
   } catch (error) {
