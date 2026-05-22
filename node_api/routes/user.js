@@ -60,14 +60,27 @@ router.put('/:id/password', authMiddleware, async (req, res) => {
     const currentUser = req.user;
     const isAdmin = String(currentUser.role_id) === '1';
     const isDelegate = String(currentUser.role_id) === '2';
+    const isSelfUpdate = String(currentUser.id) === String(userId);
 
-    if (!isAdmin && !isDelegate && String(currentUser.id) !== String(userId)) {
+    if (!isAdmin && !isDelegate && !isSelfUpdate) {
       return res.status(403).json({ success: false, message: 'Acceso denegado. Solo puede cambiar su propia contraseña.' });
     }
 
     const user = await global.knex('user').where({ id: userId }).first();
     if (!user) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    if (isSelfUpdate) {
+      const { actual_password } = req.body;
+      if (!actual_password) {
+        return res.status(400).json({ success: false, message: 'Falta la contraseña actual' });
+      }
+
+      const isCurrentPasswordValid = bcrypt.compareSync(actual_password, user.password_hash);
+      if (!isCurrentPasswordValid) {
+        return res.status(403).json({ success: false, message: 'Contraseña actual incorrecta' });
+      }
     }
 
     const saltRounds = 13;
