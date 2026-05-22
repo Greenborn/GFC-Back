@@ -1,7 +1,12 @@
 const express = require('express');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const LogOperacion = require('../controllers/log_operaciones.js');
+const upload = multer({ storage: multer.memoryStorage() });
 
 function normalizeFilterValue(value) {
   if (Array.isArray(value)) return value;
@@ -106,7 +111,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res) => {
   const profileId = parseInt(req.params.id, 10);
   if (!Number.isFinite(profileId) || profileId <= 0) {
     return res.status(400).json({ message: 'ID de perfil inválido' });
@@ -135,6 +140,25 @@ router.put('/:id', authMiddleware, async (req, res) => {
       if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] !== null) {
         updateData[field] = requestBody[field];
       }
+    }
+
+    if (req.file && req.file.fieldname === 'image_file') {
+      const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
+      const imagesDir = path.join(uploadsBasePath, 'images');
+      if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true });
+      }
+
+      const filename = `profile_${profileId}_${Date.now()}.jpg`;
+      const filepath = path.join(imagesDir, filename);
+      const outputBuffer = await sharp(req.file.buffer)
+        .rotate()
+        .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 100, mozjpeg: true })
+        .toBuffer();
+
+      fs.writeFileSync(filepath, outputBuffer);
+      updateData.img_url = path.posix.join('images', filename);
     }
 
     if (isAdmin || isDelegate) {
