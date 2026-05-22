@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const sharp = require('sharp');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
@@ -149,7 +150,8 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
         fs.mkdirSync(imagesDir, { recursive: true });
       }
 
-      const filename = `profile_${profileId}_${Date.now()}.jpg`;
+      const uniqueSuffix = crypto.randomBytes(8).toString('hex');
+      const filename = `profile_${profileId}_${Date.now()}_${uniqueSuffix}.jpg`;
       const filepath = path.join(imagesDir, filename);
       const outputBuffer = await sharp(req.file.buffer)
         .rotate()
