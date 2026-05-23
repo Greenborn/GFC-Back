@@ -64,6 +64,10 @@ function applyFilterObject(query, filter) {
   }
 }
 
+function escapeLikePattern(value) {
+  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
 router.get('/:id', authMiddleware, async (req, res) => {
   const profileId = parseInt(req.params.id, 10);
   if (!Number.isFinite(profileId) || profileId <= 0) {
@@ -206,16 +210,17 @@ router.get('/', authMiddleware, async (req, res) => {
 
     applyFilterObject(query, filterParams);
 
-    const searchTerm = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const rawSearchTerm = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const searchTerm = rawSearchTerm.substring(0, 100);
     if (searchTerm) {
       const normalizedSearch = searchTerm.toLowerCase();
-      const likeSearch = `%${normalizedSearch.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
+      const likeSearch = `%${escapeLikePattern(normalizedSearch)}%`;
       query.andWhere(function () {
-        this.whereRaw('LOWER(name) LIKE ?', [likeSearch])
-          .orWhereRaw('LOWER(last_name) LIKE ?', [likeSearch])
-          .orWhereRaw('LOWER(dni) LIKE ?', [likeSearch])
-          .orWhereRaw('LOWER(executive_rol) LIKE ?', [likeSearch])
-          .orWhereRaw('LOWER(img_url) LIKE ?', [likeSearch]);
+        this.whereRaw("LOWER(name) LIKE ? ESCAPE '\\'", [likeSearch])
+          .orWhereRaw("LOWER(last_name) LIKE ? ESCAPE '\\'", [likeSearch])
+          .orWhereRaw("LOWER(dni) LIKE ? ESCAPE '\\'", [likeSearch])
+          .orWhereRaw("LOWER(executive_rol) LIKE ? ESCAPE '\\'", [likeSearch])
+          .orWhereRaw("LOWER(img_url) LIKE ? ESCAPE '\\'", [likeSearch]);
 
         if (!Number.isNaN(Number(searchTerm))) {
           this.orWhere('id', Number(searchTerm));
