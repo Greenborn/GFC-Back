@@ -141,7 +141,9 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
     const adminFields = ['executive', 'executive_rol'];
     const updateData = {};
 
-    for (const field of allowedFields) {
+    const writableFields = isAdmin || isDelegate ? allowedFields.concat(adminFields) : allowedFields;
+
+    for (const field of writableFields) {
       if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] !== null) {
         updateData[field] = requestBody[field];
       }
@@ -176,7 +178,8 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
     } else {
       for (const field of adminFields) {
         if (Object.prototype.hasOwnProperty.call(requestBody, field)) {
-          return res.status(403).json({ message: `Solo admin o delegado pueden modificar '${field}'` });
+          // Ignorar campos de administrador si el usuario no tiene permiso.
+          continue;
         }
       }
     }
