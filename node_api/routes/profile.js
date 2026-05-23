@@ -206,6 +206,23 @@ router.get('/', authMiddleware, async (req, res) => {
 
     applyFilterObject(query, filterParams);
 
+    const searchTerm = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (searchTerm) {
+      const normalizedSearch = searchTerm.toLowerCase();
+      const likeSearch = `%${normalizedSearch.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
+      query.andWhere(function () {
+        this.whereRaw('LOWER(name) LIKE ?', [likeSearch])
+          .orWhereRaw('LOWER(last_name) LIKE ?', [likeSearch])
+          .orWhereRaw('LOWER(dni) LIKE ?', [likeSearch])
+          .orWhereRaw('LOWER(executive_rol) LIKE ?', [likeSearch])
+          .orWhereRaw('LOWER(img_url) LIKE ?', [likeSearch]);
+
+        if (!Number.isNaN(Number(searchTerm))) {
+          this.orWhere('id', Number(searchTerm));
+        }
+      });
+    }
+
     if (req.user.role_id == '2' || req.user.role_id === 2 || req.user.role_id === '2') {
       const currentProfile = await global.knex('profile').where({ id: req.user.profile_id }).first();
       const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
