@@ -302,6 +302,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
   try {
     const profileId = Number(req.query.profile_id);
     const contestId = req.query.contest_id != null ? Number(req.query.contest_id) : null;
+    const sectionId = req.query.section_id != null ? Number(req.query.section_id) : null;
     const year = Number(req.query.year) || new Date().getFullYear();
     if (!Number.isFinite(profileId)) {
       return res.status(400).json({ success: false, message: 'Parámetro profile_id inválido' });
@@ -309,7 +310,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
 
     await LogOperacion(
       req.user?.id || 0,
-      `Consulta detalle ranking qparams profile_id=${profileId} contest_id=${contestId ?? '-'} year=${year}`,
+      `Consulta detalle ranking qparams profile_id=${profileId} contest_id=${contestId ?? '-'} year=${year} section_id=${sectionId ?? '-'}`,
       null,
       new Date()
     );
@@ -335,7 +336,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
         ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
         : null;
       const categories = categoryAssigned ? [categoryAssigned] : [];
-      const rawResults = await global.knex('contest_result as cr')
+      let rawQuery = global.knex('contest_result as cr')
         .join('image as i', 'cr.image_id', 'i.id')
         .join('metric as m', 'cr.metric_id', 'm.id')
         .join('section as s', 'cr.section_id', 's.id')
@@ -354,6 +355,10 @@ router.get('/detalle', authMiddleware, async (req, res) => {
         )
         .where('cr.contest_id', contestId)
         .andWhere('i.profile_id', profileId);
+      if (Number.isFinite(sectionId)) {
+        rawQuery = rawQuery.andWhere('cr.section_id', sectionId);
+      }
+      const rawResults = await rawQuery;
       const sectionsSet = new Map();
       for (const r of rawResults) {
         if (!sectionsSet.has(r.section_id)) {
@@ -373,13 +378,17 @@ router.get('/detalle', authMiddleware, async (req, res) => {
       const results = Array.from(groupedBySection.values());
       let totalScore = 0;
       for (const r of rawResults) totalScore += Number(r.metric_score) || 0;
-      const totalsByProfileRows = await global.knex('contest_result as cr')
+      let totalsQuery = global.knex('contest_result as cr')
         .join('image as i', 'cr.image_id', 'i.id')
         .join('metric as m', 'cr.metric_id', 'm.id')
         .where('cr.contest_id', contestId)
         .select('i.profile_id')
         .sum({ total_score: 'm.score' })
         .groupBy('i.profile_id');
+      if (Number.isFinite(sectionId)) {
+        totalsQuery = totalsQuery.andWhere('cr.section_id', sectionId);
+      }
+      const totalsByProfileRows = await totalsQuery;
       const rankingSorted = totalsByProfileRows.map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 })).sort((a, b) => b.total_score - a.total_score);
       let position = null;
       for (let i = 0; i < rankingSorted.length; i++) {
@@ -420,7 +429,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
         ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
         : null;
       const categories = categoryAssigned ? [categoryAssigned] : [];
-      const rawResults = await global.knex('contest_result as cr')
+      let rawQuery = global.knex('contest_result as cr')
         .join('image as i', 'cr.image_id', 'i.id')
         .join('metric as m', 'cr.metric_id', 'm.id')
         .join('section as s', 'cr.section_id', 's.id')
@@ -428,6 +437,10 @@ router.get('/detalle', authMiddleware, async (req, res) => {
         .select('cr.id as contest_result_id', 'cr.section_id', 's.name as section_name', 'i.id as image_id', 'i.title as image_title', 'i.code as image_code', 't.url as thumbnail_url', 't.thumbnail_type as thumbnail_type', 'm.prize as metric_prize', 'm.score as metric_score')
         .where('cr.contest_id', cId)
         .andWhere('i.profile_id', profileId);
+      if (Number.isFinite(sectionId)) {
+        rawQuery = rawQuery.andWhere('cr.section_id', sectionId);
+      }
+      const rawResults = await rawQuery;
       const sectionsSet = new Map();
       for (const r of rawResults) if (!sectionsSet.has(r.section_id)) sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
       const sections = Array.from(sectionsSet.values());
@@ -441,13 +454,17 @@ router.get('/detalle', authMiddleware, async (req, res) => {
       const results = Array.from(groupedBySection.values());
       let totalScore = 0;
       for (const r of rawResults) totalScore += Number(r.metric_score) || 0;
-      const totalsByProfileRows = await global.knex('contest_result as cr')
+      let totalsQuery = global.knex('contest_result as cr')
         .join('image as i', 'cr.image_id', 'i.id')
         .join('metric as m', 'cr.metric_id', 'm.id')
         .where('cr.contest_id', cId)
         .select('i.profile_id')
         .sum({ total_score: 'm.score' })
         .groupBy('i.profile_id');
+      if (Number.isFinite(sectionId)) {
+        totalsQuery = totalsQuery.andWhere('cr.section_id', sectionId);
+      }
+      const totalsByProfileRows = await totalsQuery;
       const rankingSorted = totalsByProfileRows.map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 })).sort((a, b) => b.total_score - a.total_score);
       let position = null;
       for (let i = 0; i < rankingSorted.length; i++) { const row = rankingSorted[i]; if (Number(row.profile_id) === profileId) { position = i + 1; break; } }
