@@ -86,6 +86,7 @@ router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) 
         'i.id as image_id',
         'i.title as image_title',
         'i.code as image_code',
+        'i.url as image_url',
         't.url as thumbnail_url',
         't.thumbnail_type as thumbnail_type',
         'm.prize as metric_prize',
@@ -116,6 +117,7 @@ router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) 
       groupedBySection.get(key).images.push({
         image_id: r.image_id,
         title: r.image_title,
+        image_url: r.image_url,
         thumbnail_url: r.thumbnail_url,
         metric: { prize: r.metric_prize, score: scoreNum }
       });
@@ -242,6 +244,7 @@ router.get('/detalle/:profile_id', authMiddleware, async (req, res) => {
           'i.id as image_id',
           'i.title as image_title',
           'i.code as image_code',
+          'i.url as image_url',
           't.url as thumbnail_url',
           't.thumbnail_type as thumbnail_type',
           'm.prize as metric_prize',
@@ -263,7 +266,7 @@ router.get('/detalle/:profile_id', authMiddleware, async (req, res) => {
           groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
         }
         const scoreNum = Number(r.metric_score) || 0;
-        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
+        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
       }
       const results = Array.from(groupedBySection.values());
       let totalScore = 0;
@@ -348,6 +351,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
           'i.id as image_id',
           'i.title as image_title',
           'i.code as image_code',
+          'i.url as image_url',
           't.url as thumbnail_url',
           't.thumbnail_type as thumbnail_type',
           'm.prize as metric_prize',
@@ -373,7 +377,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
           groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
         }
         const scoreNum = Number(r.metric_score) || 0;
-        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
+        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
       }
       const results = Array.from(groupedBySection.values());
       let totalScore = 0;
@@ -434,7 +438,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
         .join('metric as m', 'cr.metric_id', 'm.id')
         .join('section as s', 'cr.section_id', 's.id')
         .leftJoin('thumbnail as t', 'i.id', 't.image_id')
-        .select('cr.id as contest_result_id', 'cr.section_id', 's.name as section_name', 'i.id as image_id', 'i.title as image_title', 'i.code as image_code', 't.url as thumbnail_url', 't.thumbnail_type as thumbnail_type', 'm.prize as metric_prize', 'm.score as metric_score')
+        .select('cr.id as contest_result_id', 'cr.section_id', 's.name as section_name', 'i.id as image_id', 'i.title as image_title', 'i.code as image_code', 'i.url as image_url', 't.url as thumbnail_url', 't.thumbnail_type as thumbnail_type', 'm.prize as metric_prize', 'm.score as metric_score')
         .where('cr.contest_id', cId)
         .andWhere('i.profile_id', profileId);
       if (Number.isFinite(sectionId)) {
@@ -449,7 +453,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
         const key = r.section_id;
         if (!groupedBySection.has(key)) groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
         const scoreNum = Number(r.metric_score) || 0;
-        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
+        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
       }
       const results = Array.from(groupedBySection.values());
       let totalScore = 0;
