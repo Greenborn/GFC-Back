@@ -72,7 +72,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     }
     if (filterAuthor && needsProfile) {
       filterQuery = filterQuery.whereRaw(
-        'LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,""))) LIKE LOWER(?)',
+        'LOWER(CONCAT_WS(\' \', profile.name, profile.last_name)) LIKE LOWER(?)',
         [`%${filterAuthor}%`]
       );
     }
@@ -91,7 +91,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
           .orWhereRaw('LOWER(image.code) LIKE LOWER(?)', [`%${search}%`]);
         if (needsProfile) {
           this.orWhereRaw(
-            'LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,""))) LIKE LOWER(?)',
+            'LOWER(CONCAT_WS(\' \', profile.name, profile.last_name)) LIKE LOWER(?)',
             [`%${search}%`]
           );
         }
@@ -119,9 +119,9 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     if (sort === 'author' && needsProfile) {
       idQuery = idQuery
         .select(global.knex.raw(
-          'MIN(LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,"")))) as sort_value'
+          "MIN(LOWER(CONCAT_WS(' ', profile.name, profile.last_name))) as sort_value"
         ))
-        .orderByRaw('MIN(LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,"")))) ' + sortDir);
+        .orderByRaw("MIN(LOWER(CONCAT_WS(' ', profile.name, profile.last_name))) " + sortDir);
     } else if (validSorts[sort]) {
       idQuery = idQuery
         .select(global.knex.raw('MIN(??) as sort_value', [validSorts[sort]]))
