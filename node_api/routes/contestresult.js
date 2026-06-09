@@ -28,7 +28,6 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const perPage = parseInt(req.query['per-page'], 10) > 0 ? parseInt(req.query['per-page'], 10) : 20;
 
     // ── Parse new filter/sort params ──
-    const search = (req.query.search || '').trim();
     const sort = req.query.sort || '';
     const sortDir = req.query.sort_dir === 'desc' ? 'desc' : 'asc';
 
@@ -36,8 +35,10 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const filterSectionIds = extractFilterArray(req.query, 'section_id');
     const filterCategoryIds = extractFilterArray(req.query, 'category_id');
     const filterPrizes = extractFilterStringArray(req.query, 'prize');
-    const filterAuthor = extractFilterString(req.query, 'author');
-    const filterCode = extractFilterString(req.query, 'code');
+    const rawSearch = (req.query.search || '').trim();
+    const filterAuthor = sanitizeSearchTerm(extractFilterString(req.query, 'author'));
+    const filterCode = sanitizeSearchTerm(extractFilterString(req.query, 'code'));
+    const search = sanitizeSearchTerm(rawSearch);
 
     // ── Determine conditional joins needed for filtering/sorting ──
     const needsProfile = !!(search || sort === 'author' || filterAuthor || filterCategoryIds.length > 0);
@@ -68,11 +69,11 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       filterQuery = filterQuery.whereIn('metric.prize', filterPrizes);
     }
     if (filterCode) {
-      filterQuery = filterQuery.whereRaw('LOWER(image.code) LIKE LOWER(?)', [`%${filterCode}%`]);
+      filterQuery = filterQuery.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
     }
     if (filterAuthor && needsProfile) {
       filterQuery = filterQuery.whereRaw(
-        'LOWER(CONCAT_WS(\' \', profile.name, profile.last_name)) LIKE LOWER(?)',
+        baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
         [`%${filterAuthor}%`]
       );
     }
@@ -87,19 +88,20 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     }
     if (search) {
       filterQuery = filterQuery.andWhere(function () {
-        this.whereRaw('LOWER(image.title) LIKE LOWER(?)', [`%${search}%`])
-          .orWhereRaw('LOWER(image.code) LIKE LOWER(?)', [`%${search}%`]);
+        this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
+          .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${search}%`])
+          .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
         if (needsProfile) {
           this.orWhereRaw(
-            'LOWER(CONCAT_WS(\' \', profile.name, profile.last_name)) LIKE LOWER(?)',
+            baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
             [`%${search}%`]
           );
         }
         if (needsSection) {
-          this.orWhereRaw('LOWER(section.name) LIKE LOWER(?)', [`%${search}%`]);
+          this.orWhereRaw(baseUnaccent('section.name') + ' LIKE ?', [`%${search}%`]);
         }
         if (needsFotoclub) {
-          this.orWhereRaw('LOWER(fotoclub.name) LIKE LOWER(?)', [`%${search}%`]);
+          this.orWhereRaw(baseUnaccent('fotoclub.name') + ' LIKE ?', [`%${search}%`]);
         }
       });
     }
@@ -119,9 +121,9 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     if (sort === 'author' && needsProfile) {
       idQuery = idQuery
         .select(global.knex.raw(
-          "MIN(LOWER(CONCAT_WS(' ', profile.name, profile.last_name))) as sort_value"
+          "MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") as sort_value"
         ))
-        .orderByRaw("MIN(LOWER(CONCAT_WS(' ', profile.name, profile.last_name))) " + sortDir);
+        .orderByRaw("MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") " + sortDir);
     } else if (validSorts[sort]) {
       idQuery = idQuery
         .select(global.knex.raw('MIN(??) as sort_value', [validSorts[sort]]))
@@ -400,6 +402,26 @@ function extractFilterString(query, key) {
   if (bracket) return bracket;
   if (query.filter && query.filter[key]) return query.filter[key];
   return '';
+}
+
+// ── Accent‑insensitive search helpers ──
+
+const UNACCENT_FROM = 'áàâãäåéèêëíìîïóòôõöúùûüñçÁÀÂÃÄÅÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÑÇ';
+const UNACCENT_TO   = 'aaaaaaeeeeiiiiooooouuuuncAAAAAAEEEEIIIIOOOOOUUUUNC';
+
+function baseUnaccent(columnExpr) {
+  return "TRANSLATE(LOWER(" + columnExpr + "),'" + UNACCENT_FROM + "','" + UNACCENT_TO + "')";
+}
+
+function sanitizeSearchTerm(term) {
+  if (!term) return '';
+  return term
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .replace(/[%_]/g, ' ')
+    .trim()
+    .substring(0, 200);
 }
 
 // POST /disable_user
