@@ -4,9 +4,10 @@ const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
 const LogOperacion = require('../controllers/log_operaciones.js');
 
-// GET /contest-result?expand=profile,profile.user,profile.fotoclub,image.profile,image.thumbnail&filter[contest_id]=51
+// GET /contest-result?expand=profile,profile.user,profile.fotoclub,image.profile,image.thumbnail&filter[contest_id]=58&page=1&per-page=20&search=paisaje&sort=title&sort_dir=asc&filter[section_id]=1&filter[section_id]=3&filter[category_id]=2&filter[prize]=Oro&filter[author]=García&filter[code]=ABC
 router.get('/contest-result', authMiddleware, async (req, res) => {
   try {
+    // ── Parse required ──
     let contestId = req.query['filter[contest_id]'];
     if (!contestId && req.query.filter && typeof req.query.filter === 'object') {
       contestId = req.query.filter.contest_id;
@@ -15,15 +16,137 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Falta contest_id en el filtro' });
     }
 
+    // ── Parse expand ──
     const expand = req.query.expand ? req.query.expand.split(',').map(v => v.trim()).filter(Boolean) : [];
     const expandImageProfile = expand.includes('image.profile') || expand.includes('profile');
     const expandImageThumbnail = expand.includes('image.thumbnail') || expand.includes('thumbnail');
     const expandProfileUser = expand.includes('profile.user');
     const expandProfileFotoclub = expand.includes('profile.fotoclub');
 
+    // ── Parse pagination ──
     const page = parseInt(req.query.page, 10) > 0 ? parseInt(req.query.page, 10) : 1;
     const perPage = parseInt(req.query['per-page'], 10) > 0 ? parseInt(req.query['per-page'], 10) : 20;
 
+    // ── Parse new filter/sort params ──
+    const search = (req.query.search || '').trim();
+    const sort = req.query.sort || '';
+    const sortDir = req.query.sort_dir === 'desc' ? 'desc' : 'asc';
+
+    // Extract multi-value filters (support both bracket and dot notation)
+    const filterSectionIds = extractFilterArray(req.query, 'section_id');
+    const filterCategoryIds = extractFilterArray(req.query, 'category_id');
+    const filterPrizes = extractFilterStringArray(req.query, 'prize');
+    const filterAuthor = extractFilterString(req.query, 'author');
+    const filterCode = extractFilterString(req.query, 'code');
+
+    // ── Determine conditional joins needed for filtering/sorting ──
+    const needsProfile = !!(search || sort === 'author' || filterAuthor || filterCategoryIds.length > 0);
+    const needsSection = !!search;
+    const needsFotoclub = !!(search && needsProfile);
+
+    // ── Build filter query (base for COUNT + paginated IDs) ──
+    let filterQuery = global.knex('contest_result')
+      .where('contest_result.contest_id', contestId)
+      .leftJoin('image', 'contest_result.image_id', 'image.id')
+      .leftJoin('metric', 'contest_result.metric_id', 'metric.id');
+
+    if (needsProfile) {
+      filterQuery = filterQuery.leftJoin('profile', 'image.profile_id', 'profile.id');
+    }
+    if (needsSection) {
+      filterQuery = filterQuery.leftJoin('section', 'contest_result.section_id', 'section.id');
+    }
+    if (needsFotoclub) {
+      filterQuery = filterQuery.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
+    }
+
+    // ── Apply filters (AND between groups, OR within multi-value groups) ──
+    if (filterSectionIds.length > 0) {
+      filterQuery = filterQuery.whereIn('contest_result.section_id', filterSectionIds);
+    }
+    if (filterPrizes.length > 0) {
+      filterQuery = filterQuery.whereIn('metric.prize', filterPrizes);
+    }
+    if (filterCode) {
+      filterQuery = filterQuery.whereRaw('LOWER(image.code) LIKE LOWER(?)', [`%${filterCode}%`]);
+    }
+    if (filterAuthor && needsProfile) {
+      filterQuery = filterQuery.whereRaw(
+        'LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,""))) LIKE LOWER(?)',
+        [`%${filterAuthor}%`]
+      );
+    }
+    if (filterCategoryIds.length > 0) {
+      filterQuery = filterQuery.whereExists(function () {
+        this.select('*')
+          .from('profile_contest')
+          .whereRaw('profile_contest.profile_id = image.profile_id')
+          .whereRaw('profile_contest.contest_id = contest_result.contest_id')
+          .whereIn('profile_contest.category_id', filterCategoryIds);
+      });
+    }
+    if (search) {
+      filterQuery = filterQuery.andWhere(function () {
+        this.whereRaw('LOWER(image.title) LIKE LOWER(?)', [`%${search}%`])
+          .orWhereRaw('LOWER(image.code) LIKE LOWER(?)', [`%${search}%`]);
+        if (needsProfile) {
+          this.orWhereRaw(
+            'LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,""))) LIKE LOWER(?)',
+            [`%${search}%`]
+          );
+        }
+        if (needsSection) {
+          this.orWhereRaw('LOWER(section.name) LIKE LOWER(?)', [`%${search}%`]);
+        }
+        if (needsFotoclub) {
+          this.orWhereRaw('LOWER(fotoclub.name) LIKE LOWER(?)', [`%${search}%`]);
+        }
+      });
+    }
+
+    // ── Total count (before pagination) ──
+    const countRow = await filterQuery.clone().countDistinct({ total: 'contest_result.id' }).first();
+    const totalCount = Number(countRow?.total) || 0;
+    const pageCount = totalCount > 0 ? Math.ceil(totalCount / perPage) : 1;
+    const currentPage = page > pageCount ? pageCount : page;
+
+    // ── Paginated IDs with sorting ──
+    let idQuery = filterQuery.clone()
+      .select('contest_result.id')
+      .groupBy('contest_result.id');
+
+    const validSorts = { title: 'image.title', prize: 'metric.prize' };
+    if (sort === 'author' && needsProfile) {
+      const authorExpr = global.knex.raw(
+        'MIN(LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,""))))'
+      );
+      idQuery = idQuery
+        .select(authorExpr.clone().as('sort_value'))
+        .orderByRaw('MIN(LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,"")))) ' + sortDir);
+    } else if (validSorts[sort]) {
+      idQuery = idQuery
+        .select(global.knex.raw('MIN(??) as sort_value', [validSorts[sort]]))
+        .orderByRaw('MIN(??) ' + sortDir, [validSorts[sort]]);
+    } else {
+      idQuery = idQuery.orderBy('contest_result.id', 'asc');
+    }
+
+    const pagedIdRows = await idQuery
+      .offset((currentPage - 1) * perPage)
+      .limit(perPage);
+
+    const pagedIds = pagedIdRows.map(r => r.id);
+
+    // ── Early return if no results ──
+    if (pagedIds.length === 0) {
+      return res.json({
+        items: [],
+        _meta: { totalCount, pageCount, currentPage, perPage },
+        _links: buildLinks(req, currentPage, pageCount, perPage)
+      });
+    }
+
+    // ── Full data query (with expand joins) for the paginated IDs ──
     const selectColumns = [
       'contest_result.id as id',
       'contest_result.contest_id',
@@ -74,24 +197,25 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       );
     }
 
-    let query = global.knex('contest_result')
-      .where('contest_result.contest_id', contestId)
+    let dataQuery = global.knex('contest_result')
+      .whereIn('contest_result.id', pagedIds)
       .leftJoin('image', 'contest_result.image_id', 'image.id')
       .leftJoin('metric', 'contest_result.metric_id', 'metric.id')
       .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id');
 
     if (expandImageProfile) {
-      query = query.leftJoin('profile', 'image.profile_id', 'profile.id');
+      dataQuery = dataQuery.leftJoin('profile', 'image.profile_id', 'profile.id');
     }
     if (expandProfileUser) {
-      query = query.leftJoin('user', 'profile.id', 'user.profile_id');
+      dataQuery = dataQuery.leftJoin('user', 'profile.id', 'user.profile_id');
     }
     if (expandProfileFotoclub) {
-      query = query.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
+      dataQuery = dataQuery.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
     }
 
-    const itemsRaw = await query.select(selectColumns);
+    const itemsRaw = await dataQuery.select(selectColumns);
 
+    // ── Group in memory (handles 1:N thumbnail join) ──
     const grouped = {};
     for (const item of itemsRaw) {
       const {
@@ -100,8 +224,6 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         image_id,
         metric_id,
         section_id,
-        type,
-        temporada,
         image_code,
         image_title,
         image_url,
@@ -126,8 +248,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         user_dni,
         fotoclub_id,
         fotoclub_name,
-        fotoclub_photo_url,
-        ...rest
+        fotoclub_photo_url
       } = item;
 
       if (!grouped[id]) {
@@ -150,7 +271,6 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
             executive_rol: profile_executive_rol,
             dni: profile_dni
           };
-
           if (expandProfileUser && user_id) {
             image.profile.user = {
               id: user_id,
@@ -199,47 +319,89 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     }
 
     const allItems = Object.values(grouped);
-    const pageCount = allItems.length > 0 ? Math.ceil(allItems.length / perPage) : 1;
-    const currentPage = page > pageCount ? pageCount : page;
-    const pagedItems = allItems.slice((currentPage - 1) * perPage, currentPage * perPage);
-
-    const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
-    const buildLink = (pageNumber) => {
-      const params = new URLSearchParams();
-      Object.entries(req.query).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          value.forEach(v => params.append(key, String(v)));
-        } else if (value !== undefined && value !== null) {
-          params.set(key, String(value));
-        }
-      });
-      params.set('page', String(pageNumber));
-      params.set('per-page', String(perPage));
-      if (!params.has('viewpage')) {
-        params.set('viewpage', 'contest-result');
-      }
-      return `${baseUrl}?${params.toString()}`;
-    };
 
     res.json({
-      items: pagedItems,
-      _meta: {
-        totalCount: allItems.length,
-        pageCount,
-        currentPage,
-        perPage
-      },
-      _links: {
-        self: { href: buildLink(currentPage) },
-        first: { href: buildLink(1) },
-        last: { href: buildLink(pageCount) }
-      }
+      items: allItems,
+      _meta: { totalCount, pageCount, currentPage, perPage },
+      _links: buildLinks(req, currentPage, pageCount, perPage)
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error interno' });
   }
 });
+
+// ── Helpers ──
+
+function buildLinks(req, currentPage, pageCount, perPage) {
+  const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+  const make = (pageNumber) => {
+    const params = new URLSearchParams();
+    Object.entries(req.query).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach(v => params.append(key, String(v)));
+      } else if (value !== undefined && value !== null) {
+        params.set(key, String(value));
+      }
+    });
+    params.set('page', String(pageNumber));
+    params.set('per-page', String(perPage));
+    if (!params.has('viewpage')) {
+      params.set('viewpage', 'contest-result');
+    }
+    return `${baseUrl}?${params.toString()}`;
+  };
+  return {
+    self: { href: make(currentPage) },
+    first: { href: make(1) },
+    last: { href: make(pageCount) }
+  };
+}
+
+function extractFilterArray(query, key) {
+  const vals = [];
+  const bracket = query[`filter[${key}]`];
+  if (Array.isArray(bracket)) {
+    bracket.forEach(v => { const n = Number(v); if (!isNaN(n)) vals.push(n); });
+  } else if (bracket !== undefined && bracket !== null) {
+    const n = Number(bracket); if (!isNaN(n)) vals.push(n);
+  }
+  if (query.filter && query.filter[key] !== undefined) {
+    const src = query.filter[key];
+    if (Array.isArray(src)) {
+      src.forEach(v => { const n = Number(v); if (!isNaN(n)) vals.push(n); });
+    } else {
+      const n = Number(src); if (!isNaN(n)) vals.push(n);
+    }
+  }
+  return [...new Set(vals)];
+}
+
+function extractFilterStringArray(query, key) {
+  const vals = [];
+  const bracket = query[`filter[${key}]`];
+  if (Array.isArray(bracket)) {
+    bracket.forEach(v => { if (v) vals.push(v); });
+  } else if (bracket) {
+    vals.push(bracket);
+  }
+  if (query.filter && query.filter[key] !== undefined) {
+    const src = query.filter[key];
+    if (Array.isArray(src)) {
+      src.forEach(v => { if (v) vals.push(v); });
+    } else if (src) {
+      vals.push(src);
+    }
+  }
+  return [...new Set(vals)];
+}
+
+function extractFilterString(query, key) {
+  const bracket = query[`filter[${key}]`];
+  if (bracket) return bracket;
+  if (query.filter && query.filter[key]) return query.filter[key];
+  return '';
+}
 
 // POST /disable_user
 // Cambia el estado de un usuario mediante JSON: { id: number, status: 0 | 1 }
