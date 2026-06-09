@@ -93,9 +93,9 @@ router.get('/', authMiddleware, async (req, res) => {
     applyFilterObject(query, filterParams);
 
     if (!isAdmin) {
-      const activeContestIdsQuery = global.knex('contest')
+      const judgedContestIdsQuery = global.knex('contest')
         .select('id')
-        .where('end_date', '>', new Date());
+        .where('judged', true);
 
       let profileCondition;
       if (isDelegate) {
@@ -119,7 +119,7 @@ router.get('/', authMiddleware, async (req, res) => {
       }
 
       query.andWhere(function () {
-        this.whereIn('contest_id', activeContestIdsQuery).orWhere(function () {
+        this.whereIn('contest_id', judgedContestIdsQuery).orWhere(function () {
           profileCondition.call(this);
         });
       });
