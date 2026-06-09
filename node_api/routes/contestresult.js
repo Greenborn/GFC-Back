@@ -117,11 +117,10 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     const validSorts = { title: 'image.title', prize: 'metric.prize' };
     if (sort === 'author' && needsProfile) {
-      const authorExpr = global.knex.raw(
-        'MIN(LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,""))))'
-      );
       idQuery = idQuery
-        .select(authorExpr.clone().as('sort_value'))
+        .select(global.knex.raw(
+          'MIN(LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,"")))) as sort_value'
+        ))
         .orderByRaw('MIN(LOWER(CONCAT(COALESCE(profile.name,""), " ", COALESCE(profile.last_name,"")))) ' + sortDir);
     } else if (validSorts[sort]) {
       idQuery = idQuery
