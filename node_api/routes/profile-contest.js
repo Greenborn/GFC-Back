@@ -81,6 +81,11 @@ router.get('/', authMiddleware, async (req, res) => {
     const isDelegate = String(currentUser.role_id) === '2';
 
     const filterParams = parseFilterParams(req.query);
+
+    if (filterParams.contest_id == null) {
+      return res.status(400).json({ success: false, message: 'El parámetro filter[contest_id] es obligatorio' });
+    }
+
     const roleGet = req.query.role || filterParams.role || '3';
     delete filterParams.role;
 
@@ -127,6 +132,31 @@ router.get('/', authMiddleware, async (req, res) => {
 
     query.orderBy('id', 'asc');
     const items = await query;
+
+    const contestId = normalizeFilterValue(filterParams.contest_id);
+    const contestIds = Array.isArray(contestId) ? contestId : [contestId];
+
+    if (items.length > 0) {
+      const profileIds = Array.from(new Set(items.map(item => item.profile_id).filter(Boolean)));
+      if (profileIds.length > 0 && contestIds.length > 0) {
+        const photoCountRows = await global.knex('contest_result as cr')
+          .join('image as i', 'cr.image_id', 'i.id')
+          .select('i.profile_id')
+          .select(global.knex.raw('COUNT(*) as count'))
+          .whereIn('cr.contest_id', contestIds)
+          .whereIn('i.profile_id', profileIds)
+          .groupBy('i.profile_id');
+
+        const photoCountsByProfile = new Map(photoCountRows.map(row => [row.profile_id, Number(row.count)]));
+        for (const item of items) {
+          item.photo_count = photoCountsByProfile.get(item.profile_id) || 0;
+        }
+      } else {
+        for (const item of items) {
+          item.photo_count = 0;
+        }
+      }
+    }
 
     const profileExpand = expand.includes('profile') || expand.some(item => item.startsWith('profile.'));
     const profileUserExpand = expand.includes('profile.user');
