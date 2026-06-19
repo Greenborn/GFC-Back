@@ -27,22 +27,22 @@ async function syncSsoUser(ssoUser) {
   if (user) return user;
 
   const name = ssoUser.name || ssoUser.email?.split('@')[0] || 'SSO User';
-  const profileResult = await global.knex('profile').insert({
+  const [profileRow] = await global.knex('profile').insert({
     name,
     last_name: '',
     fotoclub_id: null
-  });
-  const profileId = Array.isArray(profileResult) ? profileResult[0] : profileResult;
+  }).returning('id');
+  const profileId = profileRow?.id ?? profileRow;
 
-  const userResult = await global.knex('user').insert({
+  const [userRow] = await global.knex('user').insert({
     username: name,
     email: ssoUser.email,
     role_id: resolveSsoRole(ssoUser.email),
     profile_id: profileId,
     status: 1,
     created_at: new Date().toISOString()
-  });
-  const userId = Array.isArray(userResult) ? userResult[0] : userResult;
+  }).returning('id');
+  const userId = userRow?.id ?? userRow;
 
   return await global.knex('user').where({ id: userId }).first();
 }
