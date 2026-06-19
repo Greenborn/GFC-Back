@@ -1,15 +1,57 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 const LogOperacion = require('../controllers/log_operaciones.js')
 const knex = require('../knexfile');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// Endpoint: GET /user/me
+const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';
+
+// GET /user/me — Devuelve el usuario autenticado (requiere authMiddleware)
 router.get('/me', authMiddleware, (req, res) => {
-  // Puedes filtrar los campos sensibles si lo deseas
   const { password_hash, access_token, ...safeUser } = req.user;
   res.json({ success: true, user: safeUser });
+});
+
+// GET /user/sso-profile — Busca usuario local por email del SSO sin crearlo
+router.get('/sso-profile', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const uniqueId = req.query.unique_id;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'Token requerido' });
+  }
+  if (!uniqueId) {
+    return res.status(400).json({ success: false, message: 'unique_id requerido' });
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+
+  try {
+    const response = await axios.get(
+      `${AUTH_SERVICE_URL}/auth/verify?unique_id=${encodeURIComponent(uniqueId)}`,
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 }
+    );
+
+    if (!response.data?.success || !response.data?.data?.valid) {
+      return res.status(401).json({ success: false, message: 'Token SSO inválido' });
+    }
+
+    const ssoUser = response.data.data.user;
+    const localUser = await global.knex('user').where({ email: ssoUser.email }).first();
+
+    if (!localUser) {
+      return res.json({ success: true, exists: false, user: null });
+    }
+
+    const { password_hash, access_token, ...safeUser } = localUser;
+    return res.json({ success: true, exists: true, user: safeUser });
+  } catch (error) {
+    const ssoBody = error.response?.data;
+    console.error(`[SSO-Profile] Error: ${JSON.stringify(ssoBody) || error.message}`);
+    return res.status(500).json({ success: false, message: 'Error al verificar SSO', error: ssoBody || error.message });
+  }
 });
 
 router.get('/get_all', authMiddleware, async (req, res) => {
