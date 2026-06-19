@@ -1,4 +1,5 @@
 const axios = require('axios');
+const LogOperacion = require('../controllers/log_operaciones');
 
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';
 const SSO_TIMEOUT = 5000;
@@ -35,6 +36,8 @@ async function authMiddleware(req, res, next) {
   }
 
   const token = authHeader.replace('Bearer ', '');
+  const tokenPreview = token.substring(0, 20) + '...';
+  const ruta = req.originalUrl || req.url;
 
   try {
     const localUser = await global.knex('user').where({ access_token: token }).first();
@@ -43,26 +46,38 @@ async function authMiddleware(req, res, next) {
       return next();
     }
 
+    console.warn(`[Auth] Token local no encontrado: ${tokenPreview} — ruta: ${ruta}`);
+
     const uniqueId = req.query.unique_id;
     if (!uniqueId) {
-      return res.status(401).json({ success: false, message: 'Token inválido' });
+      console.warn(`[Auth] unique_id ausente para token SSO — ${tokenPreview} — ruta: ${ruta}`);
+      await LogOperacion(0, 'auth - token SSO sin unique_id', JSON.stringify({ ruta, tokenPreview }), new Date());
+      return res.status(400).json({ success: false, message: 'unique_id requerido en query param' });
     }
 
-    const response = await axios.get(
-      `${AUTH_SERVICE_URL}/auth/verify?unique_id=${encodeURIComponent(uniqueId)}`,
-      { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
-    );
+    let response;
+    try {
+      response = await axios.get(
+        `${AUTH_SERVICE_URL}/auth/verify?unique_id=${encodeURIComponent(uniqueId)}`,
+        { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
+      );
+    } catch (ssoErr) {
+      console.error(`[Auth] Error al consultar SSO: ${ssoErr.code || ssoErr.message} — token: ${tokenPreview} — ruta: ${ruta}`);
+      await LogOperacion(0, 'auth - error SSO', JSON.stringify({ error: ssoErr.code || ssoErr.message, ruta, tokenPreview }), new Date());
+      return res.status(500).json({ success: false, message: 'Error de autenticación', error: 'Servicio de autenticación no disponible' });
+    }
 
     if (response.data?.success && response.data?.data?.valid) {
-      req.user = await syncSsoUser(response.data.data.user);
+      const ssoUser = response.data.data.user;
+      req.user = await syncSsoUser(ssoUser);
       return next();
     }
 
+    console.warn(`[Auth] SSO rechazó token: ${tokenPreview} — unique_id: ${uniqueId} — ruta: ${ruta}`);
+    await LogOperacion(0, 'auth - token SSO rechazado', JSON.stringify({ uniqueId, ruta, tokenPreview }), new Date());
     return res.status(401).json({ success: false, message: 'Token inválido' });
   } catch (error) {
-    if (error.code === 'ECONNABORTED' || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-      return res.status(500).json({ success: false, message: 'Error de autenticación', error: 'Servicio de autenticación no disponible' });
-    }
+    console.error(`[Auth] Error inesperado: ${error.message} — ruta: ${ruta}`);
     return res.status(500).json({ success: false, message: 'Error de autenticación', error: error.message });
   }
 }
@@ -74,6 +89,8 @@ async function authMiddlewareOptional(req, res, next) {
   }
 
   const token = authHeader.replace('Bearer ', '');
+  const tokenPreview = token.substring(0, 20) + '...';
+  const ruta = req.originalUrl || req.url;
 
   try {
     const localUser = await global.knex('user').where({ access_token: token }).first();
@@ -87,16 +104,22 @@ async function authMiddlewareOptional(req, res, next) {
       return next();
     }
 
-    const response = await axios.get(
-      `${AUTH_SERVICE_URL}/auth/verify?unique_id=${encodeURIComponent(uniqueId)}`,
-      { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
-    );
+    let response;
+    try {
+      response = await axios.get(
+        `${AUTH_SERVICE_URL}/auth/verify?unique_id=${encodeURIComponent(uniqueId)}`,
+        { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
+      );
+    } catch (ssoErr) {
+      console.error(`[Auth] Error SSO (opcional): ${ssoErr.code || ssoErr.message} — ${tokenPreview}`);
+      return next();
+    }
 
     if (response.data?.success && response.data?.data?.valid) {
       req.user = await syncSsoUser(response.data.data.user);
     }
   } catch (err) {
-    console.error('Auth optional error:', err.message);
+    console.error(`[Auth] Error inesperado (opcional): ${err.message}`);
   }
 
   return next();
