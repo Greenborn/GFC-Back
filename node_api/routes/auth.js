@@ -286,11 +286,12 @@ router.post('/register', writeProtection, async (req, res) => {
     }
 
     const displayName = name || username;
-    const [profileId] = await global.knex('profile').insert({
+    const profileResult = await global.knex('profile').insert({
       name: displayName,
       last_name: '',
       fotoclub_id: null
     });
+    const profileId = Array.isArray(profileResult) ? profileResult[0] : profileResult;
 
     let userData = {
       username,
@@ -315,7 +316,8 @@ router.post('/register', writeProtection, async (req, res) => {
       userData.status = 0;
     }
 
-    const [userId] = await global.knex('user').insert(userData);
+    const userResult = await global.knex('user').insert(userData);
+    const userId = Array.isArray(userResult) ? userResult[0] : userResult;
     const newUser = await global.knex('user').where({ id: userId }).first();
 
     await LogOperacion(
