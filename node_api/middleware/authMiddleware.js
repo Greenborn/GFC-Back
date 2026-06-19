@@ -62,8 +62,16 @@ async function authMiddleware(req, res, next) {
         { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
       );
     } catch (ssoErr) {
-      console.error(`[Auth] Error al consultar SSO: ${ssoErr.code || ssoErr.message} — token: ${tokenPreview} — ruta: ${ruta}`);
-      await LogOperacion(0, 'auth - error SSO', JSON.stringify({ error: ssoErr.code || ssoErr.message, ruta, tokenPreview }), new Date());
+      const ssoBody = ssoErr.response?.data;
+      const ssoStatus = ssoErr.response?.status;
+      const ssoErrorDetail = ssoBody ? JSON.stringify(ssoBody) : (ssoErr.code || ssoErr.message);
+
+      console.error(`[Auth] Error al consultar SSO (${ssoStatus}): ${ssoErrorDetail} — token: ${tokenPreview} — ruta: ${ruta}`);
+      await LogOperacion(0, 'auth - error SSO', JSON.stringify({ status: ssoStatus, respuesta: ssoBody, ruta, tokenPreview }), new Date());
+
+      if (ssoBody?.require_reauth) {
+        return res.status(401).json({ success: false, message: 'Sesión expirada', require_reauth: true });
+      }
       return res.status(500).json({ success: false, message: 'Error de autenticación', error: 'Servicio de autenticación no disponible' });
     }
 
@@ -73,8 +81,12 @@ async function authMiddleware(req, res, next) {
       return next();
     }
 
-    console.warn(`[Auth] SSO rechazó token: ${tokenPreview} — unique_id: ${uniqueId} — ruta: ${ruta}`);
-    await LogOperacion(0, 'auth - token SSO rechazado', JSON.stringify({ uniqueId, ruta, tokenPreview }), new Date());
+    console.warn(`[Auth] SSO rechazó token: ${JSON.stringify(response.data)} — unique_id: ${uniqueId} — ruta: ${ruta}`);
+    await LogOperacion(0, 'auth - token SSO rechazado', JSON.stringify({ respuesta: response.data, uniqueId, ruta, tokenPreview }), new Date());
+
+    if (response.data?.require_reauth) {
+      return res.status(401).json({ success: false, message: 'Sesión expirada', require_reauth: true });
+    }
     return res.status(401).json({ success: false, message: 'Token inválido' });
   } catch (error) {
     console.error(`[Auth] Error inesperado: ${error.message} — ruta: ${ruta}`);
@@ -111,7 +123,9 @@ async function authMiddlewareOptional(req, res, next) {
         { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
       );
     } catch (ssoErr) {
-      console.error(`[Auth] Error SSO (opcional): ${ssoErr.code || ssoErr.message} — ${tokenPreview}`);
+      const ssoBody = ssoErr.response?.data;
+      const ssoStatus = ssoErr.response?.status;
+      console.error(`[Auth] Error SSO (opcional) ${ssoStatus}: ${JSON.stringify(ssoBody)} — ${tokenPreview}`);
       return next();
     }
 
