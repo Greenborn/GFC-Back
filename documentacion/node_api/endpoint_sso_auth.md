@@ -243,8 +243,51 @@ Cuando el middleware valida un token SSO y el usuario no existe localmente, se c
 | `profile` | — | `fotoclub_id: null` |
 | `user` | `email` | `email` |
 | `user` | `name` | `username` |
-| `user` | — | `role_id: 3 (Concursante)` |
+| `user` | — | `role_id` ← determinado por `SSO_ROLE_MAP` (default `3` Concursante) |
 | `user` | — | `profile_id` ← FK al `profile` creado |
 | `user` | — | `status: 1` |
 
 La búsqueda para determinar si el usuario ya existe se hace por **email**.
+
+---
+
+## 5. Roles y permisos
+
+Los usuarios SSO usan el mismo sistema de roles que los usuarios locales. Al crearse se les asigna un `role_id` según el mapeo configurado en la variable de entorno `SSO_ROLE_MAP`.
+
+### Configuración
+
+```env
+# .env
+# Formato: {"email_exacto": role_id, "*@dominio": role_id}
+# 1=Administrador, 2=Delegado, 3=Concursante
+SSO_ROLE_MAP={"admin@greenborn.com.ar":1,"*@delegados.gfc.com":2}
+```
+
+### Reglas de resolución
+
+1. **Match exacto**: `admin@greenborn.com.ar` → role `1` (Administrador)
+2. **Match por dominio** (prefijo `*`): `*@delegados.gfc.com` → cualquier email que termine en `@delegados.gfc.com` obtiene role `2` (Delegado)
+3. **Sin match**: se asigna `3` (Concursante) — comportamiento default
+4. **Variable no definida o inválida**: se asigna `3` (Concursante)
+
+### Ejemplos
+
+| Email SSO | SSO_ROLE_MAP | role_id asignado |
+|-----------|--------------|------------------|
+| `admin@greenborn.com.ar` | `{"admin@greenborn.com.ar":1}` | `1` (Admin) |
+| `juan@delegados.gfc.com` | `{"*@delegados.gfc.com":2}` | `2` (Delegado) |
+| `user@gmail.com` | `{"admin@greenborn.com.ar":1}` | `3` (Concursante, default) |
+| `user@gmail.com` | *(no definido)* | `3` (Concursante, default) |
+
+### Permisos en endpoints
+
+Una vez asignado el rol, los permisos funcionan igual que con usuarios locales:
+
+| Rol | Acceso |
+|-----|--------|
+| `1` (Administrador) | Todos los endpoints, incluyendo adminMiddleware |
+| `2` (Delegado) | Gestión de usuarios de su fotoclub, sin acceso admin |
+| `3` (Concursante) | Solo su propio perfil y datos públicos |
+
+Si un SSO user necesita un rol distinto al asignado automáticamente, un administrador puede cambiarlo vía `PUT /api/user/:id`.

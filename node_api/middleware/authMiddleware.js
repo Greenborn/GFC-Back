@@ -4,6 +4,23 @@ const LogOperacion = require('../controllers/log_operaciones');
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';
 const SSO_TIMEOUT = 5000;
 
+function resolveSsoRole(email) {
+  const raw = process.env.SSO_ROLE_MAP;
+  if (!raw) return 3;
+  try {
+    const map = JSON.parse(raw);
+    if (map[email] !== undefined) return map[email];
+    for (const [pattern, roleId] of Object.entries(map)) {
+      if (pattern.startsWith('*') && email.endsWith(pattern.slice(1))) {
+        return roleId;
+      }
+    }
+  } catch {
+    console.error('[Auth] SSO_ROLE_MAP inválido');
+  }
+  return 3;
+}
+
 async function syncSsoUser(ssoUser) {
   const email = ssoUser.email;
   let user = await global.knex('user').where({ email }).first();
@@ -19,7 +36,7 @@ async function syncSsoUser(ssoUser) {
   const [userId] = await global.knex('user').insert({
     username: name,
     email: ssoUser.email,
-    role_id: 3,
+    role_id: resolveSsoRole(ssoUser.email),
     profile_id: profileId,
     status: 1,
     created_at: new Date().toISOString()
