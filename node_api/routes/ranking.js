@@ -5,9 +5,10 @@ const LogOperacion = require('../controllers/log_operaciones.js');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    const year = req.query.year;
     await LogOperacion(
       req.user?.id || 0,
-      'Consulta ranking general',
+      `Consulta ranking general${year ? ` year=${year}` : ''}`,
       null,
       new Date()
     );
