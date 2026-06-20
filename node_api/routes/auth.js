@@ -306,7 +306,8 @@ router.post('/register', writeProtection, async (req, res) => {
         const uniqueSuffix = crypto.randomBytes(8).toString('hex');
         const filename = `profile_${profileId}_${Date.now()}_${uniqueSuffix}.jpg`;
         const filepath = path.join(imagesDir, filename);
-        const buffer = Buffer.from(img_perfil_b64, 'base64');
+        const raw = img_perfil_b64.includes('base64,') ? img_perfil_b64.split('base64,')[1] : img_perfil_b64;
+        const buffer = Buffer.from(raw, 'base64');
         const outputBuffer = await sharp(buffer)
           .rotate()
           .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
