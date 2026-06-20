@@ -93,4 +93,32 @@ router.put('/edit', async (req, res) => {
   }
 });
 
+router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const existing = await global.knex('metric').where({ id }).first();
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Métrica no encontrada' });
+    }
+
+    await global.knex('metric').where({ id }).del();
+
+    await LogOperacion(
+      req.user.id,
+      `Eliminación de métrica id=${id} - ${req.user.username}`,
+      JSON.stringify(existing),
+      new Date()
+    );
+
+    res.json({ success: true, message: 'Métrica eliminada correctamente' });
+  } catch (error) {
+    console.error('Error en DELETE /metric/:id:', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar métrica', error: error.message });
+  }
+});
+
 module.exports = router;
