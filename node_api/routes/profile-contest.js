@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
+const writeProtection = require('../middleware/writeProtection');
 const LogOperacion = require('../controllers/log_operaciones.js');
 
 function normalizeFilterValue(value) {
@@ -212,6 +213,99 @@ router.get('/', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error en GET /profile-contest:', error);
     res.status(500).json({ success: false, message: 'Error al obtener profile_contest', error: error.message });
+  }
+});
+
+router.post('/', authMiddleware, writeProtection, async (req, res) => {
+  const { profile_id, contest_id, category_id } = req.body;
+
+  if (!profile_id || !contest_id) {
+    return res.status(400).json({ success: false, message: 'profile_id y contest_id son requeridos' });
+  }
+
+  try {
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+    const isConcursante = String(currentUser.role_id) === '3';
+
+    if (isAdmin && Number(profile_id) === Number(currentUser.profile_id)) {
+      return res.status(403).json({ success: false, message: 'Un administrador no puede inscribirse a sí mismo' });
+    }
+
+    if (isConcursante && Number(profile_id) !== Number(currentUser.profile_id)) {
+      return res.status(403).json({ success: false, message: 'No puede inscribir un perfil que no le pertenece' });
+    }
+
+    if (isDelegate) {
+      const currentProfile = await global.knex('profile').where({ id: currentUser.profile_id }).first();
+      const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
+      if (fotoclubId) {
+        const targetProfile = await global.knex('profile').where({ id: profile_id }).first();
+        if (!targetProfile || Number(targetProfile.fotoclub_id) !== Number(fotoclubId)) {
+          return res.status(403).json({ success: false, message: 'No puede inscribir un perfil fuera de su fotoclub' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'No tiene fotoclub asignado' });
+      }
+    }
+
+    const existing = await global.knex('profile_contest')
+      .where({ profile_id, contest_id }).first();
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'El perfil ya está inscrito en este concurso' });
+    }
+
+    const [insertRow] = await global.knex('profile_contest').insert({
+      profile_id,
+      contest_id,
+      category_id: category_id || null
+    }).returning('id');
+    const id = insertRow?.id ?? insertRow;
+
+    let item = await global.knex('profile_contest').where({ id }).first();
+
+    const expand = String(req.query.expand || '')
+      .split(',')
+      .map(e => e.trim())
+      .filter(Boolean);
+
+    const categoryExpand = expand.includes('category');
+    const profileExpand = expand.includes('profile') || expand.some(e => e.startsWith('profile.'));
+    const profileUserExpand = expand.includes('profile.user');
+    const profileFotoclubExpand = expand.includes('profile.fotoclub');
+
+    if (categoryExpand && item.category_id) {
+      item.category = await global.knex('category').where({ id: item.category_id }).first() || null;
+    }
+
+    if (profileExpand && item.profile_id) {
+      const profile = await global.knex('profile').where({ id: item.profile_id }).first();
+      if (profile) {
+        if (profileUserExpand) {
+          profile.user = await global.knex('user').where({ profile_id: profile.id }).first() || null;
+        }
+        if (profileFotoclubExpand && profile.fotoclub_id) {
+          profile.fotoclub = await global.knex('fotoclub').where({ id: profile.fotoclub_id }).first() || null;
+        }
+        item.profile = profile;
+      }
+    }
+
+    await LogOperacion(
+      currentUser.id,
+      `Inscripción en concurso - ${currentUser.username}`,
+      JSON.stringify({ profile_id, contest_id, category_id }),
+      new Date()
+    );
+
+    res.status(201).json({ success: true, data: item });
+  } catch (error) {
+    if (error.code === '23505' || error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'El perfil ya está inscrito en este concurso' });
+    }
+    console.error('Error en POST /profile-contest:', error);
+    res.status(500).json({ success: false, message: 'Error al inscribir perfil en concurso', error: error.message });
   }
 });
 
