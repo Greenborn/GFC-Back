@@ -402,4 +402,44 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
   }
 });
 
+router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const existing = await global.knex('image').where({ id }).first();
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Imagen no encontrada' });
+    }
+
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isConcursante = String(currentUser.role_id) === '3';
+
+    if (isConcursante && Number(existing.profile_id) !== Number(currentUser.profile_id)) {
+      return res.status(403).json({ success: false, message: 'No puede eliminar una imagen que no le pertenece' });
+    }
+    if (isAdmin && Number(existing.profile_id) === Number(currentUser.profile_id)) {
+      return res.status(403).json({ success: false, message: 'Un administrador no puede eliminar sus propias imágenes' });
+    }
+
+    await global.knex('thumbnail').where({ image_id: id }).del();
+    await global.knex('image').where({ id }).del();
+
+    await LogOperacion(
+      currentUser.id,
+      `Eliminación de imagen id=${id} - ${currentUser.username}`,
+      JSON.stringify({ code: existing.code, title: existing.title, profile_id: existing.profile_id }),
+      new Date()
+    );
+
+    res.json({ success: true, message: 'Imagen eliminada correctamente' });
+  } catch (error) {
+    console.error('Error en DELETE /images/:id:', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar imagen', error: error.message });
+  }
+});
+
 module.exports = router; 
