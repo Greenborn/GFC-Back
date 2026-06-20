@@ -574,4 +574,33 @@ router.get('/foto-del-anio', async (req, res) => {
   }
 });
 
+// DELETE /contest-result/:id — Eliminar un resultado de concurso
+router.delete('/contest-result/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const existing = await global.knex('contest_result').where({ id }).first();
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Resultado de concurso no encontrado' });
+    }
+
+    await global.knex('contest_result').where({ id }).del();
+
+    await LogOperacion(
+      req.user.id,
+      `Eliminación de resultado de concurso id=${id} - ${req.user.username}`,
+      JSON.stringify(existing),
+      new Date()
+    );
+
+    res.json({ success: true, message: 'Resultado de concurso eliminado correctamente' });
+  } catch (error) {
+    console.error('Error en DELETE /contest-result/:id:', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar resultado de concurso', error: error.message });
+  }
+});
+
 module.exports = router;
