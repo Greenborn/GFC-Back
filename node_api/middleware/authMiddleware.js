@@ -4,6 +4,16 @@ const LogOperacion = require('../controllers/log_operaciones');
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';
 const SSO_TIMEOUT = 5000;
 
+const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const tokenCache = new Map();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of tokenCache) {
+    if (entry.expiresAt <= now) tokenCache.delete(key);
+  }
+}, 60 * 60 * 1000);
+
 function resolveSsoRole(email) {
   const raw = process.env.SSO_ROLE_MAP;
   if (!raw) return 3;
@@ -67,6 +77,13 @@ async function authMiddleware(req, res, next) {
 
     console.warn(`[Auth] Token local no encontrado: ${tokenPreview} — ruta: ${ruta}`);
 
+    const cached = tokenCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log(`[Auth] Cache hit para token SSO — ${tokenPreview}`);
+      req.user = await syncSsoUser(cached.user);
+      return next();
+    }
+
     const uniqueId = req.query.unique_id;
     if (!uniqueId) {
       console.warn(`[Auth] unique_id ausente para token SSO — ${tokenPreview} — ruta: ${ruta}`);
@@ -89,6 +106,7 @@ async function authMiddleware(req, res, next) {
       await LogOperacion(0, 'auth - error SSO', JSON.stringify({ status: ssoStatus, respuesta: ssoBody, ruta, tokenPreview }), new Date());
 
       if (ssoBody?.require_reauth) {
+        tokenCache.delete(token);
         return res.status(401).json({ success: false, message: 'Sesión expirada', require_reauth: true });
       }
       return res.status(500).json({ success: false, message: 'Error de autenticación', error: 'Servicio de autenticación no disponible' });
@@ -96,6 +114,7 @@ async function authMiddleware(req, res, next) {
 
     if (response.data?.success && response.data?.data?.valid) {
       const ssoUser = response.data.data.user;
+      tokenCache.set(token, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
       req.user = await syncSsoUser(ssoUser);
       return next();
     }
@@ -104,8 +123,10 @@ async function authMiddleware(req, res, next) {
     await LogOperacion(0, 'auth - token SSO rechazado', JSON.stringify({ respuesta: response.data, uniqueId, ruta, tokenPreview }), new Date());
 
     if (response.data?.require_reauth) {
+      tokenCache.delete(token);
       return res.status(401).json({ success: false, message: 'Sesión expirada', require_reauth: true });
     }
+    tokenCache.delete(token);
     return res.status(401).json({ success: false, message: 'Token inválido' });
   } catch (error) {
     console.error(`[Auth] Error inesperado: ${error.message} — ruta: ${ruta}`);
@@ -130,6 +151,12 @@ async function authMiddlewareOptional(req, res, next) {
       return next();
     }
 
+    const cached = tokenCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+      req.user = await syncSsoUser(cached.user);
+      return next();
+    }
+
     const uniqueId = req.query.unique_id;
     if (!uniqueId) {
       return next();
@@ -149,7 +176,9 @@ async function authMiddlewareOptional(req, res, next) {
     }
 
     if (response.data?.success && response.data?.data?.valid) {
-      req.user = await syncSsoUser(response.data.data.user);
+      const ssoUser = response.data.data.user;
+      tokenCache.set(token, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+      req.user = await syncSsoUser(ssoUser);
     }
   } catch (err) {
     console.error(`[Auth] Error inesperado (opcional): ${err.message}`);
