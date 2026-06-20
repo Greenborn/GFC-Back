@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
 const LogOperacion = require('../controllers/log_operaciones.js');
+const authMiddleware = require('../middleware/authMiddleware');
+const writeProtection = require('../middleware/writeProtection');
 
 /**
  * @route GET /api/images/search
@@ -164,6 +170,89 @@ router.get('/all', async (req, res) => {
             data: []
         });
     }
+});
+
+function extractBase64(dataUri) {
+  if (!dataUri || typeof dataUri !== 'string') return null;
+  const raw = dataUri.includes('base64,') ? dataUri.split('base64,')[1] : dataUri;
+  return raw;
+}
+
+router.post('/', authMiddleware, writeProtection, async (req, res) => {
+  const { code, title, profile_id, photo_base64, url } = req.body;
+
+  if (!code || !title || !profile_id) {
+    return res.status(400).json({ success: false, message: 'code, title y profile_id son requeridos' });
+  }
+
+  try {
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isConcursante = String(currentUser.role_id) === '3';
+
+    if (isConcursante && Number(profile_id) !== Number(currentUser.profile_id)) {
+      return res.status(403).json({ success: false, message: 'No puede crear una imagen para un perfil que no le pertenece' });
+    }
+
+    if (isAdmin && Number(profile_id) === Number(currentUser.profile_id)) {
+      return res.status(403).json({ success: false, message: 'Un administrador no puede crear imágenes para su propio perfil' });
+    }
+
+    let imageUrl = (url && url !== '_') ? url : null;
+
+    if (photo_base64 && photo_base64.file) {
+      const base64Data = extractBase64(photo_base64.file);
+      if (!base64Data) {
+        return res.status(400).json({ success: false, message: 'Formato de imagen inválido' });
+      }
+
+      const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
+      const imagesDir = path.join(uploadsBasePath, 'images');
+      if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true });
+      }
+
+      const uniqueSuffix = crypto.randomBytes(8).toString('hex');
+      const filename = `${Date.now()}_${uniqueSuffix}.jpg`;
+      const filepath = path.join(imagesDir, filename);
+
+      const buffer = Buffer.from(base64Data, 'base64');
+      const outputBuffer = await sharp(buffer)
+        .rotate()
+        .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 100, mozjpeg: true })
+        .toBuffer();
+
+      fs.writeFileSync(filepath, outputBuffer);
+      imageUrl = path.posix.join('images', filename);
+    }
+
+    if (!imageUrl) {
+      return res.status(400).json({ success: false, message: 'Debe proporcionar una imagen (photo_base64) o una url' });
+    }
+
+    const [insertRow] = await global.knex('image').insert({
+      code,
+      title,
+      profile_id: Number(profile_id),
+      url: imageUrl
+    }).returning('id');
+    const id = insertRow?.id ?? insertRow;
+
+    const created = await global.knex('image').where({ id }).first();
+
+    await LogOperacion(
+      currentUser.id,
+      `Creación de imagen - ${currentUser.username}`,
+      JSON.stringify({ code, title, profile_id, id }),
+      new Date()
+    );
+
+    res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    console.error('Error en POST /images:', error);
+    res.status(500).json({ success: false, message: 'Error al crear imagen', error: error.message });
+  }
 });
 
 module.exports = router; 
