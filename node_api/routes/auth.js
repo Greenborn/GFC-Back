@@ -3,6 +3,9 @@ const router = express.Router()
 const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
 const axios = require('axios')
+const sharp = require('sharp')
+const fs = require('fs')
+const path = require('path')
 const LogOperacion = require('../controllers/log_operaciones.js')
 const Mailer = require('../controllers/mailer.js')
 const writeProtection = require('../middleware/writeProtection.js')
@@ -248,7 +251,7 @@ router.get('/session', async (req, res) => {
 });
 
 router.post('/register', writeProtection, async (req, res) => {
-  const { email, username, password, name, sso, unique_id } = req.body;
+  const { email, username, password, name, sso, unique_id, img_perfil_b64 } = req.body;
 
   if (!email || !username) {
     return res.status(400).json({ success: false, message: 'Email y username son requeridos' });
@@ -292,6 +295,31 @@ router.post('/register', writeProtection, async (req, res) => {
       fotoclub_id: null
     }).returning('id');
     const profileId = profileRow?.id ?? profileRow;
+
+    if (img_perfil_b64 && typeof img_perfil_b64 === 'string') {
+      try {
+        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
+        const imagesDir = path.join(uploadsBasePath, 'images');
+        if (!fs.existsSync(imagesDir)) {
+          fs.mkdirSync(imagesDir, { recursive: true });
+        }
+        const uniqueSuffix = crypto.randomBytes(8).toString('hex');
+        const filename = `profile_${profileId}_${Date.now()}_${uniqueSuffix}.jpg`;
+        const filepath = path.join(imagesDir, filename);
+        const buffer = Buffer.from(img_perfil_b64, 'base64');
+        const outputBuffer = await sharp(buffer)
+          .rotate()
+          .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 100, mozjpeg: true })
+          .toBuffer();
+        fs.writeFileSync(filepath, outputBuffer);
+        await global.knex('profile').where({ id: profileId }).update({
+          img_url: path.posix.join('images', filename)
+        });
+      } catch (imgErr) {
+        console.error('[Register] Error al procesar img_perfil_b64:', imgErr.message);
+      }
+    }
 
     let userData = {
       username,
