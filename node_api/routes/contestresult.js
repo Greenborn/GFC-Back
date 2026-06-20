@@ -424,6 +424,39 @@ function sanitizeSearchTerm(term) {
     .substring(0, 200);
 }
 
+// POST /contest-result — Crear un resultado de concurso
+router.post('/contest-result', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const { contest_id, image_id, metric_id, section_id } = req.body;
+
+    if (!contest_id || !image_id || !metric_id || !section_id) {
+      return res.status(400).json({ success: false, message: 'contest_id, image_id, metric_id y section_id son requeridos' });
+    }
+
+    const [row] = await global.knex('contest_result').insert({
+      contest_id: Number(contest_id),
+      image_id: Number(image_id),
+      metric_id: Number(metric_id),
+      section_id: Number(section_id)
+    }).returning('id');
+    const id = row?.id ?? row;
+
+    const created = await global.knex('contest_result').where({ id }).first();
+
+    await LogOperacion(
+      req.user.id,
+      `Creación de resultado de concurso - ${req.user.username}`,
+      JSON.stringify({ contest_id, image_id, metric_id, section_id }),
+      new Date()
+    );
+
+    res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    console.error('Error en POST /contest-result:', error);
+    res.status(500).json({ success: false, message: 'Error al crear resultado de concurso', error: error.message });
+  }
+});
+
 // POST /disable_user
 // Cambia el estado de un usuario mediante JSON: { id: number, status: 0 | 1 }
 router.post('/disable_user', authMiddleware, writeProtection, async (req, res) => {
