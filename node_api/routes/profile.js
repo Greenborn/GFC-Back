@@ -145,7 +145,14 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
 
     for (const field of writableFields) {
       if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] != null) {
-        updateData[field] = requestBody[field];
+        if (field === 'fotoclub_id') {
+          const val = Number(requestBody[field]);
+          if (Number.isFinite(val)) {
+            updateData[field] = val;
+          }
+        } else {
+          updateData[field] = requestBody[field];
+        }
       }
     }
 
