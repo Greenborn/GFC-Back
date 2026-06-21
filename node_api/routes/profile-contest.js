@@ -309,4 +309,58 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
   }
 });
 
+router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+    const isConcursante = String(currentUser.role_id) === '3';
+
+    const record = await global.knex('profile_contest').where({ id }).first();
+    if (!record) {
+      return res.status(404).json({ success: false, message: 'Inscripción no encontrada' });
+    }
+
+    if (isConcursante && Number(record.profile_id) !== Number(currentUser.profile_id)) {
+      return res.status(403).json({ success: false, message: 'No puede eliminar una inscripción que no le pertenece' });
+    }
+
+    if (isDelegate) {
+      const currentProfile = await global.knex('profile').where({ id: currentUser.profile_id }).first();
+      const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
+      if (fotoclubId) {
+        const targetProfile = await global.knex('profile').where({ id: record.profile_id }).first();
+        if (!targetProfile || Number(targetProfile.fotoclub_id) !== Number(fotoclubId)) {
+          return res.status(403).json({ success: false, message: 'No puede eliminar inscripciones de perfiles fuera de su fotoclub' });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: 'No tiene fotoclub asignado' });
+      }
+    }
+
+    await global.knex('profile_contest').where({ id }).del();
+
+    await LogOperacion(
+      currentUser.id,
+      `Eliminación de inscripción en concurso id=${id} - ${currentUser.username}`,
+      JSON.stringify(record),
+      new Date()
+    );
+
+    res.json({ success: true, message: 'Inscripción eliminada correctamente' });
+  } catch (error) {
+    if (error.code === '23503' || error.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(409).json({ success: false, message: 'No se puede eliminar la inscripción porque tiene resultados asociados' });
+    }
+    console.error(`Error en DELETE /profile-contest/${req.params.id}:`, error);
+    res.status(500).json({ success: false, message: 'Error al eliminar inscripción', error: error.message });
+  }
+});
+
 module.exports = router;

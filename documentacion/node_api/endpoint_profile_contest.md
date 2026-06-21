@@ -167,9 +167,109 @@ Ejemplos:
 
 ---
 
+---
+
+# Eliminación de Inscripción en Concurso (Profile-Contest)
+
+**`DELETE`** `/profile-contest/:id`
+
+Elimina una inscripción de un perfil en un concurso. Borra el registro en la tabla `profile_contest`.
+
+---
+
+## Request
+
+### Headers
+
+```
+Authorization: Bearer <token>
+```
+
+### Query Params
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `unique_id` | string | solo SSO | ID de trazabilidad para tokens SSO |
+
+### Parámetros de ruta
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `id` | integer | **sí** | ID del registro `profile_contest` a eliminar |
+
+---
+
+## Ejemplo completo
+
+```bash
+curl -X DELETE 'https://gfc.prod-api.greenborn.com.ar/profile-contest/1272?unique_id=req_abc123' \
+  -H 'Authorization: Bearer <token>'
+```
+
+---
+
+## Respuestas
+
+### 200 — Inscripción eliminada
+
+```json
+{
+  "success": true,
+  "message": "Inscripción eliminada correctamente"
+}
+```
+
+### 400 — ID inválido
+
+```json
+{
+  "success": false,
+  "message": "ID inválido"
+}
+```
+
+### 403 — Sin permisos
+
+```json
+{
+  "success": false,
+  "message": "No puede eliminar una inscripción que no le pertenece"
+}
+```
+
+### 404 — No encontrada
+
+```json
+{
+  "success": false,
+  "message": "Inscripción no encontrada"
+}
+```
+
+### 409 — Tiene resultados asociados
+
+```json
+{
+  "success": false,
+  "message": "No se puede eliminar la inscripción porque tiene resultados asociados"
+}
+```
+
+---
+
+## Autorización por rol
+
+| Rol | Comportamiento |
+|-----|----------------|
+| `1` (Administrador) | Puede eliminar **cualquier inscripción** |
+| `2` (Delegado) | Puede eliminar inscripciones de perfiles de su **mismo fotoclub** |
+| `3` (Concursante) | Solo puede eliminar su **propia inscripción** |
+
+---
+
 ## Notas técnicas
 
 - **Write Protection**: respeta `MODO_ESCRITURA=READ_ONLY` (retorna `503`)
 - **SSO compatible**: usa `authMiddleware`, el token SSO debe incluir `?unique_id=` en la URL
-- **Unique constraint**: la BD tiene una constraint `UNIQUE(profile_id, contest_id)`. El endpoint verifica duplicado antes de insertar y también captura el error de la BD como fallback
-- **Log**: cada inscripción se registra en `log_operaciones` con evento `Inscripción en concurso`
+- **Foreign Key**: si la inscripción tiene resultados de concurso asociados (`contest_result`), la BD rechaza la eliminación y se retorna `409`
+- **Log**: cada eliminación se registra en `log_operaciones` con evento `Eliminación de inscripción en concurso`
