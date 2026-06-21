@@ -75,11 +75,8 @@ async function authMiddleware(req, res, next) {
       return next();
     }
 
-    console.warn(`[Auth] Token local no encontrado: ${tokenPreview} — ruta: ${ruta}`);
-
     const cached = tokenCache.get(token);
     if (cached && cached.expiresAt > Date.now()) {
-      console.log(`[Auth] Cache hit para token SSO — ${tokenPreview}`);
       req.user = await syncSsoUser(cached.user);
       return next();
     }
