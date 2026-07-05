@@ -143,6 +143,13 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     const pagedIds = pagedIdRows.map(r => r.id);
 
+    console.log('[DEBUG] totalCount=%s pageCount=%s currentPage=%s perPage=%s', totalCount, pageCount, currentPage, perPage);
+    console.log('[DEBUG] sort=%s sortDir=%s filterSectionIds=%j filterPrizes=%j search=%s', sort, sortDir, filterSectionIds, filterPrizes, search);
+    console.log('[DEBUG] idQuery SQL:', idQuery.toSQL().sql);
+    console.log('[DEBUG] idQuery bindings:', idQuery.toSQL().bindings);
+    console.log('[DEBUG] pagedIds:', pagedIds);
+    console.log('[DEBUG] pagedIds length:', pagedIds.length);
+
     // ── Early return if no results ──
     if (pagedIds.length === 0) {
       return res.json({
