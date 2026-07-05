@@ -106,52 +106,52 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       });
     }
 
-    // ── Total count (before pagination) ──
-    const countRow = await filterQuery.clone().countDistinct({ total: 'contest_result.id' }).first();
+    // ── Total count (unique images matching filters) ──
+    const countRow = await filterQuery.clone().countDistinct({ total: 'image.id' }).first();
     const totalCount = Number(countRow?.total) || 0;
     const pageCount = totalCount > 0 ? Math.ceil(totalCount / perPage) : 1;
     const currentPage = page > pageCount ? pageCount : page;
 
-    // ── Paginated IDs with sorting ──
-    let idQuery = filterQuery.clone()
-      .select('contest_result.id')
-      .groupBy('contest_result.id');
-
+    // ── Paginated unique image IDs with sorting ──
     const validSorts = { title: 'image.title', prize: 'metric.prize', code: 'image.code' };
+
+    let imageQuery = filterQuery.clone()
+      .select('image.id')
+      .whereNotNull('image.id')
+      .groupBy('image.id');
+
     if (sort === 'author' && needsProfile) {
-      idQuery = idQuery
+      imageQuery = imageQuery
         .select(global.knex.raw(
           "MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") as sort_value"
         ))
         .orderByRaw("MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") " + sortDir)
-        .orderBy('contest_result.id', sortDir === 'desc' ? 'desc' : 'asc');
+        .orderBy('image.id', sortDir === 'desc' ? 'desc' : 'asc');
     } else if (validSorts[sort]) {
-      idQuery = idQuery
+      imageQuery = imageQuery
         .select(global.knex.raw('MIN(??) as sort_value', [validSorts[sort]]))
         .orderByRaw('MIN(??) ' + sortDir, [validSorts[sort]])
-        .orderBy('contest_result.id', sortDir);
+        .orderBy('image.id', sortDir);
     } else {
-      idQuery = idQuery
+      imageQuery = imageQuery
         .select(global.knex.raw('MIN(??) as sort_value', ['image.code']))
         .orderByRaw('MIN(??) ' + sortDir, ['image.code'])
-        .orderBy('contest_result.id', sortDir);
+        .orderBy('image.id', sortDir);
     }
 
-    const pagedIdRows = await idQuery
+    const pagedImageRows = await imageQuery
       .offset((currentPage - 1) * perPage)
       .limit(perPage);
 
-    const pagedIds = pagedIdRows.map(r => r.id);
+    const pagedImageIds = pagedImageRows.map(r => r.id);
 
     console.log('[DEBUG] totalCount=%s pageCount=%s currentPage=%s perPage=%s', totalCount, pageCount, currentPage, perPage);
     console.log('[DEBUG] sort=%s sortDir=%s filterSectionIds=%j filterPrizes=%j search=%s', sort, sortDir, filterSectionIds, filterPrizes, search);
-    console.log('[DEBUG] idQuery SQL:', idQuery.toSQL().sql);
-    console.log('[DEBUG] idQuery bindings:', idQuery.toSQL().bindings);
-    console.log('[DEBUG] pagedIds:', pagedIds);
-    console.log('[DEBUG] pagedIds length:', pagedIds.length);
+    console.log('[DEBUG] pagedImageIds:', pagedImageIds);
+    console.log('[DEBUG] pagedImageIds length:', pagedImageIds.length);
 
     // ── Early return if no results ──
-    if (pagedIds.length === 0) {
+    if (pagedImageIds.length === 0) {
       return res.json({
         items: [],
         _meta: { totalCount, pageCount, currentPage, perPage },
@@ -159,7 +159,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       });
     }
 
-    // ── Full data query (with expand joins) for the paginated IDs ──
+    // ── Full data query (with filters applied) for all contest_results of paginated images ──
     const selectColumns = [
       'contest_result.id as id',
       'contest_result.contest_id',
@@ -210,26 +210,84 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       );
     }
 
+    // ── Determine which joins are needed for data display ──
+    const dataJoins = {
+      profile: expandImageProfile || expandProfileUser || expandProfileFotoclub || (needsProfile && (search || filterAuthor)),
+      section: needsSection && search,
+      fotoclub: expandProfileFotoclub || (needsFotoclub && search),
+      user: expandProfileUser
+    };
+
     let dataQuery = global.knex('contest_result')
-      .whereIn('contest_result.id', pagedIds)
+      .whereIn('contest_result.image_id', pagedImageIds)
+      .where('contest_result.contest_id', contestId)
       .leftJoin('image', 'contest_result.image_id', 'image.id')
       .leftJoin('metric', 'contest_result.metric_id', 'metric.id')
       .leftJoin('thumbnail', 'image.id', 'thumbnail.image_id');
 
-    if (expandImageProfile) {
+    if (dataJoins.profile) {
       dataQuery = dataQuery.leftJoin('profile', 'image.profile_id', 'profile.id');
     }
-    if (expandProfileUser) {
+    if (dataJoins.section) {
+      dataQuery = dataQuery.leftJoin('section', 'contest_result.section_id', 'section.id');
+    }
+    if (dataJoins.user) {
       dataQuery = dataQuery.leftJoin('user', 'profile.id', 'user.profile_id');
     }
-    if (expandProfileFotoclub) {
+    if (dataJoins.fotoclub) {
       dataQuery = dataQuery.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
+    }
+
+    // ── Apply filters to dataQuery so only matching contest_results are included ──
+    if (filterSectionIds.length > 0) {
+      dataQuery = dataQuery.whereIn('contest_result.section_id', filterSectionIds);
+    }
+    if (filterPrizes.length > 0) {
+      dataQuery = dataQuery.whereIn('metric.prize', filterPrizes);
+    }
+    if (filterCode) {
+      dataQuery = dataQuery.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
+    }
+    if (filterAuthor && dataJoins.profile) {
+      dataQuery = dataQuery.whereRaw(
+        baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
+        [`%${filterAuthor}%`]
+      );
+    }
+    if (filterCategoryIds.length > 0) {
+      dataQuery = dataQuery.whereExists(function () {
+        this.select('*')
+          .from('profile_contest')
+          .whereRaw('profile_contest.profile_id = image.profile_id')
+          .whereRaw('profile_contest.contest_id = contest_result.contest_id')
+          .whereIn('profile_contest.category_id', filterCategoryIds);
+      });
+    }
+    if (search) {
+      dataQuery = dataQuery.andWhere(function () {
+        this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
+          .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${search}%`])
+          .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
+        if (dataJoins.profile) {
+          this.orWhereRaw(
+            baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
+            [`%${search}%`]
+          );
+        }
+        if (dataJoins.section) {
+          this.orWhereRaw(baseUnaccent('section.name') + ' LIKE ?', [`%${search}%`]);
+        }
+        if (dataJoins.fotoclub) {
+          this.orWhereRaw(baseUnaccent('fotoclub.name') + ' LIKE ?', [`%${search}%`]);
+        }
+      });
     }
 
     const itemsRaw = await dataQuery.select(selectColumns);
 
-    // ── Group in memory (handles 1:N thumbnail join) ──
+    // ── Group in memory (handles 1:N thumbnail join) + index by image ──
     const grouped = {};
+    const crIdsByImage = {};
     for (const item of itemsRaw) {
       const {
         id,
@@ -317,6 +375,9 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
             dni: metric_dni
           } : null
         };
+
+        if (!crIdsByImage[image_id]) crIdsByImage[image_id] = [];
+        crIdsByImage[image_id].push(id);
       }
 
       if (thumbnail_id && grouped[id].image) {
@@ -331,7 +392,17 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       }
     }
 
-    const allItems = pagedIds.map(id => grouped[id]);
+    // ── Flatten by image order (same image never split across pages) ──
+    const allItems = [];
+    for (const imgId of pagedImageIds) {
+      const crIds = crIdsByImage[imgId];
+      if (crIds) {
+        crIds.sort((a, b) => a - b);
+        for (const crId of crIds) {
+          allItems.push(grouped[crId]);
+        }
+      }
+    }
 
     res.json({
       items: allItems,
