@@ -226,10 +226,10 @@ function extractBase64(dataUri) {
 }
 
 router.post('/', authMiddleware, writeProtection, async (req, res) => {
-  const { code, title, profile_id, photo_base64, url } = req.body;
+  const { title, profile_id, photo_base64, url } = req.body;
 
-  if (!code || !title || !profile_id) {
-    return res.status(400).json({ success: false, message: 'code, title y profile_id son requeridos' });
+  if (!title || !profile_id) {
+    return res.status(400).json({ success: false, message: 'title y profile_id son requeridos' });
   }
 
   try {
@@ -277,6 +277,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     if (!imageUrl) {
       return res.status(400).json({ success: false, message: 'Debe proporcionar una imagen (photo_base64) o una url' });
     }
+
+    const code = `temp_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
     const [insertRow] = await global.knex('image').insert({
       code,
@@ -326,12 +328,11 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
     const isAdmin = String(currentUser.role_id) === '1';
     const isConcursante = String(currentUser.role_id) === '3';
 
-    const { title, code, url, profile_id, photo_base64 } = req.body;
+    const { title, url, profile_id, photo_base64 } = req.body;
 
     const updateData = {};
 
     if (title !== undefined) updateData.title = title;
-    if (code !== undefined) updateData.code = code;
 
     if (profile_id !== undefined) {
       const newProfileId = Number(profile_id);

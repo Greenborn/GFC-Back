@@ -525,6 +525,9 @@ router.post('/contest-result', authMiddleware, writeProtection, async (req, res)
     }).returning('id');
     const id = row?.id ?? row;
 
+    // ── Generar código de imagen en formato [random4d]_[año]_[id_concurso]_[nombre_seccion]_[id_image] ──
+    await generarCodigoImagen(global.knex, image_id, contest_id, section_id);
+
     const created = await global.knex('contest_result').where({ id }).first();
 
     await LogOperacion(
@@ -686,5 +689,46 @@ router.delete('/contest-result/:id', authMiddleware, writeProtection, async (req
     res.status(500).json({ success: false, message: 'Error al eliminar resultado de concurso', error: error.message });
   }
 });
+
+// ── Generar código de imagen ──
+// Formato: [random4d]_[año]_[id_concurso]_[nombre_seccion]_[id_image]
+async function generarCodigoImagen(knex, imageId, contestId, sectionId) {
+  const image = await knex('image').where({ id: imageId }).first();
+  if (!image) return;
+
+  const section = sectionId ? await knex('section').where({ id: sectionId }).first() : null;
+  const year = new Date().getFullYear().toString();
+  const sectionName = section
+    ? sanitizarNombreSeccion(section.name)
+    : 'sin_seccion';
+
+  let randomNum;
+  let attempts = 0;
+  do {
+    randomNum = String(Math.floor(1000 + Math.random() * 9000));
+    const existing = await knex('image')
+      .join('contest_result', 'image.id', 'contest_result.image_id')
+      .where('contest_result.contest_id', contestId)
+      .where('image.code', 'like', randomNum + '%')
+      .whereNot('image.id', imageId)
+      .first();
+    if (!existing) break;
+    attempts++;
+  } while (attempts < 50);
+
+  const newCode = `${randomNum}_${year}_${contestId}_${sectionName}_${imageId}`;
+  await knex('image').where({ id: imageId }).update({ code: newCode });
+}
+
+function sanitizarNombreSeccion(name) {
+  if (!name) return 'sin_seccion';
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s-]/g, '')
+    .trim()
+    .replace(/[\s-]+/g, '_')
+    .toLowerCase();
+}
 
 module.exports = router;
