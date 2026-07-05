@@ -19,6 +19,9 @@ class ContestResultViewAction extends IndexAction {
         if (isset($query_params['filter']['profile_id']))
             $profile_id = $query_params['filter']['profile_id'];
 
+        $user         = Yii::$app->user->identity;
+        $esPropioPerfil = $profile_id && $user && isset($user->profile_id) && $user->profile_id == $profile_id;
+
         $contest    = Contest::findOne([ 'id' => $contest_id ]);
         $resultados = ContestResult::find()
                             ->where(['contest_id' => $contest_id])
@@ -26,13 +29,13 @@ class ContestResultViewAction extends IndexAction {
                             ->joinWith('image.thumbnail')
                             ->orderBy(['code' => SORT_ASC]);
 
-        if ($contest->judged){
+        if ($contest->judged || $esPropioPerfil){
             $resultados = $resultados
                             ->joinWith('image.profile')
                             ->joinWith('metric');
         }
 
-        if ($profile_id && $contest->judged)
+        if ($profile_id && ($contest->judged || $esPropioPerfil))
             $resultados = $resultados->andWhere(['image.profile_id' => $profile_id]);
 
         $resultados = $resultados->asArray()->all();

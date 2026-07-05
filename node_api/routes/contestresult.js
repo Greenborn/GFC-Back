@@ -16,6 +16,30 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Falta contest_id en el filtro' });
     }
 
+    // ── Fetch contest ──
+    const contest = await global.knex('contest').where({ id: contestId }).first();
+    if (!contest) {
+      return res.status(404).json({ message: 'Concurso no encontrado' });
+    }
+
+    // ── Parse profile_id filter ──
+    let filterProfileId = null;
+    const bracketProfileId = req.query['filter[profile_id]'];
+    if (bracketProfileId) {
+      filterProfileId = Number(bracketProfileId);
+    } else if (req.query.filter && req.query.filter.profile_id) {
+      filterProfileId = Number(req.query.filter.profile_id);
+    }
+
+    // ── Sólo aplicar filterProfileId si el usuario es admin/delegado, el concurso está juzgado, o es su propio perfil ──
+    const esAdmin = String(req.user.role_id) === '1';
+    const esDelegado = String(req.user.role_id) === '2';
+    const userProfileId = req.user ? Number(req.user.profile_id) : null;
+    const esPropioPerfil = filterProfileId && userProfileId && filterProfileId === userProfileId;
+    if (filterProfileId && !esAdmin && !esDelegado && !contest.judged && !esPropioPerfil) {
+      filterProfileId = null;
+    }
+
     // ── Parse expand ──
     const expand = req.query.expand ? req.query.expand.split(',').map(v => v.trim()).filter(Boolean) : [];
     const expandImageProfile = expand.includes('image.profile') || expand.includes('profile');
@@ -59,6 +83,10 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     }
     if (needsFotoclub) {
       filterQuery = filterQuery.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
+    }
+
+    if (filterProfileId) {
+      filterQuery = filterQuery.where('image.profile_id', filterProfileId);
     }
 
     // ── Apply filters (AND between groups, OR within multi-value groups) ──
@@ -239,6 +267,9 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     }
 
     // ── Apply filters to dataQuery so only matching contest_results are included ──
+    if (filterProfileId) {
+      dataQuery = dataQuery.where('image.profile_id', filterProfileId);
+    }
     if (filterSectionIds.length > 0) {
       dataQuery = dataQuery.whereIn('contest_result.section_id', filterSectionIds);
     }
