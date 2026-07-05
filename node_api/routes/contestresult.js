@@ -117,7 +117,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       .select('contest_result.id')
       .groupBy('contest_result.id');
 
-    const validSorts = { title: 'image.title', prize: 'metric.prize' };
+    const validSorts = { title: 'image.title', prize: 'metric.prize', code: 'image.code' };
     if (sort === 'author' && needsProfile) {
       idQuery = idQuery
         .select(global.knex.raw(
@@ -129,7 +129,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         .select(global.knex.raw('MIN(??) as sort_value', [validSorts[sort]]))
         .orderByRaw('MIN(??) ' + sortDir, [validSorts[sort]]);
     } else {
-      idQuery = idQuery.orderBy('contest_result.id', 'asc');
+      idQuery = idQuery.orderBy('image.code', 'asc');
     }
 
     const pagedIdRows = await idQuery
