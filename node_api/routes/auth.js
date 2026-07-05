@@ -2,9 +2,15 @@ const express = require('express')
 const router = express.Router()
 const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
+const axios = require('axios')
+const sharp = require('sharp')
+const fs = require('fs')
+const path = require('path')
 const LogOperacion = require('../controllers/log_operaciones.js')
 const Mailer = require('../controllers/mailer.js')
 const writeProtection = require('../middleware/writeProtection.js')
+
+const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar'
 
 router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
   const email  = req.body?.email
@@ -241,6 +247,128 @@ router.get('/session', async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ stat: false, error: 'Error interno del servidor' });
+  }
+});
+
+router.post('/register', writeProtection, async (req, res) => {
+  const { email, username, password, name, sso, unique_id, img_perfil_b64 } = req.body;
+
+  if (!email || !username) {
+    return res.status(400).json({ success: false, message: 'Email y username son requeridos' });
+  }
+
+  try {
+    const existing = await global.knex('user').where({ email }).first();
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'El email ya está registrado' });
+    }
+
+    if (sso) {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, message: 'Token SSO requerido' });
+      }
+      if (!unique_id) {
+        return res.status(400).json({ success: false, message: 'unique_id requerido para registro SSO' });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      try {
+        const verifyRes = await axios.get(
+          `${AUTH_SERVICE_URL}/auth/verify?unique_id=${encodeURIComponent(unique_id)}`,
+          { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 }
+        );
+        if (!verifyRes.data?.success || !verifyRes.data?.data?.valid) {
+          return res.status(401).json({ success: false, message: 'Token SSO inválido' });
+        }
+      } catch (ssoErr) {
+        const ssoBody = ssoErr.response?.data;
+        console.error(`[Register] Error SSO: ${JSON.stringify(ssoBody) || ssoErr.message}`);
+        return res.status(401).json({ success: false, message: 'Token SSO inválido' });
+      }
+    }
+
+    const displayName = name || username;
+    const [profileRow] = await global.knex('profile').insert({
+      name: displayName,
+      last_name: '',
+      fotoclub_id: null
+    }).returning('id');
+    const profileId = profileRow?.id ?? profileRow;
+
+    if (img_perfil_b64 && typeof img_perfil_b64 === 'string') {
+      try {
+        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
+        const imagesDir = path.join(uploadsBasePath, 'images');
+        if (!fs.existsSync(imagesDir)) {
+          fs.mkdirSync(imagesDir, { recursive: true });
+        }
+        const uniqueSuffix = crypto.randomBytes(8).toString('hex');
+        const filename = `profile_${profileId}_${Date.now()}_${uniqueSuffix}.jpg`;
+        const filepath = path.join(imagesDir, filename);
+        const raw = img_perfil_b64.includes('base64,') ? img_perfil_b64.split('base64,')[1] : img_perfil_b64;
+        const buffer = Buffer.from(raw, 'base64');
+        const outputBuffer = await sharp(buffer)
+          .rotate()
+          .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 100, mozjpeg: true })
+          .toBuffer();
+        fs.writeFileSync(filepath, outputBuffer);
+        await global.knex('profile').where({ id: profileId }).update({
+          img_url: path.posix.join('images', filename)
+        });
+      } catch (imgErr) {
+        console.error('[Register] Error al procesar img_perfil_b64:', imgErr.message);
+      }
+    }
+
+    let userData = {
+      username,
+      email,
+      role_id: 3,
+      profile_id: profileId,
+      created_at: new Date().toISOString()
+    };
+
+    if (sso) {
+      userData.status = 1;
+    } else {
+      if (!password) {
+        return res.status(400).json({ success: false, message: 'Contraseña requerida para registro regular' });
+      }
+      const saltRounds = 13;
+      let hashedPassword = bcrypt.hashSync(password, saltRounds);
+      hashedPassword = hashedPassword.replace(/^\$2[abxy]\$/, '$2y$');
+      userData.password_hash = hashedPassword;
+      userData.sign_up_verif_code = crypto.randomBytes(32).toString('hex').slice(0, 6);
+      userData.sign_up_verif_token = crypto.randomBytes(32).toString('hex');
+      userData.status = 0;
+    }
+
+    const [userRow] = await global.knex('user').insert(userData).returning('id');
+    const userId = userRow?.id ?? userRow;
+    const newUser = await global.knex('user').where({ id: userId }).first();
+
+    await LogOperacion(
+      userId,
+      `registro - ${sso ? 'SSO' : 'email'}`,
+      JSON.stringify({ email, username }),
+      new Date()
+    );
+
+    const { password_hash, access_token, password_reset_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = newUser;
+
+    return res.status(201).json({
+      success: true,
+      message: sso
+        ? 'Usuario registrado exitosamente'
+        : 'Usuario registrado. Verifica tu email para activar la cuenta.',
+      user: safeUser
+    });
+
+  } catch (error) {
+    console.error('[Register] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
 

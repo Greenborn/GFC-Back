@@ -424,6 +424,39 @@ function sanitizeSearchTerm(term) {
     .substring(0, 200);
 }
 
+// POST /contest-result — Crear un resultado de concurso
+router.post('/contest-result', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const { contest_id, image_id, metric_id, section_id } = req.body;
+
+    if (!contest_id || !image_id || !metric_id || !section_id) {
+      return res.status(400).json({ success: false, message: 'contest_id, image_id, metric_id y section_id son requeridos' });
+    }
+
+    const [row] = await global.knex('contest_result').insert({
+      contest_id: Number(contest_id),
+      image_id: Number(image_id),
+      metric_id: Number(metric_id),
+      section_id: Number(section_id)
+    }).returning('id');
+    const id = row?.id ?? row;
+
+    const created = await global.knex('contest_result').where({ id }).first();
+
+    await LogOperacion(
+      req.user.id,
+      `Creación de resultado de concurso - ${req.user.username}`,
+      JSON.stringify({ contest_id, image_id, metric_id, section_id }),
+      new Date()
+    );
+
+    res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    console.error('Error en POST /contest-result:', error);
+    res.status(500).json({ success: false, message: 'Error al crear resultado de concurso', error: error.message });
+  }
+});
+
 // POST /disable_user
 // Cambia el estado de un usuario mediante JSON: { id: number, status: 0 | 1 }
 router.post('/disable_user', authMiddleware, writeProtection, async (req, res) => {
@@ -538,6 +571,35 @@ router.get('/foto-del-anio', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error interno' });
+  }
+});
+
+// DELETE /contest-result/:id — Eliminar un resultado de concurso
+router.delete('/contest-result/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const existing = await global.knex('contest_result').where({ id }).first();
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Resultado de concurso no encontrado' });
+    }
+
+    await global.knex('contest_result').where({ id }).del();
+
+    await LogOperacion(
+      req.user.id,
+      `Eliminación de resultado de concurso id=${id} - ${req.user.username}`,
+      JSON.stringify(existing),
+      new Date()
+    );
+
+    res.json({ success: true, message: 'Resultado de concurso eliminado correctamente' });
+  } catch (error) {
+    console.error('Error en DELETE /contest-result/:id:', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar resultado de concurso', error: error.message });
   }
 });
 

@@ -144,8 +144,15 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
     const writableFields = isAdmin || isDelegate ? allowedFields.concat(adminFields) : allowedFields;
 
     for (const field of writableFields) {
-      if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] !== null) {
-        updateData[field] = requestBody[field];
+      if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] != null) {
+        if (field === 'fotoclub_id') {
+          const val = Number(requestBody[field]);
+          if (Number.isFinite(val)) {
+            updateData[field] = val;
+          }
+        } else {
+          updateData[field] = requestBody[field];
+        }
       }
     }
 
@@ -171,7 +178,7 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
 
     if (isAdmin || isDelegate) {
       for (const field of adminFields) {
-        if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] !== null) {
+        if (Object.prototype.hasOwnProperty.call(requestBody, field) && requestBody[field] != null) {
           updateData[field] = requestBody[field];
         }
       }
