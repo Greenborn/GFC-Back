@@ -3,7 +3,8 @@
 //
 // Formato del código: [random4d]_[año]_[id_concurso]_[nombre_seccion]_[id_image]
 
-const config = require('dotenv').config();
+const path = require('path');
+const config = require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('../knexfile.js');
 
 function sanitizarNombreSeccion(name) {
