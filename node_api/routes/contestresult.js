@@ -123,15 +123,18 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         .select(global.knex.raw(
           "MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") as sort_value"
         ))
-        .orderByRaw("MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") " + sortDir);
+        .orderByRaw("MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") " + sortDir)
+        .orderBy('contest_result.id', sortDir === 'desc' ? 'desc' : 'asc');
     } else if (validSorts[sort]) {
       idQuery = idQuery
         .select(global.knex.raw('MIN(??) as sort_value', [validSorts[sort]]))
-        .orderByRaw('MIN(??) ' + sortDir, [validSorts[sort]]);
+        .orderByRaw('MIN(??) ' + sortDir, [validSorts[sort]])
+        .orderBy('contest_result.id', sortDir);
     } else {
       idQuery = idQuery
         .select(global.knex.raw('MIN(??) as sort_value', ['image.code']))
-        .orderByRaw('MIN(??) asc', ['image.code']);
+        .orderByRaw('MIN(??) ' + sortDir, ['image.code'])
+        .orderBy('contest_result.id', sortDir);
     }
 
     const pagedIdRows = await idQuery
@@ -321,7 +324,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       }
     }
 
-    const allItems = Object.values(grouped);
+    const allItems = pagedIds.map(id => grouped[id]);
 
     res.json({
       items: allItems,
@@ -423,6 +426,7 @@ function sanitizeSearchTerm(term) {
     .replace(/[\x00-\x1f\x7f]/g, '')
     .replace(/[%_]/g, ' ')
     .trim()
+    .toLowerCase()
     .substring(0, 200);
 }
 
