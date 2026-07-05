@@ -129,7 +129,9 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         .select(global.knex.raw('MIN(??) as sort_value', [validSorts[sort]]))
         .orderByRaw('MIN(??) ' + sortDir, [validSorts[sort]]);
     } else {
-      idQuery = idQuery.orderBy('image.code', 'asc');
+      idQuery = idQuery
+        .select(global.knex.raw('MIN(??) as sort_value', ['image.code']))
+        .orderByRaw('MIN(??) asc', ['image.code']);
     }
 
     const pagedIdRows = await idQuery
