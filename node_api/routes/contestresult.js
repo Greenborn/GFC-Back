@@ -141,7 +141,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const currentPage = page > pageCount ? pageCount : page;
 
     // ── Paginated unique image IDs with sorting ──
-    const validSorts = { title: 'image.title', prize: 'metric.prize', code: 'image.code' };
+    const validSorts = { title: 'image.title', prize: 'metric.score', code: 'image.code' };
 
     let imageQuery = filterQuery.clone()
       .select('image.id')
