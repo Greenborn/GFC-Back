@@ -102,7 +102,7 @@ async function authMiddleware(req, res, next) {
       console.error(`[Auth] Error al consultar SSO (${ssoStatus}): ${ssoErrorDetail} — token: ${tokenPreview} — ruta: ${ruta}`);
       await LogOperacion(0, 'auth - error SSO', JSON.stringify({ status: ssoStatus, respuesta: ssoBody, ruta, tokenPreview }), new Date());
 
-      if (ssoBody?.require_reauth) {
+      if (ssoBody?.require_reauth || ssoBody?.error === 'TOKEN_EXPIRED' || ssoStatus === 401) {
         tokenCache.delete(token);
         return res.status(401).json({ success: false, message: 'Sesión expirada', require_reauth: true });
       }
