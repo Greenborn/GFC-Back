@@ -164,16 +164,36 @@ router.post('/judging', authMiddleware, async (req, res) => {
 
   // Iniciar transacción y actualizar metric.prize y metric.score
   let updates = [];
+  let contestIds = [];
   await global.knex.transaction(async trx => {
     updates = await Promise.all(resultadosCompletos.map(obj => updatePrizeInMetric(obj, trx)));
     // Obtener los contest_id únicos de los resultados
-    const contestIds = [...new Set(resultadosCompletos.map(obj => obj.contest_result && obj.contest_result.contest_id).filter(Boolean))];
+    contestIds = [...new Set(resultadosCompletos.map(obj => obj.contest_result && obj.contest_result.contest_id).filter(Boolean))];
     if (contestIds.length !== 1) {
       throw new Error(`Solo se permite cargar resultados de un concurso por vez. Se detectaron los siguientes contest_id: ${contestIds.join(', ')}`);
     }
     // Actualizar judged=true en el único concurso involucrado
     await trx('contest').where({ id: contestIds[0] }).update({ judged: true });
   });
+
+  // Actualizar image_metadata con los resultados del jurado
+  const contestName = await global.knex('contest').where({ id: contestIds[0] }).select('name').first();
+  const judgedAt = new Date().toISOString();
+  for (const obj of resultadosCompletos) {
+    if (!obj.imagen || !obj.imagen.id) continue;
+    const metadata = {
+      contest_id: Number(contestIds[0]),
+      contest_name: contestName?.name || obj.nombreConcurso,
+      section_name: obj.seccion,
+      category: obj.categoria,
+      prize: obj.premio,
+      score: obj.metric_abm ? Math.round(Number(obj.metric_abm.score)) : null,
+      judged_at: judgedAt
+    };
+    const existingMetadata = obj.imagen.image_metadata || {};
+    const merged = { ...existingMetadata, ...metadata };
+    await global.knex('image').where({ id: obj.imagen.id }).update({ image_metadata: merged });
+  }
 
   console.log('═══════════════════════════════════════════════════════');
   console.log('POST /results/judging - Procesamiento exitoso');

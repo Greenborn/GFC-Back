@@ -37,11 +37,16 @@ router.get('/search', async (req, res) => {
                 'image.title',
                 'image.profile_id',
                 'image.url',
+                'image.width',
+                'image.height',
+                'image.mime_type',
+                'image.image_metadata',
                 'profile.name as author_name',
                 'profile.last_name as author_last_name',
                 'section.name as section_name',
                 'contest.id as contest_id',
                 'contest.name as contest_name',
+                'contest.judged',
                 'contest.sub_title as contest_subtitle',
                 'category.id as category_id',
                 'category.name as category_name'
@@ -63,21 +68,31 @@ router.get('/search', async (req, res) => {
             .limit(10);
 
         // Agregar URL base a las imágenes y formatear nombre del autor, sección, concurso y categoría
-        const imagesWithFullUrl = images.map(image => ({
-            ...image,
-            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
-            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
-            section: image.section_name || 'Sin sección asignada',
-            contest: image.contest_name ? {
-                id: image.contest_id,
-                name: image.contest_name,
-                subtitle: image.contest_subtitle
-            } : null,
-            category: image.category_name ? {
-                id: image.category_id,
-                name: image.category_name
-            } : null
-        }));
+        const imagesWithFullUrl = images.map(image => {
+            const isJudged = image.judged === true || image.judged === 1 || image.judged === 't';
+            const result = {
+                ...image,
+                url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
+                author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
+                section: image.section_name || 'Sin sección asignada',
+                contest: image.contest_name ? {
+                    id: image.contest_id,
+                    name: image.contest_name,
+                    subtitle: image.contest_subtitle
+                } : null,
+                category: image.category_name ? {
+                    id: image.category_id,
+                    name: image.category_name
+                } : null
+            };
+            if (!isJudged) {
+                delete result.width;
+                delete result.height;
+                delete result.mime_type;
+                delete result.image_metadata;
+            }
+            return result;
+        });
 
         // Log de la operación (sin usuario ya que es público)
         await LogOperacion(0, `Búsqueda de imágenes: "${q}"`, null, new Date());
@@ -114,11 +129,16 @@ router.get('/all', async (req, res) => {
                 'image.title',
                 'image.profile_id',
                 'image.url',
+                'image.width',
+                'image.height',
+                'image.mime_type',
+                'image.image_metadata',
                 'profile.name as author_name',
                 'profile.last_name as author_last_name',
                 'section.name as section_name',
                 'contest.id as contest_id',
                 'contest.name as contest_name',
+                'contest.judged',
                 'contest.sub_title as contest_subtitle',
                 'category.id as category_id',
                 'category.name as category_name'
@@ -136,21 +156,31 @@ router.get('/all', async (req, res) => {
             .limit(10);
 
         // Agregar URL base a las imágenes y formatear nombre del autor, sección, concurso y categoría
-        const imagesWithFullUrl = images.map(image => ({
-            ...image,
-            url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
-            author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
-            section: image.section_name || 'Sin sección asignada',
-            contest: image.contest_name ? {
-                id: image.contest_id,
-                name: image.contest_name,
-                subtitle: image.contest_subtitle
-            } : null,
-            category: image.category_name ? {
-                id: image.category_id,
-                name: image.category_name
-            } : null
-        }));
+        const imagesWithFullUrl = images.map(image => {
+            const isJudged = image.judged === true || image.judged === 1 || image.judged === 't';
+            const result = {
+                ...image,
+                url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
+                author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
+                section: image.section_name || 'Sin sección asignada',
+                contest: image.contest_name ? {
+                    id: image.contest_id,
+                    name: image.contest_name,
+                    subtitle: image.contest_subtitle
+                } : null,
+                category: image.category_name ? {
+                    id: image.category_id,
+                    name: image.category_name
+                } : null
+            };
+            if (!isJudged) {
+                delete result.width;
+                delete result.height;
+                delete result.mime_type;
+                delete result.image_metadata;
+            }
+            return result;
+        });
 
         // Log de la operación
         await LogOperacion(0, 'Consulta de todas las imágenes', null, new Date());
@@ -264,6 +294,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       const filepath = path.join(imagesDir, filename);
 
       const buffer = Buffer.from(base64Data, 'base64');
+      const imgMetadata = await sharp(buffer).metadata();
       const outputBuffer = await sharp(buffer)
         .rotate()
         .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
@@ -280,12 +311,23 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
 
     const code = `temp_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
-    const [insertRow] = await global.knex('image').insert({
+    const insertData = {
       code,
       title,
       profile_id: Number(profile_id),
       url: imageUrl
-    }).returning('id');
+    };
+
+    if (photo_base64 && photo_base64.file) {
+      if (imgMetadata) {
+        insertData.width = imgMetadata.width || null;
+        insertData.height = imgMetadata.height || null;
+        const mimeMap = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', tiff: 'image/tiff', svg: 'image/svg+xml' };
+        insertData.mime_type = mimeMap[imgMetadata.format] || `image/${imgMetadata.format}`;
+      }
+    }
+
+    const [insertRow] = await global.knex('image').insert(insertData).returning('id');
     const id = insertRow?.id ?? insertRow;
 
     const created = await global.knex('image').where({ id }).first();
@@ -364,6 +406,7 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
         const filename = `${Date.now()}_${uniqueSuffix}.jpg`;
         const filepath = path.join(imagesDir, filename);
         const buffer = Buffer.from(base64Data, 'base64');
+        const imgMetadata = await sharp(buffer).metadata();
         const outputBuffer = await sharp(buffer)
           .rotate()
           .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
@@ -371,6 +414,12 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
           .toBuffer();
         fs.writeFileSync(filepath, outputBuffer);
         updateData.url = path.posix.join('images', filename);
+        if (imgMetadata) {
+          updateData.width = imgMetadata.width || null;
+          updateData.height = imgMetadata.height || null;
+          const mimeMap = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', tiff: 'image/tiff', svg: 'image/svg+xml' };
+          updateData.mime_type = mimeMap[imgMetadata.format] || `image/${imgMetadata.format}`;
+        }
       }
     }
 
