@@ -111,7 +111,7 @@ router.put('/edit', authMiddleware, async (req, res) => {
 });
 
 
-router.post('/create', authMiddleware, async (req, res) => {
+async function createSection(req, res) {
   try {
     if (req.user.role_id != '1' && req.user.role_id != '2') {
       return res.status(403).json({ success: false, message: 'Acceso denegado. Solo administradores o delegados pueden crear secciones.' });
@@ -136,6 +136,9 @@ router.post('/create', authMiddleware, async (req, res) => {
     console.error(error);
     return res.json({ stat: false, text: 'Ocurrió un error interno, contacte con soporte.' });
   }
-});
+}
+
+router.post('/', authMiddleware, createSection);
+router.post('/create', authMiddleware, createSection);
 
 module.exports = router;
