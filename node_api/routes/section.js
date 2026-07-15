@@ -63,9 +63,9 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.session.user.id, 'Consulta de Secciones - ' + req.session.user.username, null, new Date()) 
+      await LogOperacion(req.user.id, 'Consulta de Secciones - ' + req.user.username, null, new Date()) 
 
       res.json({ 
         items: await global.knex('section'),

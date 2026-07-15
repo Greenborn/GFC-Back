@@ -247,9 +247,9 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-        await LogOperacion(req.session.user.id, 'Consulta de Concursos - ' + req.session.user.username, null, new Date())
+        await LogOperacion(req.user.id, 'Consulta de Concursos - ' + req.user.username, null, new Date())
 
         res.json({
             items: await global.knex('contest'),
@@ -598,14 +598,11 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         });
     }
 
-    const path = require('path');
-    const fs = require('fs');
     const IMG_REPOSITORY_PATH = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
     const archiver = require('archiver');
     const IMG_BASE_PATH = process.env.IMG_BASE_PATH || 'https://assets.prod-gfc.greenborn.com.ar';
 
     try {
-        // Verificar si el concurso está finalizado
         const contest = await global.knex('contest').where('id', contestId).first();
         if (!contest) {
             return res.status(404).json({
@@ -842,8 +839,6 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
         return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores' });
     }
 
-    const path = require('path');
-    const fs = require('fs');
     const archiver = require('archiver');
     const IMG_REPOSITORY_PATH = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
     const IMG_BASE_PATH = process.env.IMG_BASE_PATH || 'https://assets.prod-gfc.greenborn.com.ar';

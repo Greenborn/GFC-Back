@@ -38,9 +38,9 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
   }
 });
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.session.user.id, 'Consulta de Métrica - '+req.session.user.username, null, new Date()) 
+      await LogOperacion(req.user.id, 'Consulta de Métrica - '+req.user.username, null, new Date()) 
 
       res.json({ 
         items: await global.knex('metric_abm'),
