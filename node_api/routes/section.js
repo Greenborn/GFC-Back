@@ -76,8 +76,12 @@ router.get('/get_all', async (req, res) => {
     }
 })
 
-router.put('/edit', async (req, res) => {
+router.put('/edit', authMiddleware, async (req, res) => {
   try {
+    if (req.user.role_id != '1' && req.user.role_id != '2') {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo administradores o delegados pueden editar secciones.' });
+    }
+
     const { id, name } = req.body;
 
     // Validar que el campo name esté presente
@@ -92,7 +96,7 @@ router.put('/edit', async (req, res) => {
         name
       })
 
-    await LogOperacion(req.session.user.id, 'Modificación de Sección - ' + req.session.user.username, null, new Date()) 
+    await LogOperacion(req.user.id, 'Modificación de Sección - ' + req.user.username, null, new Date()) 
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
