@@ -51,7 +51,7 @@ GFC-Back/
 - **Compresión**: Archiver (ZIP)
 - **Procesamiento de Imágenes**: Sharp
 - **Autenticación**: Sessions + JWT
-- **Versión Actual**: 1.16.20
+- **Versión Actual**: 1.40.38
 
 ## Documentación
 
