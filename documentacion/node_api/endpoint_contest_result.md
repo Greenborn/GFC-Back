@@ -108,4 +108,5 @@ curl -X POST 'https://gfc.prod-api.greenborn.com.ar/api/contest-result?unique_id
 - **SSO**: los tokens SSO requieren `?unique_id=` en la URL
 - **Log**: cada creación se registra en `log_operaciones`
 - **Endpoint GET**: existe `GET /contest-result` con filtros avanzados (búsqueda, paginación, expand de image/profile/fotoclub)
+- **Caché en GET**: el endpoint `GET /contest-result` cachea los resultados por 24hs cuando el concurso ya está juzgado (`contest.judged = true`). La clave de caché incluye todos los query params (filtros, paginación, ordenamiento), por lo que cada combinación de filtros se cachea independientemente. Los concursos no juzgados no se cachean
 - **Integración**: este endpoint es usado por el sistema de jurado para asignar premios a imágenes en cada sección del concurso

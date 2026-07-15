@@ -3,6 +3,15 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
 const LogOperacion = require('../controllers/log_operaciones.js');
+const { createCache } = require('../utils/cache');
+
+const contestResultCache = createCache(24 * 60 * 60 * 1000);
+
+function cacheKeyFromQuery(query) {
+  const sorted = {};
+  Object.keys(query).sort().forEach(k => { sorted[k] = query[k]; });
+  return JSON.stringify(sorted);
+}
 
 // GET /contest-result?expand=profile,profile.user,profile.fotoclub,image.profile,image.thumbnail&filter[contest_id]=58&page=1&per-page=20&search=paisaje&sort=title&sort_dir=asc&filter[section_id]=1&filter[section_id]=3&filter[category_id]=2&filter[prize]=Oro&filter[author]=García&filter[code]=ABC
 router.get('/contest-result', authMiddleware, async (req, res) => {
@@ -63,6 +72,12 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const filterAuthor = sanitizeSearchTerm(extractFilterString(req.query, 'author'));
     const filterCode = sanitizeSearchTerm(extractFilterString(req.query, 'code'));
     const search = sanitizeSearchTerm(rawSearch);
+
+    const crCacheKey = contest.judged ? 'cr:' + cacheKeyFromQuery(req.query) : null;
+    if (crCacheKey) {
+      const cached = contestResultCache.getIfPresent(crCacheKey);
+      if (cached) return res.json(cached);
+    }
 
     // ── Determine conditional joins needed for filtering/sorting ──
     const needsProfile = !!(search || sort === 'author' || filterAuthor || filterCategoryIds.length > 0);
@@ -175,11 +190,13 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     // ── Early return if no results ──
     if (pagedImageIds.length === 0) {
-      return res.json({
+      const result = {
         items: [],
         _meta: { totalCount, pageCount, currentPage, perPage },
         _links: buildLinks(req, currentPage, pageCount, perPage)
-      });
+      };
+      if (crCacheKey) contestResultCache.set(crCacheKey, result);
+      return res.json(result);
     }
 
     // ── Full data query (with filters applied) for all contest_results of paginated images ──
@@ -430,11 +447,13 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       }
     }
 
-    res.json({
+    const result = {
       items: allItems,
       _meta: { totalCount, pageCount, currentPage, perPage },
       _links: buildLinks(req, currentPage, pageCount, perPage)
-    });
+    };
+    if (crCacheKey) contestResultCache.set(crCacheKey, result);
+    res.json(result);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error interno' });

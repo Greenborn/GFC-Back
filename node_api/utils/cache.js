@@ -19,6 +19,16 @@ function createCache(ttlMs = 3600000) {
       return value;
     },
 
+    set(key, value) {
+      store.set(key, { value, expiresAt: Date.now() + ttlMs });
+    },
+
+    getIfPresent(key) {
+      const entry = store.get(key);
+      if (entry && entry.expiresAt > Date.now()) return entry.value;
+      return null;
+    },
+
     invalidate(key) {
       store.delete(key);
     },
