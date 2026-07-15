@@ -111,4 +111,31 @@ router.put('/edit', authMiddleware, async (req, res) => {
 });
 
 
+router.post('/create', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role_id != '1' && req.user.role_id != '2') {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo administradores o delegados pueden crear secciones.' });
+    }
+
+    const { name } = req.body;
+
+    if (!name) {
+      return res.json({ stat: false, text: 'El nombre es obligatorio' });
+    }
+
+    if (name.length > 45) {
+      return res.json({ stat: false, text: 'El nombre no puede superar los 45 caracteres' });
+    }
+
+    const [newId] = await global.knex('section').insert({ name });
+
+    await LogOperacion(req.user.id, 'Creación de Sección - ' + req.user.username, null, new Date());
+
+    return res.json({ stat: true, text: 'Sección creada correctamente', id: newId });
+  } catch (error) {
+    console.error(error);
+    return res.json({ stat: false, text: 'Ocurrió un error interno, contacte con soporte.' });
+  }
+});
+
 module.exports = router;
