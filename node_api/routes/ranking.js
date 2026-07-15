@@ -177,8 +177,6 @@ router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) 
   }
 });
 
-module.exports = router;
-
 router.get('/detalle/:profile_id', authMiddleware, async (req, res) => {
   try {
     const profileId = parseInt(req.params.profile_id);
@@ -486,3 +484,5 @@ router.get('/detalle', authMiddleware, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
 });
+
+module.exports = router;

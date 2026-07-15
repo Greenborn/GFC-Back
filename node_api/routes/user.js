@@ -3,7 +3,6 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const LogOperacion = require('../controllers/log_operaciones.js')
-const knex = require('../knexfile');
 const authMiddleware = require('../middleware/authMiddleware');
 
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';

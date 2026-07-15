@@ -64,9 +64,9 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.session.user.id, 'Consulta de Categorías - ' + req.session.user.username, null, new Date()) 
+      await LogOperacion(req.user.id, 'Consulta de Categorías - ' + req.user.username, null, new Date()) 
 
       res.json({ 
         items: await global.knex('category'),
@@ -77,8 +77,12 @@ router.get('/get_all', async (req, res) => {
     }
 })
 
-router.put('/edit', writeProtection, async (req, res) => {
+router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
   try {
+    if (req.user.role_id != '1' && req.user.role_id != '2') {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo administradores o delegados pueden editar categorías.' });
+    }
+
     const { id, name, mostrar_en_ranking } = req.body;
 
     // Validar que el campo name esté presente
@@ -99,7 +103,7 @@ router.put('/edit', writeProtection, async (req, res) => {
         mostrar_en_ranking
       })
 
-    await LogOperacion(req.session.user.id, 'Modificación de Categoría - ' + req.session.user.username, null, new Date()) 
+    await LogOperacion(req.user.id, 'Modificación de Categoría - ' + req.user.username, null, new Date()) 
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {

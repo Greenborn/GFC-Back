@@ -38,9 +38,9 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
   }
 });
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.session.user.id, 'Consulta de Métrica - '+req.session.user.username, null, new Date()) 
+      await LogOperacion(req.user.id, 'Consulta de Métrica - '+req.user.username, null, new Date()) 
 
       res.json({ 
         items: await global.knex('metric_abm'),
@@ -51,8 +51,12 @@ router.get('/get_all', async (req, res) => {
     }
 })
 
-router.put('/edit', async (req, res) => {
+router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
   try {
+    if (req.user.role_id != '1' && req.user.role_id != '2') {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo administradores o delegados pueden editar métricas.' });
+    }
+
     const { id, prize, score, organization_type } = req.body;
 
     // Validar que todos los campos estén correctos
@@ -79,7 +83,7 @@ router.put('/edit', async (req, res) => {
         organization_type
       })
       
-    await LogOperacion(req.session.user.id, 'Modificación de Métrica - ' + req.session.user.username, null, new Date()) 
+    await LogOperacion(req.user.id, 'Modificación de Métrica - ' + req.user.username, null, new Date()) 
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {

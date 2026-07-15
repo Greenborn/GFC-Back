@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const adminMiddleware = require('../middleware/adminMiddleware');
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', adminMiddleware, async (req, res) => {
   try {
     const registros = await global.knex('log_operaciones')
     res.json(registros);
