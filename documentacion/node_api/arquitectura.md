@@ -230,6 +230,7 @@ Generate ZIP → Return Download URL
 
 ### 5. Utils
 - **contestDir.js**: Utilidades para gestión de directorios de concursos y compresión de archivos
+- **cache.js**: Sistema de caché genérico en memoria con TTL configurable (1 hora por defecto). Usado por endpoints de ranking para cachear consultas pesadas
 
 ## Arquitectura de WebSockets
 
@@ -372,23 +373,28 @@ socket.on('event', (data) => {
 - **Database Scaling**: Escalado de base de datos
 
 ### 2. Caching Strategy
-```javascript
-// Cache de consultas frecuentes
-const cache = new Map();
 
-async function getContestData(contestId) {
-  const cacheKey = `contest:${contestId}`;
-  
-  if (cache.has(cacheKey)) {
-    return cache.get(cacheKey);
-  }
-  
-  const data = await db('contests').where({ id: contestId }).first();
-  cache.set(cacheKey, data);
-  
-  return data;
-}
+El sistema cuenta con un módulo de caché genérico en memoria (`utils/cache.js`) implementado sin dependencias externas:
+
+```javascript
+// Creación de instancia con TTL por defecto de 1 hora
+const { createCache } = require('../utils/cache');
+const rankingCache = createCache();
+
+// Uso: cachea el resultado de fetchFn bajo la clave key
+const data = await rankingCache.get('mi_clave', async () => {
+  // consulta pesada a BD
+  return resultados;
+});
 ```
+
+**Características:**
+- **TTL configurable**: por defecto 1 hora (3600000ms)
+- **Limpieza automática**: cada 30 minutos elimina entradas expiradas
+- **Métodos**: `get(key, fetchFn)`, `invalidate(key)`, `invalidateAll()`, `destroy()`
+- **Sin dependencias externas**: implementado sobre `Map` nativo de JavaScript
+
+**Aplicación actual:** endpoints de ranking (`routes/ranking.js`). Las validaciones rápidas (existencia de contest/profile/inscription) se ejecutan siempre; solo se cachean las consultas pesadas (joins múltiples, agregaciones por perfil).
 
 ### 3. Connection Pooling
 ```javascript

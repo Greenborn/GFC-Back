@@ -184,3 +184,5 @@ curl 'https://gfc.prod-api.greenborn.com.ar/api/ranking/detalle?profile_id=386&c
 - **SSO**: los tokens SSO requieren `?unique_id=` en la URL
 - **Log**: cada consulta se registra en `log_operaciones`
 - **Año**: el parámetro `year` se registra en el log pero no filtra los datos (el ranking retorna datos globales de `profiles_ranking_category_section` y `fotoclub_ranking`)
+- **Caché**: los endpoints de ranking utilizan un sistema de caché en memoria centralizado (`utils/cache.js`) con TTL de 1 hora. La primera consulta tras la expiración regenera los datos desde la BD; las siguientes sirven desde caché. Las validaciones de existencia (contest, profile, inscription) no se cachean, solo los datos pesados (joins, agregaciones)
+- **Invalidación**: no hay invalidación manual; el caché expira automáticamente a la hora. Si se necesita forzar refresco, se puede reiniciar el servidor o esperar el TTL

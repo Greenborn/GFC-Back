@@ -2,10 +2,31 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const LogOperacion = require('../controllers/log_operaciones.js');
+const { createCache } = require('../utils/cache');
+
+const rankingCache = createCache();
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const year = req.query.year;
+
+    const data = await rankingCache.get(`general:${year || 'all'}`, async () => {
+      const [profiles, profilesRanking, fotoclubs, sections, categories] = await Promise.all([
+        global.knex('profiles_ranking_category_section').select('*'),
+        global.knex('profiles_ranking').select('*'),
+        global.knex('fotoclub_ranking').select('*'),
+        global.knex('section').select('*'),
+        global.knex('category').select('*').where('mostrar_en_ranking', 1)
+      ]);
+      return {
+        profiles,
+        profiles_ranking: profilesRanking,
+        fotoclubs,
+        Section: sections,
+        Category: categories
+      };
+    });
+
     await LogOperacion(
       req.user?.id || 0,
       `Consulta ranking general${year ? ` year=${year}` : ''}`,
@@ -13,21 +34,7 @@ router.get('/', authMiddleware, async (req, res) => {
       new Date()
     );
 
-    const profiles = await global.knex('profiles_ranking_category_section').select('*');
-    const profilesRanking = await global.knex('profiles_ranking').select('*');
-    const fotoclubs = await global.knex('fotoclub_ranking').select('*');
-    const sections = await global.knex('section').select('*');
-    const categories = await global.knex('category').select('*').where('mostrar_en_ranking', 1);
-
-    return res.json({
-      items: {
-        profiles,
-        profiles_ranking: profilesRanking,
-        fotoclubs,
-        Section: sections,
-        Category: categories
-      }
-    });
+    return res.json({ items: data });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
@@ -68,92 +75,96 @@ router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) 
       return res.status(403).json({ success: false, message: 'El concursante no está inscripto en el concurso' });
     }
 
-    const fotoclub = profile.fotoclub_id
-      ? await global.knex('fotoclub').select('id', 'name', 'photo_url').where({ id: profile.fotoclub_id }).first()
-      : null;
+    const cachedData = await rankingCache.get(`detalle:${contestId}:${profileId}`, async () => {
+      const fotoclub = profile.fotoclub_id
+        ? await global.knex('fotoclub').select('id', 'name', 'photo_url').where({ id: profile.fotoclub_id }).first()
+        : null;
 
-    const categoryAssigned = inscription.category_id
-      ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
-      : null;
+      const categoryAssigned = inscription.category_id
+        ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
+        : null;
 
-    const categories = categoryAssigned ? [categoryAssigned] : [];
+      const categories = categoryAssigned ? [categoryAssigned] : [];
 
-    const rawResults = await global.knex('contest_result as cr')
-      .join('image as i', 'cr.image_id', 'i.id')
-      .join('metric as m', 'cr.metric_id', 'm.id')
-      .join('section as s', 'cr.section_id', 's.id')
-      .leftJoin('thumbnail as t', 'i.id', 't.image_id')
-      .select(
-        'cr.id as contest_result_id',
-        'cr.section_id',
-        's.name as section_name',
-        'i.id as image_id',
-        'i.title as image_title',
-        'i.code as image_code',
-        'i.url as image_url',
-        't.url as thumbnail_url',
-        't.thumbnail_type as thumbnail_type',
-        'm.prize as metric_prize',
-        'm.score as metric_score'
-      )
-      .where('cr.contest_id', contestId)
-      .andWhere('i.profile_id', profileId);
+      const rawResults = await global.knex('contest_result as cr')
+        .join('image as i', 'cr.image_id', 'i.id')
+        .join('metric as m', 'cr.metric_id', 'm.id')
+        .join('section as s', 'cr.section_id', 's.id')
+        .leftJoin('thumbnail as t', 'i.id', 't.image_id')
+        .select(
+          'cr.id as contest_result_id',
+          'cr.section_id',
+          's.name as section_name',
+          'i.id as image_id',
+          'i.title as image_title',
+          'i.code as image_code',
+          'i.url as image_url',
+          't.url as thumbnail_url',
+          't.thumbnail_type as thumbnail_type',
+          'm.prize as metric_prize',
+          'm.score as metric_score'
+        )
+        .where('cr.contest_id', contestId)
+        .andWhere('i.profile_id', profileId);
 
-    const sectionsSet = new Map();
-    for (const r of rawResults) {
-      if (!sectionsSet.has(r.section_id)) {
-        sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
+      const sectionsSet = new Map();
+      for (const r of rawResults) {
+        if (!sectionsSet.has(r.section_id)) {
+          sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
+        }
       }
-    }
-    const sections = Array.from(sectionsSet.values());
+      const sections = Array.from(sectionsSet.values());
 
-    const groupedBySection = new Map();
-    for (const r of rawResults) {
-      const key = r.section_id;
-      if (!groupedBySection.has(key)) {
-        groupedBySection.set(key, {
-          section: r.section_name,
-          category: categoryAssigned ? categoryAssigned.name : null,
-          images: []
+      const groupedBySection = new Map();
+      for (const r of rawResults) {
+        const key = r.section_id;
+        if (!groupedBySection.has(key)) {
+          groupedBySection.set(key, {
+            section: r.section_name,
+            category: categoryAssigned ? categoryAssigned.name : null,
+            images: []
+          });
+        }
+        const scoreNum = Number(r.metric_score) || 0;
+        groupedBySection.get(key).images.push({
+          image_id: r.image_id,
+          title: r.image_title,
+          image_url: r.image_url,
+          thumbnail_url: r.thumbnail_url,
+          metric: { prize: r.metric_prize, score: scoreNum }
         });
       }
-      const scoreNum = Number(r.metric_score) || 0;
-      groupedBySection.get(key).images.push({
-        image_id: r.image_id,
-        title: r.image_title,
-        image_url: r.image_url,
-        thumbnail_url: r.thumbnail_url,
-        metric: { prize: r.metric_prize, score: scoreNum }
-      });
-    }
 
-    const results = Array.from(groupedBySection.values());
+      const results = Array.from(groupedBySection.values());
 
-    let totalScore = 0;
-    for (const r of rawResults) {
-      totalScore += Number(r.metric_score) || 0;
-    }
-
-    const totalsByProfileRows = await global.knex('contest_result as cr')
-      .join('image as i', 'cr.image_id', 'i.id')
-      .join('metric as m', 'cr.metric_id', 'm.id')
-      .where('cr.contest_id', contestId)
-      .select('i.profile_id')
-      .sum({ total_score: 'm.score' })
-      .groupBy('i.profile_id');
-
-    const rankingSorted = totalsByProfileRows
-      .map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 }))
-      .sort((a, b) => b.total_score - a.total_score);
-
-    let position = null;
-    for (let i = 0; i < rankingSorted.length; i++) {
-      const row = rankingSorted[i];
-      if (Number(row.profile_id) === profileId) {
-        position = i + 1;
-        break;
+      let totalScore = 0;
+      for (const r of rawResults) {
+        totalScore += Number(r.metric_score) || 0;
       }
-    }
+
+      const totalsByProfileRows = await global.knex('contest_result as cr')
+        .join('image as i', 'cr.image_id', 'i.id')
+        .join('metric as m', 'cr.metric_id', 'm.id')
+        .where('cr.contest_id', contestId)
+        .select('i.profile_id')
+        .sum({ total_score: 'm.score' })
+        .groupBy('i.profile_id');
+
+      const rankingSorted = totalsByProfileRows
+        .map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 }))
+        .sort((a, b) => b.total_score - a.total_score);
+
+      let position = null;
+      for (let i = 0; i < rankingSorted.length; i++) {
+        const row = rankingSorted[i];
+        if (Number(row.profile_id) === profileId) {
+          position = i + 1;
+          break;
+        }
+      }
+
+      return { fotoclub, categories, sections, results, totalScore, position };
+    });
 
     return res.json({
       contest,
@@ -161,15 +172,15 @@ router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) 
         id: profile.id,
         name: profile.name,
         last_name: profile.last_name,
-        fotoclub: fotoclub || null,
+        fotoclub: cachedData.fotoclub || null,
         img_url: profile.img_url || null
       },
-      categories,
-      sections,
-      results,
+      categories: cachedData.categories,
+      sections: cachedData.sections,
+      results: cachedData.results,
       ranking: {
-        total_score: totalScore,
-        position
+        total_score: cachedData.totalScore,
+        position: cachedData.position
       }
     });
   } catch (error) {
@@ -226,77 +237,81 @@ router.get('/detalle/:profile_id', authMiddleware, async (req, res) => {
       });
     }
 
-    const items = [];
-    for (const contestId of allContestIds) {
-      const contest = await global.knex('contest').where({ id: contestId }).first();
-      const inscription = await global.knex('profile_contest').where({ contest_id: contestId, profile_id: profileId }).first();
-      const categoryAssigned = inscription?.category_id
-        ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
-        : null;
-      const categories = categoryAssigned ? [categoryAssigned] : [];
-      const rawResults = await global.knex('contest_result as cr')
-        .join('image as i', 'cr.image_id', 'i.id')
-        .join('metric as m', 'cr.metric_id', 'm.id')
-        .join('section as s', 'cr.section_id', 's.id')
-        .leftJoin('thumbnail as t', 'i.id', 't.image_id')
-        .select(
-          'cr.id as contest_result_id',
-          'cr.section_id',
-          's.name as section_name',
-          'i.id as image_id',
-          'i.title as image_title',
-          'i.code as image_code',
-          'i.url as image_url',
-          't.url as thumbnail_url',
-          't.thumbnail_type as thumbnail_type',
-          'm.prize as metric_prize',
-          'm.score as metric_score'
-        )
-        .where('cr.contest_id', contestId)
-        .andWhere('i.profile_id', profileId);
-      const sectionsSet = new Map();
-      for (const r of rawResults) {
-        if (!sectionsSet.has(r.section_id)) {
-          sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
+    const cachedData = await rankingCache.get(`detalle:anual:${profileId}:${year}`, async () => {
+      const items = [];
+      for (const contestId of allContestIds) {
+        const contest = await global.knex('contest').where({ id: contestId }).first();
+        const inscription = await global.knex('profile_contest').where({ contest_id: contestId, profile_id: profileId }).first();
+        const categoryAssigned = inscription?.category_id
+          ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
+          : null;
+        const categories = categoryAssigned ? [categoryAssigned] : [];
+        const rawResults = await global.knex('contest_result as cr')
+          .join('image as i', 'cr.image_id', 'i.id')
+          .join('metric as m', 'cr.metric_id', 'm.id')
+          .join('section as s', 'cr.section_id', 's.id')
+          .leftJoin('thumbnail as t', 'i.id', 't.image_id')
+          .select(
+            'cr.id as contest_result_id',
+            'cr.section_id',
+            's.name as section_name',
+            'i.id as image_id',
+            'i.title as image_title',
+            'i.code as image_code',
+            'i.url as image_url',
+            't.url as thumbnail_url',
+            't.thumbnail_type as thumbnail_type',
+            'm.prize as metric_prize',
+            'm.score as metric_score'
+          )
+          .where('cr.contest_id', contestId)
+          .andWhere('i.profile_id', profileId);
+        const sectionsSet = new Map();
+        for (const r of rawResults) {
+          if (!sectionsSet.has(r.section_id)) {
+            sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
+          }
         }
-      }
-      const sections = Array.from(sectionsSet.values());
-      const groupedBySection = new Map();
-      for (const r of rawResults) {
-        const key = r.section_id;
-        if (!groupedBySection.has(key)) {
-          groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
+        const sections = Array.from(sectionsSet.values());
+        const groupedBySection = new Map();
+        for (const r of rawResults) {
+          const key = r.section_id;
+          if (!groupedBySection.has(key)) {
+            groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
+          }
+          const scoreNum = Number(r.metric_score) || 0;
+          groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
         }
-        const scoreNum = Number(r.metric_score) || 0;
-        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
+        const results = Array.from(groupedBySection.values());
+        let totalScore = 0;
+        for (const r of rawResults) totalScore += Number(r.metric_score) || 0;
+        const totalsByProfileRows = await global.knex('contest_result as cr')
+          .join('image as i', 'cr.image_id', 'i.id')
+          .join('metric as m', 'cr.metric_id', 'm.id')
+          .where('cr.contest_id', contestId)
+          .select('i.profile_id')
+          .sum({ total_score: 'm.score' })
+          .groupBy('i.profile_id');
+        const rankingSorted = totalsByProfileRows.map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 })).sort((a, b) => b.total_score - a.total_score);
+        let position = null;
+        for (let i = 0; i < rankingSorted.length; i++) {
+          const row = rankingSorted[i];
+          if (Number(row.profile_id) === profileId) { position = i + 1; break; }
+        }
+        items.push({ contest, categories, sections, results, ranking: { total_score: totalScore, position } });
       }
-      const results = Array.from(groupedBySection.values());
-      let totalScore = 0;
-      for (const r of rawResults) totalScore += Number(r.metric_score) || 0;
-      const totalsByProfileRows = await global.knex('contest_result as cr')
-        .join('image as i', 'cr.image_id', 'i.id')
-        .join('metric as m', 'cr.metric_id', 'm.id')
-        .where('cr.contest_id', contestId)
-        .select('i.profile_id')
-        .sum({ total_score: 'm.score' })
-        .groupBy('i.profile_id');
-      const rankingSorted = totalsByProfileRows.map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 })).sort((a, b) => b.total_score - a.total_score);
-      let position = null;
-      for (let i = 0; i < rankingSorted.length; i++) {
-        const row = rankingSorted[i];
-        if (Number(row.profile_id) === profileId) { position = i + 1; break; }
-      }
-      items.push({ contest, categories, sections, results, ranking: { total_score: totalScore, position } });
-    }
 
-    const fotoclub = profile.fotoclub_id
-      ? await global.knex('fotoclub').select('id', 'name', 'photo_url').where({ id: profile.fotoclub_id }).first()
-      : null;
+      const fotoclub = profile.fotoclub_id
+        ? await global.knex('fotoclub').select('id', 'name', 'photo_url').where({ id: profile.fotoclub_id }).first()
+        : null;
+      return { items, fotoclub };
+    });
+
     return res.json({
-      profile: { id: profile.id, name: profile.name, last_name: profile.last_name, fotoclub: fotoclub || null, img_url: profile.img_url || null },
+      profile: { id: profile.id, name: profile.name, last_name: profile.last_name, fotoclub: cachedData.fotoclub || null, img_url: profile.img_url || null },
       year,
-      items,
-      count: items.length
+      items: cachedData.items,
+      count: cachedData.items.length
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
@@ -337,80 +352,88 @@ router.get('/detalle', authMiddleware, async (req, res) => {
       if (!inscription) {
         return res.status(403).json({ success: false, message: 'El concursante no está inscripto en el concurso' });
       }
-      const fotoclub = profile.fotoclub_id
-        ? await global.knex('fotoclub').select('id', 'name', 'photo_url').where({ id: profile.fotoclub_id }).first()
-        : null;
-      const categoryAssigned = inscription.category_id
-        ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
-        : null;
-      const categories = categoryAssigned ? [categoryAssigned] : [];
-      let rawQuery = global.knex('contest_result as cr')
-        .join('image as i', 'cr.image_id', 'i.id')
-        .join('metric as m', 'cr.metric_id', 'm.id')
-        .join('section as s', 'cr.section_id', 's.id')
-        .leftJoin('thumbnail as t', 'i.id', 't.image_id')
-        .select(
-          'cr.id as contest_result_id',
-          'cr.section_id',
-          's.name as section_name',
-          'i.id as image_id',
-          'i.title as image_title',
-          'i.code as image_code',
-          'i.url as image_url',
-          't.url as thumbnail_url',
-          't.thumbnail_type as thumbnail_type',
-          'm.prize as metric_prize',
-          'm.score as metric_score'
-        )
-        .where('cr.contest_id', contestId)
-        .andWhere('i.profile_id', profileId);
-      if (Number.isFinite(sectionId)) {
-        rawQuery = rawQuery.andWhere('cr.section_id', sectionId);
-      }
-      const rawResults = await rawQuery;
-      const sectionsSet = new Map();
-      for (const r of rawResults) {
-        if (!sectionsSet.has(r.section_id)) {
-          sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
+
+      const cachedData = await rankingCache.get(
+        `detalle:q:${profileId}:${contestId}:${sectionId ?? 'N'}:${year}`,
+        async () => {
+          const fotoclub = profile.fotoclub_id
+            ? await global.knex('fotoclub').select('id', 'name', 'photo_url').where({ id: profile.fotoclub_id }).first()
+            : null;
+          const categoryAssigned = inscription.category_id
+            ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
+            : null;
+          const categories = categoryAssigned ? [categoryAssigned] : [];
+          let rawQuery = global.knex('contest_result as cr')
+            .join('image as i', 'cr.image_id', 'i.id')
+            .join('metric as m', 'cr.metric_id', 'm.id')
+            .join('section as s', 'cr.section_id', 's.id')
+            .leftJoin('thumbnail as t', 'i.id', 't.image_id')
+            .select(
+              'cr.id as contest_result_id',
+              'cr.section_id',
+              's.name as section_name',
+              'i.id as image_id',
+              'i.title as image_title',
+              'i.code as image_code',
+              'i.url as image_url',
+              't.url as thumbnail_url',
+              't.thumbnail_type as thumbnail_type',
+              'm.prize as metric_prize',
+              'm.score as metric_score'
+            )
+            .where('cr.contest_id', contestId)
+            .andWhere('i.profile_id', profileId);
+          if (Number.isFinite(sectionId)) {
+            rawQuery = rawQuery.andWhere('cr.section_id', sectionId);
+          }
+          const rawResults = await rawQuery;
+          const sectionsSet = new Map();
+          for (const r of rawResults) {
+            if (!sectionsSet.has(r.section_id)) {
+              sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
+            }
+          }
+          const sections = Array.from(sectionsSet.values());
+          const groupedBySection = new Map();
+          for (const r of rawResults) {
+            const key = r.section_id;
+            if (!groupedBySection.has(key)) {
+              groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
+            }
+            const scoreNum = Number(r.metric_score) || 0;
+            groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
+          }
+          const results = Array.from(groupedBySection.values());
+          let totalScore = 0;
+          for (const r of rawResults) totalScore += Number(r.metric_score) || 0;
+          let totalsQuery = global.knex('contest_result as cr')
+            .join('image as i', 'cr.image_id', 'i.id')
+            .join('metric as m', 'cr.metric_id', 'm.id')
+            .where('cr.contest_id', contestId)
+            .select('i.profile_id')
+            .sum({ total_score: 'm.score' })
+            .groupBy('i.profile_id');
+          if (Number.isFinite(sectionId)) {
+            totalsQuery = totalsQuery.andWhere('cr.section_id', sectionId);
+          }
+          const totalsByProfileRows = await totalsQuery;
+          const rankingSorted = totalsByProfileRows.map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 })).sort((a, b) => b.total_score - a.total_score);
+          let position = null;
+          for (let i = 0; i < rankingSorted.length; i++) {
+            const row = rankingSorted[i];
+            if (Number(row.profile_id) === profileId) { position = i + 1; break; }
+          }
+          return { fotoclub, categories, sections, results, totalScore, position };
         }
-      }
-      const sections = Array.from(sectionsSet.values());
-      const groupedBySection = new Map();
-      for (const r of rawResults) {
-        const key = r.section_id;
-        if (!groupedBySection.has(key)) {
-          groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
-        }
-        const scoreNum = Number(r.metric_score) || 0;
-        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
-      }
-      const results = Array.from(groupedBySection.values());
-      let totalScore = 0;
-      for (const r of rawResults) totalScore += Number(r.metric_score) || 0;
-      let totalsQuery = global.knex('contest_result as cr')
-        .join('image as i', 'cr.image_id', 'i.id')
-        .join('metric as m', 'cr.metric_id', 'm.id')
-        .where('cr.contest_id', contestId)
-        .select('i.profile_id')
-        .sum({ total_score: 'm.score' })
-        .groupBy('i.profile_id');
-      if (Number.isFinite(sectionId)) {
-        totalsQuery = totalsQuery.andWhere('cr.section_id', sectionId);
-      }
-      const totalsByProfileRows = await totalsQuery;
-      const rankingSorted = totalsByProfileRows.map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 })).sort((a, b) => b.total_score - a.total_score);
-      let position = null;
-      for (let i = 0; i < rankingSorted.length; i++) {
-        const row = rankingSorted[i];
-        if (Number(row.profile_id) === profileId) { position = i + 1; break; }
-      }
+      );
+
       return res.json({
         contest,
-        profile: { id: profile.id, name: profile.name, last_name: profile.last_name, fotoclub: fotoclub || null, img_url: profile.img_url || null },
-        categories,
-        sections,
-        results,
-        ranking: { total_score: totalScore, position }
+        profile: { id: profile.id, name: profile.name, last_name: profile.last_name, fotoclub: cachedData.fotoclub || null, img_url: profile.img_url || null },
+        categories: cachedData.categories,
+        sections: cachedData.sections,
+        results: cachedData.results,
+        ranking: { total_score: cachedData.totalScore, position: cachedData.position }
       });
     }
 
@@ -430,56 +453,69 @@ router.get('/detalle', authMiddleware, async (req, res) => {
     if (allContestIds.length === 0) {
       return res.json({ profile: { id: profile.id, name: profile.name, last_name: profile.last_name, fotoclub: fotoclub || null, img_url: profile.img_url || null }, year, items: [], count: 0, message: 'Sin concursos en el año para el perfil' });
     }
-    const items = [];
-    for (const cId of allContestIds) {
-      const contest = await global.knex('contest').where({ id: cId }).first();
-      const inscription = await global.knex('profile_contest').where({ contest_id: cId, profile_id: profileId }).first();
-      const categoryAssigned = inscription?.category_id
-        ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
-        : null;
-      const categories = categoryAssigned ? [categoryAssigned] : [];
-      let rawQuery = global.knex('contest_result as cr')
-        .join('image as i', 'cr.image_id', 'i.id')
-        .join('metric as m', 'cr.metric_id', 'm.id')
-        .join('section as s', 'cr.section_id', 's.id')
-        .leftJoin('thumbnail as t', 'i.id', 't.image_id')
-        .select('cr.id as contest_result_id', 'cr.section_id', 's.name as section_name', 'i.id as image_id', 'i.title as image_title', 'i.code as image_code', 'i.url as image_url', 't.url as thumbnail_url', 't.thumbnail_type as thumbnail_type', 'm.prize as metric_prize', 'm.score as metric_score')
-        .where('cr.contest_id', cId)
-        .andWhere('i.profile_id', profileId);
-      if (Number.isFinite(sectionId)) {
-        rawQuery = rawQuery.andWhere('cr.section_id', sectionId);
+
+    const cachedData = await rankingCache.get(
+      `detalle:q:anual:${profileId}:${sectionId ?? 'N'}:${year}`,
+      async () => {
+        const items = [];
+        for (const cId of allContestIds) {
+          const contest = await global.knex('contest').where({ id: cId }).first();
+          const inscription = await global.knex('profile_contest').where({ contest_id: cId, profile_id: profileId }).first();
+          const categoryAssigned = inscription?.category_id
+            ? await global.knex('category').select('id', 'name').where({ id: inscription.category_id }).first()
+            : null;
+          const categories = categoryAssigned ? [categoryAssigned] : [];
+          let rawQuery = global.knex('contest_result as cr')
+            .join('image as i', 'cr.image_id', 'i.id')
+            .join('metric as m', 'cr.metric_id', 'm.id')
+            .join('section as s', 'cr.section_id', 's.id')
+            .leftJoin('thumbnail as t', 'i.id', 't.image_id')
+            .select('cr.id as contest_result_id', 'cr.section_id', 's.name as section_name', 'i.id as image_id', 'i.title as image_title', 'i.code as image_code', 'i.url as image_url', 't.url as thumbnail_url', 't.thumbnail_type as thumbnail_type', 'm.prize as metric_prize', 'm.score as metric_score')
+            .where('cr.contest_id', cId)
+            .andWhere('i.profile_id', profileId);
+          if (Number.isFinite(sectionId)) {
+            rawQuery = rawQuery.andWhere('cr.section_id', sectionId);
+          }
+          const rawResults = await rawQuery;
+          const sectionsSet = new Map();
+          for (const r of rawResults) if (!sectionsSet.has(r.section_id)) sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
+          const sections = Array.from(sectionsSet.values());
+          const groupedBySection = new Map();
+          for (const r of rawResults) {
+            const key = r.section_id;
+            if (!groupedBySection.has(key)) groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
+            const scoreNum = Number(r.metric_score) || 0;
+            groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
+          }
+          const results = Array.from(groupedBySection.values());
+          let totalScore = 0;
+          for (const r of rawResults) totalScore += Number(r.metric_score) || 0;
+          let totalsQuery = global.knex('contest_result as cr')
+            .join('image as i', 'cr.image_id', 'i.id')
+            .join('metric as m', 'cr.metric_id', 'm.id')
+            .where('cr.contest_id', cId)
+            .select('i.profile_id')
+            .sum({ total_score: 'm.score' })
+            .groupBy('i.profile_id');
+          if (Number.isFinite(sectionId)) {
+            totalsQuery = totalsQuery.andWhere('cr.section_id', sectionId);
+          }
+          const totalsByProfileRows = await totalsQuery;
+          const rankingSorted = totalsByProfileRows.map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 })).sort((a, b) => b.total_score - a.total_score);
+          let position = null;
+          for (let i = 0; i < rankingSorted.length; i++) { const row = rankingSorted[i]; if (Number(row.profile_id) === profileId) { position = i + 1; break; } }
+          items.push({ contest, categories, sections, results, ranking: { total_score: totalScore, position } });
+        }
+        return items;
       }
-      const rawResults = await rawQuery;
-      const sectionsSet = new Map();
-      for (const r of rawResults) if (!sectionsSet.has(r.section_id)) sectionsSet.set(r.section_id, { id: r.section_id, name: r.section_name });
-      const sections = Array.from(sectionsSet.values());
-      const groupedBySection = new Map();
-      for (const r of rawResults) {
-        const key = r.section_id;
-        if (!groupedBySection.has(key)) groupedBySection.set(key, { section: r.section_name, category: categoryAssigned ? categoryAssigned.name : null, images: [] });
-        const scoreNum = Number(r.metric_score) || 0;
-        groupedBySection.get(key).images.push({ image_id: r.image_id, title: r.image_title, image_url: r.image_url, thumbnail_url: r.thumbnail_url, metric: { prize: r.metric_prize, score: scoreNum } });
-      }
-      const results = Array.from(groupedBySection.values());
-      let totalScore = 0;
-      for (const r of rawResults) totalScore += Number(r.metric_score) || 0;
-      let totalsQuery = global.knex('contest_result as cr')
-        .join('image as i', 'cr.image_id', 'i.id')
-        .join('metric as m', 'cr.metric_id', 'm.id')
-        .where('cr.contest_id', cId)
-        .select('i.profile_id')
-        .sum({ total_score: 'm.score' })
-        .groupBy('i.profile_id');
-      if (Number.isFinite(sectionId)) {
-        totalsQuery = totalsQuery.andWhere('cr.section_id', sectionId);
-      }
-      const totalsByProfileRows = await totalsQuery;
-      const rankingSorted = totalsByProfileRows.map(row => ({ profile_id: row.profile_id, total_score: Number(row.total_score) || 0 })).sort((a, b) => b.total_score - a.total_score);
-      let position = null;
-      for (let i = 0; i < rankingSorted.length; i++) { const row = rankingSorted[i]; if (Number(row.profile_id) === profileId) { position = i + 1; break; } }
-      items.push({ contest, categories, sections, results, ranking: { total_score: totalScore, position } });
-    }
-    return res.json({ profile: { id: profile.id, name: profile.name, last_name: profile.last_name, fotoclub: fotoclub || null, img_url: profile.img_url || null }, year, items, count: items.length });
+    );
+
+    return res.json({
+      profile: { id: profile.id, name: profile.name, last_name: profile.last_name, fotoclub: fotoclub || null, img_url: profile.img_url || null },
+      year,
+      items: cachedData,
+      count: cachedData.length
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
