@@ -118,6 +118,9 @@ router.put('/:id/password', authMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Falta la contraseña actual' });
       }
 
+      if (typeof user.password_hash !== 'string') {
+        return res.status(403).json({ success: false, message: 'Contraseña actual incorrecta' });
+      }
       const isCurrentPasswordValid = bcrypt.compareSync(actual_password, user.password_hash);
       if (!isCurrentPasswordValid) {
         return res.status(403).json({ success: false, message: 'Contraseña actual incorrecta' });

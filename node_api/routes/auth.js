@@ -182,6 +182,9 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ r: false, error: 'Usuario o Contraseña Incorrecta' });
     }
 
+    if (typeof user.password_hash !== 'string') {
+      return res.status(401).json({ r: false, error: 'Usuario o Contraseña Incorrecta' });
+    }
     const isValidPassword = bcrypt.compareSync(password, user.password_hash);
 
     if (!isValidPassword) {
