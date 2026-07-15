@@ -11,7 +11,7 @@ class SectionController extends BaseController {
     public function actions()
     {
         $actions = parent::actions();
-        unset($actions['update']);
+        unset($actions['update'], $actions['delete']);
         return $actions;
     }
 

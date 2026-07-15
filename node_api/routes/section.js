@@ -111,6 +111,40 @@ router.put('/edit', authMiddleware, async (req, res) => {
 });
 
 
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role_id != '1' && req.user.role_id != '2') {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo administradores o delegados pueden eliminar secciones.' });
+    }
+
+    const { id } = req.params;
+
+    const section = await global.knex('section').where('id', id).first();
+    if (!section) {
+      return res.status(404).json({ message: 'Sección no encontrada' });
+    }
+
+    const contestVinculado = await global.knex('contest_section').where('section_id', id).first();
+    if (contestVinculado) {
+      return res.status(409).json({ message: 'No se puede eliminar la sección porque tiene concursos vinculados.' });
+    }
+
+    const resultadoVinculado = await global.knex('contest_result').where('section_id', id).first();
+    if (resultadoVinculado) {
+      return res.status(409).json({ message: 'No se puede eliminar la sección porque tiene resultados de concurso vinculados.' });
+    }
+
+    await global.knex('section').where('id', id).del();
+
+    await LogOperacion(req.user.id, 'Eliminación de Sección - ' + req.user.username, null, new Date());
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Ocurrió un error interno, contacte con soporte.' });
+  }
+});
+
 async function createSection(req, res) {
   try {
     if (req.user.role_id != '1' && req.user.role_id != '2') {
@@ -127,7 +161,8 @@ async function createSection(req, res) {
       return res.json({ stat: false, text: 'El nombre no puede superar los 45 caracteres' });
     }
 
-    const [newId] = await global.knex('section').insert({ name });
+    const [row] = await global.knex('section').insert({ name }).returning('id');
+    const newId = row?.id ?? row;
 
     await LogOperacion(req.user.id, 'Creación de Sección - ' + req.user.username, null, new Date());
 
