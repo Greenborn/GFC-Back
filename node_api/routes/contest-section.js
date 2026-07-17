@@ -2,96 +2,9 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
-const LogOperacion = require('../controllers/log_operaciones.js');
-
-function normalizeFilterValue(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string' && value.includes(',')) {
-    return value.split(',').map(item => item.trim()).filter(Boolean);
-  }
-  return value;
-}
-
-function parseFilterParams(query) {
-  const filter = {};
-  if (query.filter && typeof query.filter === 'object') {
-    Object.assign(filter, query.filter);
-  }
-  for (const [key, value] of Object.entries(query)) {
-    const match = key.match(/^filter\[(.+)\]$/);
-    if (match) {
-      filter[match[1]] = value;
-    }
-  }
-  return filter;
-}
-
-function buildQueryString(query, filterParams) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (key === 'filter') continue;
-    if (/^filter\[.*\]$/.test(key)) continue;
-    if (value == null) continue;
-    if (Array.isArray(value)) {
-      value.forEach(v => params.append(key, String(v)));
-    } else if (typeof value === 'object') {
-      // skip nested objects except filter
-      continue;
-    } else {
-      params.set(key, String(value));
-    }
-  }
-  for (const [key, value] of Object.entries(filterParams)) {
-    if (value == null) continue;
-    if (Array.isArray(value)) {
-      value.forEach(v => params.append(`filter[${key}]`, String(v)));
-    } else {
-      params.set(`filter[${key}]`, String(value));
-    }
-  }
-  return params.toString();
-}
-
-function applyFilterObject(query, filter) {
-  if (!filter || typeof filter !== 'object') return;
-  for (const [key, value] of Object.entries(filter)) {
-    if (value == null) continue;
-    if (key === 'section' && typeof value === 'object') {
-      applyFilterObject(query, value);
-      continue;
-    }
-    const filterKey = key.replace(/^section\./, '');
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      if (value.in != null) {
-        const normalized = normalizeFilterValue(value.in);
-        query.whereIn(filterKey, Array.isArray(normalized) ? normalized : [normalized]);
-        continue;
-      }
-      if (value.between != null) {
-        const normalized = normalizeFilterValue(value.between);
-        if (Array.isArray(normalized) && normalized.length === 2) {
-          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
-          query.whereBetween(filterKey, [a, b]);
-        }
-        continue;
-      }
-      if (value.inside != null) {
-        const normalized = normalizeFilterValue(value.inside);
-        if (Array.isArray(normalized) && normalized.length === 2) {
-          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
-          query.where(filterKey, '>', a).andWhere(filterKey, '<', b);
-        }
-        continue;
-      }
-    }
-    const normalized = normalizeFilterValue(value);
-    if (Array.isArray(normalized)) {
-      query.whereIn(filterKey, normalized);
-    } else {
-      query.where(filterKey, normalized);
-    }
-  }
-}
+const { logAction } = require('../utils/log.js');
+const { parseFilterParams, applyFilterObject } = require('../utils/filters.js');
+const { buildPaginationResponse } = require('../utils/pagination.js');
 
 // GET /contest-section - Listar relaciones contest_section con filtros y expand
 router.get('/', authMiddleware, async (req, res) => {
@@ -108,11 +21,11 @@ router.get('/', authMiddleware, async (req, res) => {
     const offset = (currentPage - 1) * perPage;
 
     const countQuery = global.knex('contest_section').count('id as count').first();
-    applyFilterObject(countQuery, filterParams);
+    applyFilterObject(countQuery, filterParams, { nestedKey: 'section' });
 
     const dataQuery = global.knex('contest_section as cs')
       .select('cs.id', 'cs.contest_id', 'cs.section_id');
-    applyFilterObject(dataQuery, filterParams);
+    applyFilterObject(dataQuery, filterParams, { nestedKey: 'section' });
 
     if (includeSection) {
       dataQuery
@@ -140,25 +53,8 @@ router.get('/', authMiddleware, async (req, res) => {
       return item;
     });
 
-    const baseUrl = `${req.protocol}://${req.get('host')}${req.path}`;
-    const selfQuery = buildQueryString(req.query, { ...filterParams, page: currentPage });
-    const firstQuery = buildQueryString(req.query, { ...filterParams, page: 1 });
-    const lastQuery = buildQueryString(req.query, { ...filterParams, page: pageCount });
-
-    res.json({
-      items,
-      _links: {
-        self: { href: `${baseUrl}?${selfQuery}` },
-        first: { href: `${baseUrl}?${firstQuery}` },
-        last: { href: `${baseUrl}?${lastQuery}` }
-      },
-      _meta: {
-        totalCount,
-        pageCount,
-        currentPage,
-        perPage
-      }
-    });
+    const pagination = buildPaginationResponse(req, totalCount, currentPage, perPage);
+    res.json({ items, ...pagination });
   } catch (error) {
     console.error('Error en GET /contest-section:', error);
     res.status(500).json({
@@ -227,12 +123,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
 
     await global.knex('contest_section').insert(data);
 
-    await LogOperacion(
-      req.user.id,
-      `Creación de ContestSection - ${req.user.username}`,
-      JSON.stringify(data),
-      new Date()
-    );
+    await logAction(req, `Creación de ContestSection - ${req.user.username}`, JSON.stringify(data));
 
     return res.status(201).json({
       success: true,

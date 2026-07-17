@@ -4,10 +4,13 @@ const fs = require('fs');
 const multer = require('multer');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const LogOperacion = require('../controllers/log_operaciones.js')
+const { logAction } = require('../utils/log.js');
+const { saveUploadedFile } = require('../utils/images.js');
+const { buildPaginationResponse } = require('../utils/pagination.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 const { isValidOrganizationType } = require('../utils/organizationType');
+const { insertAndGetId } = require('../utils/db.js');
 
 const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
 const upload = multer({ storage: multer.memoryStorage() });
@@ -54,21 +57,11 @@ router.post('/', authMiddleware, upload.fields([
         let rules_url = null;
 
         if (req.files && req.files.image_file && req.files.image_file.length > 0) {
-            const image = req.files.image_file[0];
-            const ext = path.extname(image.originalname) || `.${(image.mimetype || 'jpeg').split('/').pop()}`;
-            const filename = `contest_title_${Date.now()}${ext}`;
-            const filepath = path.join(imagesDir, filename);
-            fs.writeFileSync(filepath, image.buffer);
-            img_url = path.posix.join('images', filename);
+            img_url = saveUploadedFile(req.files.image_file[0], 'contest_title');
         }
 
         if (req.files && req.files.rules_file && req.files.rules_file.length > 0) {
-            const rulesFile = req.files.rules_file[0];
-            const ext = path.extname(rulesFile.originalname) || `.${(rulesFile.mimetype || 'pdf').split('/').pop()}`;
-            const filename = `rules_${Date.now()}${ext}`;
-            const filepath = path.join(imagesDir, filename);
-            fs.writeFileSync(filepath, rulesFile.buffer);
-            rules_url = path.posix.join('images', filename);
+            rules_url = saveUploadedFile(req.files.rules_file[0], 'rules');
         }
 
         const contestData = {
@@ -84,20 +77,9 @@ router.post('/', authMiddleware, upload.fields([
             judged: false
         };
 
-        const insertResult = await global.knex('contest')
-            .insert(contestData)
-            .returning('id');
+        const contestId = await insertAndGetId(global.knex, 'contest', contestData);
 
-        const contestId = Array.isArray(insertResult)
-            ? (insertResult[0] && typeof insertResult[0] === 'object' ? insertResult[0].id : insertResult[0])
-            : insertResult;
-
-        await LogOperacion(
-            req.user.id,
-            `Creación de Concurso - ${req.user.username}`,
-            { new: contestData },
-            new Date()
-        );
+        await logAction(req, `Creación de Concurso - ${req.user.username}`, { new: contestData });
 
         return res.status(201).json({
             success: true,
@@ -113,13 +95,7 @@ router.post('/', authMiddleware, upload.fields([
 // Endpoint para listar concursos con expansión de categorías y secciones (compatible con API PHP)
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        // Log de operación para usuarios autenticados
-        await LogOperacion(
-            req.user.id,
-            `Consulta de listado de concursos - ${req.user.username}`,
-            null,
-            new Date()
-        );
+        await logAction(req, `Consulta de listado de concursos - ${req.user.username}`);
 
         // Parámetros de consulta
         const { expand, sort, page = 1, 'per-page': perPage = 20, search } = req.query;
@@ -200,43 +176,8 @@ router.get('/', authMiddleware, async (req, res) => {
             }
         }
 
-        // Construir respuesta con formato compatible con API PHP
-        const baseUrl = `${req.protocol}://${req.get('host')}${req.originalUrl.split('?')[0]}`;
-        const response = {
-            items: contests,
-            _links: {
-                self: {
-                    href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: currentPage }).toString()}`
-                },
-                first: {
-                    href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: 1 }).toString()}`
-                },
-                last: {
-                    href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: pageCount }).toString()}`
-                }
-            },
-            _meta: {
-                totalCount: totalCount,
-                pageCount: pageCount,
-                currentPage: currentPage,
-                perPage: itemsPerPage
-            }
-        };
-
-        // Agregar enlaces next/prev si corresponde
-        if (currentPage < pageCount) {
-            response._links.next = {
-                href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: currentPage + 1 }).toString()}`
-            };
-        }
-
-        if (currentPage > 1) {
-            response._links.prev = {
-                href: `${baseUrl}?${new URLSearchParams({ ...req.query, page: currentPage - 1 }).toString()}`
-            };
-        }
-
-        res.json(response);
+        const pagination = buildPaginationResponse(req, totalCount, currentPage, itemsPerPage);
+        res.json({ items: contests, ...pagination });
 
     } catch (error) {
         console.error('Error al obtener concursos:', error);
@@ -249,7 +190,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-        await LogOperacion(req.user.id, 'Consulta de Concursos - ' + req.user.username, null, new Date())
+        await logAction(req, 'Consulta de Concursos - ' + req.user.username)
 
         res.json({
             items: await global.knex('contest'),
@@ -274,13 +215,7 @@ router.get('/participants', authMiddleware, async (req, res) => {
             message: 'No tiene permisos para acceder a este recurso'
         });
     }
-    // Registrar log de operación
-    await LogOperacion(
-        req.user.id,
-        `Consulta de participantes del concurso (id: ${req.query.id}) - ${req.user.username}`,
-        null,
-        new Date()
-    );
+    await logAction(req, `Consulta de participantes del concurso (id: ${req.query.id}) - ${req.user.username}`);
     try {
         const contestId = parseInt(req.query.id);
 
@@ -549,21 +484,11 @@ router.put('/:id', adminMiddleware, upload.fields([
         }
 
         if (req.files && req.files.image_file && req.files.image_file.length > 0) {
-            const image = req.files.image_file[0];
-            const ext = path.extname(image.originalname) || `.${(image.mimetype || 'jpeg').split('/').pop()}`;
-            const filename = `contest_title_${Date.now()}${ext}`;
-            const filepath = path.join(imagesDir, filename);
-            fs.writeFileSync(filepath, image.buffer);
-            updateData.img_url = path.posix.join('images', filename);
+            updateData.img_url = saveUploadedFile(req.files.image_file[0], 'contest_title');
         }
 
         if (req.files && req.files.rules_file && req.files.rules_file.length > 0) {
-            const rulesFile = req.files.rules_file[0];
-            const ext = path.extname(rulesFile.originalname) || `.${(rulesFile.mimetype || 'pdf').split('/').pop()}`;
-            const filename = `rules_${Date.now()}${ext}`;
-            const filepath = path.join(imagesDir, filename);
-            fs.writeFileSync(filepath, rulesFile.buffer);
-            updateData.rules_url = path.posix.join('images', filename);
+            updateData.rules_url = saveUploadedFile(req.files.rules_file[0], 'rules');
         }
 
         if (Object.keys(updateData).length === 0) {
@@ -574,12 +499,7 @@ router.put('/:id', adminMiddleware, upload.fields([
             .where({ id: contestId })
             .update(updateData);
 
-        await LogOperacion(
-            req.user.id,
-            `Actualización de Concurso - ${req.user.username}`,
-            { before: existingContest, after: updateData },
-            new Date()
-        );
+        await logAction(req, `Actualización de Concurso - ${req.user.username}`, { before: existingContest, after: updateData });
 
         return res.json({ success: true, id: contestId, ...updateData });
     } catch (error) {
@@ -1096,19 +1016,13 @@ router.delete('/:id', adminMiddleware, async (req, res) => {
         // Confirmar transacción
         await trx.commit();
 
-        // Log de operación
-        await LogOperacion(
-            req.user.id,
-            `Eliminación de concurso ID: ${contestId} - Nombre: ${contest.name} - Usuario: ${req.user.username}`,
-            JSON.stringify({
-                contest_id: contestId,
-                contest_name: contest.name,
-                deleted_categories: deletedCategories,
-                deleted_sections: deletedSections,
-                deleted_records: deletedRecords
-            }),
-            new Date()
-        );
+        await logAction(req, `Eliminación de concurso ID: ${contestId} - Nombre: ${contest.name} - Usuario: ${req.user.username}`, JSON.stringify({
+            contest_id: contestId,
+            contest_name: contest.name,
+            deleted_categories: deletedCategories,
+            deleted_sections: deletedSections,
+            deleted_records: deletedRecords
+        }));
 
         res.status(200).json({
             success: true,

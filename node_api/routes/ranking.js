@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
 const { createCache } = require('../utils/cache');
 
 const rankingCache = createCache();
@@ -27,12 +27,7 @@ router.get('/', authMiddleware, async (req, res) => {
       };
     });
 
-    await LogOperacion(
-      req.user?.id || 0,
-      `Consulta ranking general${year ? ` year=${year}` : ''}`,
-      null,
-      new Date()
-    );
+    await logAction(req, `Consulta ranking general${year ? ` year=${year}` : ''}`);
 
     return res.json({ items: data });
   } catch (error) {
@@ -48,12 +43,7 @@ router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) 
       return res.status(400).json({ success: false, message: 'Parámetros inválidos' });
     }
 
-    await LogOperacion(
-      req.user?.id || 0,
-      `Consulta detalle ranking contest_id=${contestId} profile_id=${profileId}`,
-      null,
-      new Date()
-    );
+    await logAction(req, `Consulta detalle ranking contest_id=${contestId} profile_id=${profileId}`);
 
     const contest = await global.knex('contest').where({ id: contestId }).first();
     if (!contest) {
@@ -196,12 +186,7 @@ router.get('/detalle/:profile_id', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Parámetros inválidos' });
     }
 
-    await LogOperacion(
-      req.user?.id || 0,
-      `Consulta detalle ranking anual profile_id=${profileId} year=${year}`,
-      null,
-      new Date()
-    );
+    await logAction(req, `Consulta detalle ranking anual profile_id=${profileId} year=${year}`);
 
     const profile = await global.knex('profile').where({ id: profileId }).first();
     if (!profile) {
@@ -328,12 +313,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Parámetro profile_id inválido' });
     }
 
-    await LogOperacion(
-      req.user?.id || 0,
-      `Consulta detalle ranking qparams profile_id=${profileId} contest_id=${contestId ?? '-'} year=${year} section_id=${sectionId ?? '-'}`,
-      null,
-      new Date()
-    );
+    await logAction(req, `Consulta detalle ranking qparams profile_id=${profileId} contest_id=${contestId ?? '-'} year=${year} section_id=${sectionId ?? '-'}`);
 
     const profile = await global.knex('profile').where({ id: profileId }).first();
     if (!profile) {

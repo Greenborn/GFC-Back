@@ -1,4 +1,4 @@
-const LogOperacion = require('./log_operaciones.js');
+const { logAction } = require('../utils/log.js');
 
 /**
  * Obtiene un valor de un objeto usando una ruta tipo dot notation
@@ -193,13 +193,7 @@ class FotoDelAnioController {
                 return { temporada, cantidad: fotosParaInsertar.length };
             });
 
-            // Log de la operación
-            await LogOperacion(
-                req.user.id,
-                `Registro de fotos del año - Temporada ${resultado.temporada} - ${req.user.username}`,
-                `Se registraron ${resultado.cantidad} fotos del año para la temporada ${resultado.temporada}`,
-                new Date()
-            );
+            await logAction(req, `Registro de fotos del año - Temporada ${resultado.temporada} - ${req.user.username}`, `Se registraron ${resultado.cantidad} fotos del año para la temporada ${resultado.temporada}`);
 
             return res.json({
                 success: true,

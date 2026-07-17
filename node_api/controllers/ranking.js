@@ -1,6 +1,88 @@
 // Controlador de Recalculo de Ranking Anual
 // Implementa la funcionalidad definida en documentacion/node_api/promt_funcion_recalculo_ranking.md
 
+// ── Shared data collection for ranking ──
+
+async function collectContestData(knex, contestIds) {
+  const inscriptions = await knex('profile_contest')
+    .select('contest_id', 'profile_id', 'category_id')
+    .whereIn('contest_id', contestIds);
+
+  const categoryMap = new Map();
+  for (const pc of inscriptions) {
+    const key = `${pc.contest_id}:${pc.profile_id}`;
+    if (!categoryMap.has(key) && pc.category_id != null) {
+      categoryMap.set(key, pc.category_id);
+    }
+  }
+
+  const resultados = await knex('contest_result as cr')
+    .select('cr.contest_id', 'cr.section_id', 'i.profile_id', 'm.score as metric_score', 'm.prize as metric_prize')
+    .join('metric as m', 'cr.metric_id', 'm.id')
+    .join('image as i', 'cr.image_id', 'i.id')
+    .whereIn('cr.contest_id', contestIds);
+
+  const perfilesRankingTotal = new Map();
+  const agregadosPerfiles = new Map();
+  const perfilesIdsSet = new Set();
+
+  for (const r of resultados) {
+    const score = Number(r.metric_score) || 0;
+    perfilesRankingTotal.set(r.profile_id, (perfilesRankingTotal.get(r.profile_id) || 0) + score);
+
+    const catKey = `${r.contest_id}:${r.profile_id}`;
+    const categoryId = categoryMap.get(catKey);
+    if (!categoryId) continue;
+
+    const key = `${categoryId}|${r.section_id}|${r.profile_id}`;
+    if (!agregadosPerfiles.has(key)) {
+      agregadosPerfiles.set(key, {
+        profile_id: r.profile_id, section_id: r.section_id, category_id: categoryId,
+        sumatoria_puntos: 0, resumen_premios: {}, cant_presentadas: 0, cant_premiadas: 0
+      });
+    }
+    const agg = agregadosPerfiles.get(key);
+    const prize = r.metric_prize || '-';
+    agg.sumatoria_puntos += score;
+    agg.cant_presentadas += 1;
+    if (score > 0) agg.cant_premiadas += 1;
+    agg.resumen_premios[prize] = (agg.resumen_premios[prize] || 0) + score;
+    perfilesIdsSet.add(r.profile_id);
+  }
+
+  const perfilesIds = Array.from(perfilesIdsSet);
+  const perfiles = perfilesIds.length
+    ? await knex('profile').select('id', 'name', 'last_name', 'fotoclub_id').whereIn('id', perfilesIds)
+    : [];
+  const perfilesById = new Map(perfiles.map(p => [p.id, p]));
+
+  const fotoclubs = await knex('fotoclub').select('id', 'name', 'mostrar_en_ranking');
+  const fotoclubById = new Map(fotoclubs.map(f => [f.id, f]));
+
+  const agregadosFotoclub = new Map();
+  for (const agg of agregadosPerfiles.values()) {
+    const perfil = perfilesById.get(agg.profile_id);
+    if (!perfil) continue;
+    const fc = fotoclubById.get(perfil.fotoclub_id);
+    if (!fc || fc.mostrar_en_ranking !== 1) continue;
+    if (!agregadosFotoclub.has(perfil.fotoclub_id)) {
+      agregadosFotoclub.set(perfil.fotoclub_id, {
+        fotoclub_id: perfil.fotoclub_id, sumatoria_puntos: 0, resumen_premios: {},
+        cant_presentadas: 0, cant_premiadas: 0
+      });
+    }
+    const aggFc = agregadosFotoclub.get(perfil.fotoclub_id);
+    aggFc.sumatoria_puntos += agg.sumatoria_puntos;
+    aggFc.cant_presentadas += agg.cant_presentadas;
+    aggFc.cant_premiadas += agg.cant_premiadas;
+    for (const [prize, val] of Object.entries(agg.resumen_premios)) {
+      aggFc.resumen_premios[prize] = (aggFc.resumen_premios[prize] || 0) + (Number(val) || 0);
+    }
+  }
+
+  return { agregadosPerfiles, agregadosFotoclub, perfilesById, fotoclubById, perfilesRankingTotal, perfilesIdsSet };
+}
+
 /**
  * Recalcula el ranking anual de perfiles y fotoclubs.
  * - Limpia tablas de ranking
@@ -13,10 +95,8 @@ async function actualizarRanking() {
   const knex = global.knex;
   if (!knex) throw new Error('Conexión a base de datos (global.knex) no inicializada');
 
-  // Inicio de temporada: primer día de enero del año actual
   const startOfYear = new Date(new Date().getFullYear(), 0, 1);
 
-  // Consulta de concursos del año actual, internos y juzgados
   const contests = await knex('contest')
     .select('id')
     .where({ organization_type: 'INTERNO', judged: true })
@@ -24,7 +104,6 @@ async function actualizarRanking() {
   console.log(`Concursos juzgados del año actual encontrados: ${contests.length}`, startOfYear);
   const contestIds = contests.map(c => c.id);
   if (contestIds.length === 0) {
-    // Aún así vaciamos tablas por consistencia
     await knex.transaction(async (trx) => {
       await trx('profiles_ranking_category_section').del();
       await trx('fotoclub_ranking').del();
@@ -33,115 +112,7 @@ async function actualizarRanking() {
     return { stat: true, message: 'No hay concursos juzgados en el año actual', perfiles_insertados: 0, fotoclubs_insertados: 0 };
   }
 
-  // Prefetch de inscripciones para mapear contest_id + profile_id -> category_id
-  const inscriptions = await knex('profile_contest')
-    .select('contest_id', 'profile_id', 'category_id')
-    .whereIn('contest_id', contestIds);
-
-  const categoryMap = new Map(); // key: `${contest_id}:${profile_id}` -> category_id
-  for (const pc of inscriptions) {
-    const key = `${pc.contest_id}:${pc.profile_id}`;
-    // Si existe más de una inscripción, conservamos la primera
-    if (!categoryMap.has(key) && pc.category_id != null) {
-      categoryMap.set(key, pc.category_id);
-    }
-  }
-
-  // Resultados con joins necesarios
-  const resultados = await knex('contest_result as cr')
-    .select(
-      'cr.contest_id',
-      'cr.section_id',
-      'i.profile_id',
-      'm.score as metric_score',
-      'm.prize as metric_prize'
-    )
-    .join('metric as m', 'cr.metric_id', 'm.id')
-    .join('image as i', 'cr.image_id', 'i.id')
-    .whereIn('cr.contest_id', contestIds);
-
-  const perfilesRankingTotal = new Map();
-  for (const r of resultados) {
-    const score = Number(r.metric_score) || 0;
-    perfilesRankingTotal.set(
-      r.profile_id,
-      (perfilesRankingTotal.get(r.profile_id) || 0) + score
-    );
-  }
-
-  // Agregación por perfil/categoría/sección
-  const agregadosPerfiles = new Map(); // key: `${category_id}|${section_id}|${profile_id}`
-  const perfilesIdsSet = new Set();
-
-  for (const r of resultados) {
-    const catKey = `${r.contest_id}:${r.profile_id}`;
-    const categoryId = categoryMap.get(catKey);
-    if (!categoryId) {
-      // No se puede asignar categoría, se omite este resultado
-      continue;
-    }
-
-    const key = `${categoryId}|${r.section_id}|${r.profile_id}`;
-    if (!agregadosPerfiles.has(key)) {
-      agregadosPerfiles.set(key, {
-        profile_id: r.profile_id,
-        section_id: r.section_id,
-        category_id: categoryId,
-        sumatoria_puntos: 0,
-        resumen_premios: {}, // { prize: sum(score) }
-        cant_presentadas: 0,
-        cant_premiadas: 0
-      });
-    }
-    const agg = agregadosPerfiles.get(key);
-    const score = Number(r.metric_score) || 0;
-    const prize = r.metric_prize || '-';
-
-    agg.sumatoria_puntos += score;
-    agg.cant_presentadas += 1;
-    if (score > 0) agg.cant_premiadas += 1;
-    agg.resumen_premios[prize] = (agg.resumen_premios[prize] || 0) + score; // suma de puntaje por premio
-
-    perfilesIdsSet.add(r.profile_id);
-  }
-
-  const perfilesIds = Array.from(perfilesIdsSet);
-  const perfiles = perfilesIds.length
-    ? await knex('profile').select('id', 'name', 'last_name', 'fotoclub_id').whereIn('id', perfilesIds)
-    : [];
-  const perfilesById = new Map(perfiles.map(p => [p.id, p]));
-
-  // Fotoclubs visibles para ranking
-  const fotoclubs = await knex('fotoclub').select('id', 'name', 'mostrar_en_ranking');
-  const fotoclubById = new Map(fotoclubs.map(f => [f.id, f]));
-
-  // Agregación por fotoclub
-  const agregadosFotoclub = new Map(); // key: fotoclub_id -> { sumatoria_puntos, resumen_premios, cant_presentadas, cant_premiadas }
-
-  for (const agg of agregadosPerfiles.values()) {
-    const perfil = perfilesById.get(agg.profile_id);
-    if (!perfil) continue;
-    const fc = fotoclubById.get(perfil.fotoclub_id);
-    if (!fc || fc.mostrar_en_ranking !== 1) continue;
-
-    if (!agregadosFotoclub.has(perfil.fotoclub_id)) {
-      agregadosFotoclub.set(perfil.fotoclub_id, {
-        fotoclub_id: perfil.fotoclub_id,
-        sumatoria_puntos: 0,
-        resumen_premios: {},
-        cant_presentadas: 0,
-        cant_premiadas: 0
-      });
-    }
-    const aggFc = agregadosFotoclub.get(perfil.fotoclub_id);
-    aggFc.sumatoria_puntos += agg.sumatoria_puntos;
-    aggFc.cant_presentadas += agg.cant_presentadas;
-    aggFc.cant_premiadas += agg.cant_premiadas;
-    // Merge de premios (sumatoria de puntajes por premio)
-    for (const [prize, val] of Object.entries(agg.resumen_premios)) {
-      aggFc.resumen_premios[prize] = (aggFc.resumen_premios[prize] || 0) + (Number(val) || 0);
-    }
-  }
+  const { agregadosPerfiles, agregadosFotoclub, perfilesById, fotoclubById, perfilesRankingTotal } = await collectContestData(knex, contestIds);
 
   // Persistencia en transacción
   let perfilesInsertados = 0;
@@ -290,94 +261,7 @@ async function validarRanking(options = {}) {
     };
   }
 
-  // 2) Mapear inscripción (contest_id + profile_id -> category_id)
-  const inscriptions = await knex('profile_contest')
-    .select('contest_id', 'profile_id', 'category_id')
-    .whereIn('contest_id', contestIds);
-  const categoryMap = new Map();
-  for (const pc of inscriptions) {
-    const key = `${pc.contest_id}:${pc.profile_id}`;
-    if (!categoryMap.has(key) && pc.category_id != null) {
-      categoryMap.set(key, pc.category_id);
-    }
-  }
-
-  // 3) Resultados del año, con joins
-  const resultados = await knex('contest_result as cr')
-    .select(
-      'cr.contest_id',
-      'cr.section_id',
-      'i.profile_id',
-      'm.score as metric_score',
-      'm.prize as metric_prize'
-    )
-    .join('metric as m', 'cr.metric_id', 'm.id')
-    .join('image as i', 'cr.image_id', 'i.id')
-    .whereIn('cr.contest_id', contestIds);
-
-  // 4) Agregar esperado por perfil/categoría/sección (misma lógica de recálculo)
-  const agregadosPerfiles = new Map(); // key: `${category_id}|${section_id}|${profile_id}`
-  const perfilesIdsSet = new Set();
-  for (const r of resultados) {
-    const catKey = `${r.contest_id}:${r.profile_id}`;
-    const categoryId = categoryMap.get(catKey);
-    if (!categoryId) continue; // sin categoría, se omite
-    const key = `${categoryId}|${r.section_id}|${r.profile_id}`;
-    if (!agregadosPerfiles.has(key)) {
-      agregadosPerfiles.set(key, {
-        profile_id: r.profile_id,
-        section_id: r.section_id,
-        category_id: categoryId,
-        sumatoria_puntos: 0,
-        resumen_premios: {},
-        cant_presentadas: 0,
-        cant_premiadas: 0
-      });
-    }
-    const agg = agregadosPerfiles.get(key);
-    const score = Number(r.metric_score) || 0;
-    const prize = r.metric_prize || '-';
-    agg.sumatoria_puntos += score;
-    agg.cant_presentadas += 1;
-    if (score > 0) agg.cant_premiadas += 1;
-    agg.resumen_premios[prize] = (agg.resumen_premios[prize] || 0) + score;
-    perfilesIdsSet.add(r.profile_id);
-  }
-
-  // 5) Datos auxiliares de perfiles y fotoclubs
-  const perfilesIds = Array.from(perfilesIdsSet);
-  const perfiles = perfilesIds.length
-    ? await knex('profile').select('id', 'name', 'last_name', 'fotoclub_id').whereIn('id', perfilesIds)
-    : [];
-  const perfilesById = new Map(perfiles.map(p => [p.id, p]));
-
-  const fotoclubs = await knex('fotoclub').select('id', 'name', 'mostrar_en_ranking');
-  const fotoclubById = new Map(fotoclubs.map(f => [f.id, f]));
-
-  // 6) Agregar esperado por fotoclub
-  const agregadosFotoclub = new Map(); // fotoclub_id -> agg
-  for (const agg of agregadosPerfiles.values()) {
-    const perfil = perfilesById.get(agg.profile_id);
-    if (!perfil) continue;
-    const fc = fotoclubById.get(perfil.fotoclub_id);
-    if (!fc || fc.mostrar_en_ranking !== 1) continue;
-    if (!agregadosFotoclub.has(perfil.fotoclub_id)) {
-      agregadosFotoclub.set(perfil.fotoclub_id, {
-        fotoclub_id: perfil.fotoclub_id,
-        sumatoria_puntos: 0,
-        resumen_premios: {},
-        cant_presentadas: 0,
-        cant_premiadas: 0
-      });
-    }
-    const aggFc = agregadosFotoclub.get(perfil.fotoclub_id);
-    aggFc.sumatoria_puntos += agg.sumatoria_puntos;
-    aggFc.cant_presentadas += agg.cant_presentadas;
-    aggFc.cant_premiadas += agg.cant_premiadas;
-    for (const [prize, val] of Object.entries(agg.resumen_premios)) {
-      aggFc.resumen_premios[prize] = (aggFc.resumen_premios[prize] || 0) + (Number(val) || 0);
-    }
-  }
+  const { agregadosPerfiles, agregadosFotoclub, perfilesById, fotoclubById } = await collectContestData(knex, contestIds);
 
   // 7) Leer registros almacenados de ranking
   const registrosPerfiles = await knex('profiles_ranking_category_section')

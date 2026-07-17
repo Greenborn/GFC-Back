@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 const router       = express.Router();
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { saveBase64Image } = require('../utils/images.js');
 const writeProtection = require('../middleware/writeProtection.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const { isValidOrganizationType } = require('../utils/organizationType');
@@ -11,7 +12,7 @@ const { isValidOrganizationType } = require('../utils/organizationType');
 router.get('/get_all', async (req, res) => {
     try {
       if (req?.user?.role_id == '1') {
-        await LogOperacion(req.user.id, 'Consulta de Fotoclubes - ' + req.user.username, null, new Date()) 
+        await logAction(req, 'Consulta de Fotoclubes - ' + req.user.username) 
       }
 
       // Por defecto solo retorna fotoclubes habilitados
@@ -72,20 +73,7 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
     let photo_url = oldFotoclub.photo_url;
     if (image) {
       try {
-        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
-        const year = new Date().getFullYear();
-        const dir = path.join(uploadsBasePath, year.toString());
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
-        // Detect extension from base64 string
-        const matches = image.match(/^data:image\/(\w+);base64,(.+)$/);
-        const ext = matches ? matches[1] : 'jpg';
-        const base64Data = matches ? matches[2] : image;
-        const filename = `foto_club_${Date.now()}.${ext}`;
-        const filepath = path.join(dir, filename);
-        fs.writeFileSync(filepath, base64Data, 'base64');
-        photo_url = path.join(year.toString(), filename);
+        photo_url = await saveBase64Image(image, 'foto_club');
       } catch (err) {
         console.error('Error guardando imagen:', err);
         return res.status(500).json({ stat: false, text: 'Error al guardar la imagen.' });
@@ -103,20 +91,9 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
       organization_type
     };
 
-    // Actualizar el registro en la base de datos
-    const result = await global.knex('fotoclub')
-      .where('id', id)
-      .update(newFotoclub)
+    await global.knex('fotoclub').where('id', id).update(newFotoclub);
 
-    await LogOperacion(
-      req.user.id,
-      'Modificación de Fotoclub - ' + req.user.username,
-      {
-        old: oldFotoclub,
-        new: newFotoclub
-      },
-      new Date()
-    );
+    await logAction(req, 'Modificación de Fotoclub - ' + req.user.username, { old: oldFotoclub, new: newFotoclub });
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
@@ -141,20 +118,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     let photo_url = null;
     if (image) {
       try {
-        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
-        const year = new Date().getFullYear();
-        const dir = path.join(uploadsBasePath, year.toString());
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
-        // Detect extension from base64 string
-        const matches = image.match(/^data:image\/(\w+);base64,(.+)$/);
-        const ext = matches ? matches[1] : 'jpg';
-        const base64Data = matches ? matches[2] : image;
-        const filename = `foto_club_${Date.now()}.${ext}`;
-        const filepath = path.join(dir, filename);
-        fs.writeFileSync(filepath, base64Data, 'base64');
-        photo_url = path.join(year.toString(), filename);
+        photo_url = await saveBase64Image(image, 'foto_club');
       } catch (err) {
         console.error('Error guardando imagen:', err);
         return res.status(500).json({ stat: false, text: 'Error al guardar la imagen.' });
@@ -184,12 +148,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     }
     await global.knex('fotoclub').insert(REGISTRO)
 
-    await LogOperacion(
-      req.user.id,
-      'Creación de Fotoclub - ' + req.user.username,
-      { new: REGISTRO },
-      new Date()
-    );
+    await logAction(req, 'Creación de Fotoclub - ' + req.user.username, { new: REGISTRO });
 
     res.status(201).json({
       stat: true,
@@ -198,12 +157,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    await LogOperacion(
-      req.user?.id || null,
-      'Error al crear Fotoclub',
-      { error: error.message },
-      new Date()
-    );
+    await logAction(req, 'Error al crear Fotoclub', { error: error.message });
     res.status(500).json({ stat: false, text: 'Ocurrió un error al crear el fotoclub.' });
   }
 });
@@ -246,12 +200,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     // Eliminar el registro
     const result = await global.knex('fotoclub').where('id', id).del();
 
-    await LogOperacion(
-      req.user.id,
-      'Eliminación de Fotoclub - ' + req.user.username,
-      { deleted: fotoclub },
-      new Date()
-    );
+    await logAction(req, 'Eliminación de Fotoclub - ' + req.user.username, { deleted: fotoclub });
 
     if (result === 1) {
       return res.json({ stat: true, text: 'Fotoclub eliminado correctamente' });
@@ -260,12 +209,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     }
   } catch (error) {
     console.error(error);
-    await LogOperacion(
-      req.user?.id || null,
-      'Error al eliminar Fotoclub',
-      { error: error.message },
-      new Date()
-    );
+    await logAction(req, 'Error al eliminar Fotoclub', { error: error.message });
     res.status(500).json({ stat: false, text: 'Ocurrió un error interno, contacte con soporte.' });
   }
 });

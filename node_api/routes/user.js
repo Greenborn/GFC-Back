@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
-const LogOperacion = require('../controllers/log_operaciones.js')
+const { logAction } = require('../utils/log.js')
 const authMiddleware = require('../middleware/authMiddleware');
 
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';
@@ -55,7 +55,7 @@ router.get('/sso-profile', async (req, res) => {
 
 router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.user.id, 'Consulta de Usuarios - ' + req.user.username, null, new Date());
+      await logAction(req, 'Consulta de Usuarios - ' + req.user.username);
 
       const usersQuery = global.knex('user').orderBy('id', 'asc');
 
@@ -135,7 +135,7 @@ router.put('/:id/password', authMiddleware, async (req, res) => {
       .update({ password_hash: hashedPassword })
       .where({ id: userId });
 
-    await LogOperacion(currentUser.id, `Actualización de contraseña de usuario ${userId}`, JSON.stringify({ targetUserId: userId }), new Date());
+    await logAction(req, `Actualización de contraseña de usuario ${userId}`, JSON.stringify({ targetUserId: userId }));
 
     return res.json({ success: true, message: 'Contraseña actualizada correctamente' });
   } catch (error) {
@@ -230,7 +230,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const updatedUser = await global.knex('user').where({ id: userId }).first();
     const { password_hash, password_reset_token, access_token, updated_at, sign_up_verif_code, sign_up_verif_token, ...safeUser } = updatedUser;
 
-    await LogOperacion(currentUser.id, `Actualización de usuario ${userId}`, JSON.stringify({ targetUserId: userId, updateData }), new Date());
+    await logAction(req, `Actualización de usuario ${userId}`, JSON.stringify({ targetUserId: userId, updateData }));
     return res.json({ success: true, user: safeUser });
   } catch (error) {
     console.error(error);

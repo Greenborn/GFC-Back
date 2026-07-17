@@ -1,6 +1,7 @@
 const express      = require('express');
 const router       = express.Router();
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { insertAndGetId } = require('../utils/db.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 const { isValidOrganizationType } = require('../utils/organizationType');
@@ -17,19 +18,13 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       return res.status(400).json({ success: false, message: 'El score debe ser un número entero positivo' });
     }
 
-    const [row] = await global.knex('metric').insert({
+    const id = await insertAndGetId(global.knex, 'metric', {
       prize,
       score: scoreNum
-    }).returning('id');
-    const id = row?.id ?? row;
+    });
     const created = await global.knex('metric').where({ id }).first();
 
-    await LogOperacion(
-      req.user.id,
-      `Creación de métrica - ${req.user.username}`,
-      JSON.stringify({ prize, score }),
-      new Date()
-    );
+    await logAction(req, `Creación de métrica - ${req.user.username}`, JSON.stringify({ prize, score }));
 
     res.status(201).json({ success: true, data: created });
   } catch (error) {
@@ -40,7 +35,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
 
 router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.user.id, 'Consulta de Métrica - '+req.user.username, null, new Date()) 
+      await logAction(req, 'Consulta de Métrica - '+req.user.username) 
 
       res.json({ 
         items: await global.knex('metric_abm'),
@@ -83,7 +78,7 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
         organization_type
       })
       
-    await LogOperacion(req.user.id, 'Modificación de Métrica - ' + req.user.username, null, new Date()) 
+    await logAction(req, 'Modificación de Métrica - ' + req.user.username) 
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
@@ -111,12 +106,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
 
     await global.knex('metric').where({ id }).del();
 
-    await LogOperacion(
-      req.user.id,
-      `Eliminación de métrica id=${id} - ${req.user.username}`,
-      JSON.stringify(existing),
-      new Date()
-    );
+    await logAction(req, `Eliminación de métrica id=${id} - ${req.user.username}`, JSON.stringify(existing));
 
     res.json({ success: true, message: 'Métrica eliminada correctamente' });
   } catch (error) {

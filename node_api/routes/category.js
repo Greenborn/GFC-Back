@@ -1,6 +1,7 @@
 const express      = require('express');
 const router       = express.Router();
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { buildPaginationResponse } = require('../utils/pagination.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
 
@@ -41,23 +42,8 @@ router.get('/', authMiddleware, async (req, res) => {
             .limit(perPage)
             .offset(offset);
 
-        const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
-        const buildHref = (pageNumber) => `${baseUrl}?${new URLSearchParams({ ...req.query, page: pageNumber }).toString()}`;
-
-        return res.json({
-            items,
-            _links: {
-                self: { href: buildHref(page) },
-                first: { href: buildHref(1) },
-                last: { href: buildHref(pageCount) }
-            },
-            _meta: {
-                totalCount,
-                pageCount,
-                currentPage: page,
-                perPage
-            }
-        });
+        const pagination = buildPaginationResponse(req, totalCount, page, perPage);
+        return res.json({ items, ...pagination });
     } catch (error) {
         console.error('Error al obtener categorías:', error);
         res.status(500).json({ message: 'Error al obtener registros' });
@@ -66,7 +52,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.user.id, 'Consulta de Categorías - ' + req.user.username, null, new Date()) 
+      await logAction(req, 'Consulta de Categorías - ' + req.user.username) 
 
       res.json({ 
         items: await global.knex('category'),
@@ -103,7 +89,7 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
         mostrar_en_ranking
       })
 
-    await LogOperacion(req.user.id, 'Modificación de Categoría - ' + req.user.username, null, new Date()) 
+    await logAction(req, 'Modificación de Categoría - ' + req.user.username) 
 
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {

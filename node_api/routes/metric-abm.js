@@ -2,18 +2,14 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { insertAndGetId } = require('../utils/db.js');
 const { isValidOrganizationType } = require('../utils/organizationType');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const items = await global.knex('metric_abm').orderBy('id', 'asc');
-    await LogOperacion(
-      req.user.id,
-      `Consulta de métricas ABM - ${req.user.username}`,
-      null,
-      new Date()
-    );
+    await logAction(req, `Consulta de métricas ABM - ${req.user.username}`);
     res.json({ success: true, items });
   } catch (error) {
     console.error('Error en GET /metric-abm:', error);
@@ -53,20 +49,14 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       return res.status(400).json({ success: false, message: `Tipo de organización inválido. Valores: INTERNO, EXTERNO, EXTERNO_0, EXTERNO_UNICEN` });
     }
 
-    const [row] = await global.knex('metric_abm').insert({
+    const id = await insertAndGetId(global.knex, 'metric_abm', {
       prize,
       score: scoreNum,
       organization_type
-    }).returning('id');
-    const id = row?.id ?? row;
+    });
     const created = await global.knex('metric_abm').where({ id }).first();
 
-    await LogOperacion(
-      req.user.id,
-      `Creación de métrica ABM - ${req.user.username}`,
-      JSON.stringify({ prize, score, organization_type }),
-      new Date()
-    );
+    await logAction(req, `Creación de métrica ABM - ${req.user.username}`, JSON.stringify({ prize, score, organization_type }));
 
     res.status(201).json({ success: true, data: created });
   } catch (error) {
@@ -107,12 +97,7 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
 
     const updated = await global.knex('metric_abm').where({ id }).first();
 
-    await LogOperacion(
-      req.user.id,
-      `Modificación de métrica ABM - ${req.user.username}`,
-      JSON.stringify({ id, prize, score, organization_type }),
-      new Date()
-    );
+    await logAction(req, `Modificación de métrica ABM - ${req.user.username}`, JSON.stringify({ id, prize, score, organization_type }));
 
     res.json({ success: true, data: updated });
   } catch (error) {
@@ -139,12 +124,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
 
     await global.knex('metric_abm').where({ id }).del();
 
-    await LogOperacion(
-      req.user.id,
-      `Eliminación de métrica ABM - ${req.user.username}`,
-      JSON.stringify({ id, ...existing }),
-      new Date()
-    );
+    await logAction(req, `Eliminación de métrica ABM - ${req.user.username}`, JSON.stringify({ id, ...existing }));
 
     res.json({ success: true, message: 'Métrica eliminada correctamente' });
   } catch (error) {

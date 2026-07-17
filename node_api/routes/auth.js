@@ -6,7 +6,9 @@ const axios = require('axios')
 const sharp = require('sharp')
 const fs = require('fs')
 const path = require('path')
-const LogOperacion = require('../controllers/log_operaciones.js')
+const { logAction } = require('../utils/log.js')
+const { insertAndGetId } = require('../utils/db.js')
+const { saveImageFromBase64, getMimeType } = require('../utils/images.js')
 const Mailer = require('../controllers/mailer.js')
 const writeProtection = require('../middleware/writeProtection.js')
 
@@ -36,7 +38,7 @@ router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
       return res.status(200).json({ r: false });
     } else {
       if (user.status !== 1) {
-        await LogOperacion(user.id, 'recuperar contraseña - usuario inhabilitado', '{"email":"'+email+'"}', new Date());
+        await logAction({ user }, 'recuperar contraseña - usuario inhabilitado', '{"email":"'+email+'"}');
         return res.status(200).json({ r: false });
       }
       const TIME_DIFF = new Date().getTime() - new Date(user.pass_recovery_date).getTime()
@@ -85,7 +87,7 @@ router.post('/recupera_pass_confirm_code', async (req, res) => {
       return res.status(200).json({ r: false });
     } else {
       if (user.status !== 1) {
-        await LogOperacion(user.id, 'confirmar código - usuario inhabilitado', '{"email":"'+email+'"}', AHORA);
+        await logAction({ user }, 'confirmar código - usuario inhabilitado', '{"email":"'+email+'"}');
         return res.status(200).json({ r: false });
       }
       const TIME_DIFF = new Date().getTime() - new Date(user.pass_recovery_date).getTime()
@@ -118,14 +120,14 @@ router.post('/recupera_pass', writeProtection, async (req, res) => {
     } else {
       if (user.status !== 1) {
         const AHORA = new Date()
-        await LogOperacion(user.id, 'recuperar contraseña - usuario inhabilitado', '{"email":"'+email+'"}', AHORA);
+        await logAction({ user }, 'recuperar contraseña - usuario inhabilitado', '{"email":"'+email+'"}');
         return res.status(200).json({ r: true });
       }
       const TOKEN_RECUPERA_PASS = crypto.randomBytes(32).toString('hex').slice(0, 6);
       const AHORA = new Date()
 
       let proms_arr = []
-      proms_arr.push( LogOperacion(user.id, 'recuperar contraseña', '{"email":"'+email+'"}', AHORA) )
+      proms_arr.push( logAction({ user }, 'recuperar contraseña', '{"email":"'+email+'"}') )
       proms_arr.push( global.knex('user')
         .update({
           'password_reset_token': TOKEN_RECUPERA_PASS,
@@ -178,7 +180,7 @@ router.post('/login', async (req, res) => {
                   .where('username', username).first();
 
     if (!user) {
-      await LogOperacion(0, 'usuario no encontrado', '{"user":"'+username+'"}', new Date());
+      await logAction({ user: null }, 'usuario no encontrado', '{"user":"'+username+'"}');
       return res.status(401).json({ r: false, error: 'Usuario o Contraseña Incorrecta' });
     }
 
@@ -188,14 +190,14 @@ router.post('/login', async (req, res) => {
     const isValidPassword = bcrypt.compareSync(password, user.password_hash);
 
     if (!isValidPassword) {
-      await LogOperacion(user.id, 'contraseña incorrecta', '{"user":"'+username+'"}', new Date());
+      await logAction({ user }, 'contraseña incorrecta', '{"user":"'+username+'"}');
       return res.status(401).json({ r: false, error: 'Usuario o Contraseña Incorrecta' });
     }
     if (user.status !== 1) {
-      await LogOperacion(user.id, 'login - usuario inhabilitado', '{"user":"'+username+'"}', new Date());
+      await logAction({ user }, 'login - usuario inhabilitado', '{"user":"'+username+'"}');
       return res.status(403).json({ r: false, error: 'Usuario inhabilitado' });
     }
-    await LogOperacion(user.id, 'login - '+username, null, new Date());
+    await logAction({ user }, 'login - '+username);
 
     const profile = await global.knex('profile').where('id', user?.profile_id).first();
     // Si el usuario y la contraseña son válidos, creamos una sesión
@@ -292,34 +294,20 @@ router.post('/register', writeProtection, async (req, res) => {
     }
 
     const displayName = name || username;
-    const [profileRow] = await global.knex('profile').insert({
+    const profileId = await insertAndGetId(global.knex, 'profile', {
       name: displayName,
       last_name: '',
       fotoclub_id: null
-    }).returning('id');
-    const profileId = profileRow?.id ?? profileRow;
+    });
 
     if (img_perfil_b64 && typeof img_perfil_b64 === 'string') {
       try {
-        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
-        const imagesDir = path.join(uploadsBasePath, 'images');
-        if (!fs.existsSync(imagesDir)) {
-          fs.mkdirSync(imagesDir, { recursive: true });
+        const result = await saveImageFromBase64(img_perfil_b64);
+        if (result) {
+          await global.knex('profile').where({ id: profileId }).update({
+            img_url: result.url
+          });
         }
-        const uniqueSuffix = crypto.randomBytes(8).toString('hex');
-        const filename = `profile_${profileId}_${Date.now()}_${uniqueSuffix}.jpg`;
-        const filepath = path.join(imagesDir, filename);
-        const raw = img_perfil_b64.includes('base64,') ? img_perfil_b64.split('base64,')[1] : img_perfil_b64;
-        const buffer = Buffer.from(raw, 'base64');
-        const outputBuffer = await sharp(buffer)
-          .rotate()
-          .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 100, mozjpeg: true })
-          .toBuffer();
-        fs.writeFileSync(filepath, outputBuffer);
-        await global.knex('profile').where({ id: profileId }).update({
-          img_url: path.posix.join('images', filename)
-        });
       } catch (imgErr) {
         console.error('[Register] Error al procesar img_perfil_b64:', imgErr.message);
       }
@@ -348,16 +336,10 @@ router.post('/register', writeProtection, async (req, res) => {
       userData.status = 0;
     }
 
-    const [userRow] = await global.knex('user').insert(userData).returning('id');
-    const userId = userRow?.id ?? userRow;
+    const userId = await insertAndGetId(global.knex, 'user', userData);
     const newUser = await global.knex('user').where({ id: userId }).first();
 
-    await LogOperacion(
-      userId,
-      `registro - ${sso ? 'SSO' : 'email'}`,
-      JSON.stringify({ email, username }),
-      new Date()
-    );
+    await logAction({ user: { id: userId } }, `registro - ${sso ? 'SSO' : 'email'}`, JSON.stringify({ email, username }));
 
     const { password_hash, access_token, password_reset_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = newUser;
 

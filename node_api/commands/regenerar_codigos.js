@@ -6,17 +6,7 @@
 const path = require('path');
 const config = require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 require('../knexfile.js');
-
-function sanitizarNombreSeccion(name) {
-  if (!name) return 'sin_seccion';
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9\s-]/g, '')
-    .trim()
-    .replace(/[\s-]+/g, '_')
-    .toLowerCase();
-}
+const { sanitizarNombreSeccion } = require('../utils/strings.js');
 
 async function generarCodigoUnico(knex, imageId, contestId, sectionName, usedRandoms, year) {
   const sectionClean = sanitizarNombreSeccion(sectionName);

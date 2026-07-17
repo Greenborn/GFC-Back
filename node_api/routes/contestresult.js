@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { sanitizarNombreSeccion, sanitizeSearchTerm, baseUnaccent } = require('../utils/strings.js');
+const { insertAndGetId } = require('../utils/db.js');
+const { buildPaginationResponse } = require('../utils/pagination.js');
 const { createCache } = require('../utils/cache');
 
 const contestResultCache = createCache(24 * 60 * 60 * 1000);
@@ -100,54 +103,10 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       filterQuery = filterQuery.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
     }
 
-    if (filterProfileId) {
-      filterQuery = filterQuery.where('image.profile_id', filterProfileId);
-    }
-
-    // ── Apply filters (AND between groups, OR within multi-value groups) ──
-    if (filterSectionIds.length > 0) {
-      filterQuery = filterQuery.whereIn('contest_result.section_id', filterSectionIds);
-    }
-    if (filterPrizes.length > 0) {
-      filterQuery = filterQuery.whereIn('metric.prize', filterPrizes);
-    }
-    if (filterCode) {
-      filterQuery = filterQuery.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
-    }
-    if (filterAuthor && needsProfile) {
-      filterQuery = filterQuery.whereRaw(
-        baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
-        [`%${filterAuthor}%`]
-      );
-    }
-    if (filterCategoryIds.length > 0) {
-      filterQuery = filterQuery.whereExists(function () {
-        this.select('*')
-          .from('profile_contest')
-          .whereRaw('profile_contest.profile_id = image.profile_id')
-          .whereRaw('profile_contest.contest_id = contest_result.contest_id')
-          .whereIn('profile_contest.category_id', filterCategoryIds);
-      });
-    }
-    if (search) {
-      filterQuery = filterQuery.andWhere(function () {
-        this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
-          .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${search}%`])
-          .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
-        if (needsProfile) {
-          this.orWhereRaw(
-            baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
-            [`%${search}%`]
-          );
-        }
-        if (needsSection) {
-          this.orWhereRaw(baseUnaccent('section.name') + ' LIKE ?', [`%${search}%`]);
-        }
-        if (needsFotoclub) {
-          this.orWhereRaw(baseUnaccent('fotoclub.name') + ' LIKE ?', [`%${search}%`]);
-        }
-      });
-    }
+    const filterJoins = { profile: needsProfile, section: needsSection, fotoclub: needsFotoclub };
+    filterQuery = applyContestResultFilters(filterQuery, {
+      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search
+    }, filterJoins);
 
     // ── Total count (unique images matching filters) ──
     const countRow = await filterQuery.clone().countDistinct({ total: 'image.id' }).first();
@@ -190,11 +149,8 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     // ── Early return if no results ──
     if (pagedImageIds.length === 0) {
-      const result = {
-        items: [],
-        _meta: { totalCount, pageCount, currentPage, perPage },
-        _links: buildLinks(req, currentPage, pageCount, perPage)
-      };
+      const pagination = buildPaginationResponse(req, totalCount, currentPage, perPage);
+      const result = { items: [], ...pagination };
       if (crCacheKey) contestResultCache.set(crCacheKey, result);
       return res.json(result);
     }
@@ -278,53 +234,9 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       dataQuery = dataQuery.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
     }
 
-    // ── Apply filters to dataQuery so only matching contest_results are included ──
-    if (filterProfileId) {
-      dataQuery = dataQuery.where('image.profile_id', filterProfileId);
-    }
-    if (filterSectionIds.length > 0) {
-      dataQuery = dataQuery.whereIn('contest_result.section_id', filterSectionIds);
-    }
-    if (filterPrizes.length > 0) {
-      dataQuery = dataQuery.whereIn('metric.prize', filterPrizes);
-    }
-    if (filterCode) {
-      dataQuery = dataQuery.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
-    }
-    if (filterAuthor && dataJoins.profile) {
-      dataQuery = dataQuery.whereRaw(
-        baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
-        [`%${filterAuthor}%`]
-      );
-    }
-    if (filterCategoryIds.length > 0) {
-      dataQuery = dataQuery.whereExists(function () {
-        this.select('*')
-          .from('profile_contest')
-          .whereRaw('profile_contest.profile_id = image.profile_id')
-          .whereRaw('profile_contest.contest_id = contest_result.contest_id')
-          .whereIn('profile_contest.category_id', filterCategoryIds);
-      });
-    }
-    if (search) {
-      dataQuery = dataQuery.andWhere(function () {
-        this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
-          .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${search}%`])
-          .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
-        if (dataJoins.profile) {
-          this.orWhereRaw(
-            baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
-            [`%${search}%`]
-          );
-        }
-        if (dataJoins.section) {
-          this.orWhereRaw(baseUnaccent('section.name') + ' LIKE ?', [`%${search}%`]);
-        }
-        if (dataJoins.fotoclub) {
-          this.orWhereRaw(baseUnaccent('fotoclub.name') + ' LIKE ?', [`%${search}%`]);
-        }
-      });
-    }
+    dataQuery = applyContestResultFilters(dataQuery, {
+      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search
+    }, { profile: dataJoins.profile, section: dataJoins.section, fotoclub: dataJoins.fotoclub });
 
     const itemsRaw = await dataQuery.select(selectColumns);
 
@@ -447,11 +359,8 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       }
     }
 
-    const result = {
-      items: allItems,
-      _meta: { totalCount, pageCount, currentPage, perPage },
-      _links: buildLinks(req, currentPage, pageCount, perPage)
-    };
+    const pagination = buildPaginationResponse(req, totalCount, currentPage, perPage);
+    const result = { items: allItems, ...pagination };
     if (crCacheKey) contestResultCache.set(crCacheKey, result);
     res.json(result);
   } catch (error) {
@@ -460,32 +369,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
   }
 });
 
-// ── Helpers ──
 
-function buildLinks(req, currentPage, pageCount, perPage) {
-  const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
-  const make = (pageNumber) => {
-    const params = new URLSearchParams();
-    Object.entries(req.query).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        value.forEach(v => params.append(key, String(v)));
-      } else if (value !== undefined && value !== null) {
-        params.set(key, String(value));
-      }
-    });
-    params.set('page', String(pageNumber));
-    params.set('per-page', String(perPage));
-    if (!params.has('viewpage')) {
-      params.set('viewpage', 'contest-result');
-    }
-    return `${baseUrl}?${params.toString()}`;
-  };
-  return {
-    self: { href: make(currentPage) },
-    first: { href: make(1) },
-    last: { href: make(pageCount) }
-  };
-}
 
 function extractFilterArray(query, key) {
   const vals = [];
@@ -532,25 +416,57 @@ function extractFilterString(query, key) {
   return '';
 }
 
-// ── Accent‑insensitive search helpers ──
+// ── Apply contest result filters (shared between count + data queries) ──
 
-const UNACCENT_FROM = 'áàâãäåéèêëíìîïóòôõöúùûüñçÁÀÂÃÄÅÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÑÇ';
-const UNACCENT_TO   = 'aaaaaaeeeeiiiiooooouuuuncAAAAAAEEEEIIIIOOOOOUUUUNC';
-
-function baseUnaccent(columnExpr) {
-  return "TRANSLATE(LOWER(" + columnExpr + "),'" + UNACCENT_FROM + "','" + UNACCENT_TO + "')";
-}
-
-function sanitizeSearchTerm(term) {
-  if (!term) return '';
-  return term
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[\x00-\x1f\x7f]/g, '')
-    .replace(/[%_]/g, ' ')
-    .trim()
-    .toLowerCase()
-    .substring(0, 200);
+function applyContestResultFilters(query, filters, joins) {
+  const { filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search } = filters;
+  if (filterProfileId) {
+    query = query.where('image.profile_id', filterProfileId);
+  }
+  if (filterSectionIds.length > 0) {
+    query = query.whereIn('contest_result.section_id', filterSectionIds);
+  }
+  if (filterPrizes.length > 0) {
+    query = query.whereIn('metric.prize', filterPrizes);
+  }
+  if (filterCode) {
+    query = query.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
+  }
+  if (filterAuthor && joins.profile) {
+    query = query.whereRaw(
+      baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
+      [`%${filterAuthor}%`]
+    );
+  }
+  if (filterCategoryIds.length > 0) {
+    query = query.whereExists(function () {
+      this.select('*')
+        .from('profile_contest')
+        .whereRaw('profile_contest.profile_id = image.profile_id')
+        .whereRaw('profile_contest.contest_id = contest_result.contest_id')
+        .whereIn('profile_contest.category_id', filterCategoryIds);
+    });
+  }
+  if (search) {
+    query = query.andWhere(function () {
+      this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
+        .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${search}%`])
+        .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
+      if (joins.profile) {
+        this.orWhereRaw(
+          baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
+          [`%${search}%`]
+        );
+      }
+      if (joins.section) {
+        this.orWhereRaw(baseUnaccent('section.name') + ' LIKE ?', [`%${search}%`]);
+      }
+      if (joins.fotoclub) {
+        this.orWhereRaw(baseUnaccent('fotoclub.name') + ' LIKE ?', [`%${search}%`]);
+      }
+    });
+  }
+  return query;
 }
 
 // POST /contest-result — Crear un resultado de concurso
@@ -562,25 +478,19 @@ router.post('/contest-result', authMiddleware, writeProtection, async (req, res)
       return res.status(400).json({ success: false, message: 'contest_id, image_id, metric_id y section_id son requeridos' });
     }
 
-    const [row] = await global.knex('contest_result').insert({
+    const id = await insertAndGetId(global.knex, 'contest_result', {
       contest_id: Number(contest_id),
       image_id: Number(image_id),
       metric_id: Number(metric_id),
       section_id: Number(section_id)
-    }).returning('id');
-    const id = row?.id ?? row;
+    });
 
     // ── Generar código de imagen en formato [random4d]_[año]_[id_concurso]_[nombre_seccion]_[id_image] ──
     await generarCodigoImagen(global.knex, image_id, contest_id, section_id);
 
     const created = await global.knex('contest_result').where({ id }).first();
 
-    await LogOperacion(
-      req.user.id,
-      `Creación de resultado de concurso - ${req.user.username}`,
-      JSON.stringify({ contest_id, image_id, metric_id, section_id }),
-      new Date()
-    );
+    await logAction(req, `Creación de resultado de concurso - ${req.user.username}`, JSON.stringify({ contest_id, image_id, metric_id, section_id }));
 
     res.status(201).json({ success: true, data: created });
   } catch (error) {
@@ -613,12 +523,7 @@ router.post('/disable_user', authMiddleware, writeProtection, async (req, res) =
       updates.access_token = null;
     }
     const result = await global.knex('user').where({ id }).update(updates);
-    await LogOperacion(
-      req.user.id,
-      (status === 0 ? 'Deshabilitar' : 'Habilitar') + ' Usuario - ' + req.user.username,
-      JSON.stringify({ targetUserId: id, status }),
-      new Date()
-    );
+    await logAction(req, (status === 0 ? 'Deshabilitar' : 'Habilitar') + ' Usuario - ' + req.user.username, JSON.stringify({ targetUserId: id, status }));
     if (result === 1) {
       return res.json({
         success: true,
@@ -721,12 +626,7 @@ router.delete('/contest-result/:id', authMiddleware, writeProtection, async (req
 
     await global.knex('contest_result').where({ id }).del();
 
-    await LogOperacion(
-      req.user.id,
-      `Eliminación de resultado de concurso id=${id} - ${req.user.username}`,
-      JSON.stringify(existing),
-      new Date()
-    );
+    await logAction(req, `Eliminación de resultado de concurso id=${id} - ${req.user.username}`, JSON.stringify(existing));
 
     res.json({ success: true, message: 'Resultado de concurso eliminado correctamente' });
   } catch (error) {
@@ -765,15 +665,6 @@ async function generarCodigoImagen(knex, imageId, contestId, sectionId) {
   await knex('image').where({ id: imageId }).update({ code: newCode });
 }
 
-function sanitizarNombreSeccion(name) {
-  if (!name) return 'sin_seccion';
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9\s-]/g, '')
-    .trim()
-    .replace(/[\s-]+/g, '_')
-    .toLowerCase();
-}
+
 
 module.exports = router;

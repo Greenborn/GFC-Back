@@ -2,78 +2,9 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
-const LogOperacion = require('../controllers/log_operaciones.js');
-
-function normalizeFilterValue(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string' && value.includes(',')) {
-    return value.split(',').map(item => item.trim()).filter(Boolean);
-  }
-  return value;
-}
-
-function parseFilterParams(query) {
-  const filter = {};
-
-  if (query.filter && typeof query.filter === 'object') {
-    Object.assign(filter, query.filter);
-  }
-
-  for (const [key, value] of Object.entries(query)) {
-    const match = key.match(/^filter\[(.+)\]$/);
-    if (match) {
-      filter[match[1]] = value;
-    }
-  }
-
-  return filter;
-}
-
-function applyFilterObject(query, filter) {
-  if (!filter || typeof filter !== 'object') return;
-
-  for (const [key, value] of Object.entries(filter)) {
-    if (value == null) continue;
-
-    if (key === 'category' && typeof value === 'object') {
-      applyFilterObject(query, value);
-      continue;
-    }
-
-    const filterKey = key.replace(/^category\./, '');
-
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      if (value.in != null) {
-        const normalized = normalizeFilterValue(value.in);
-        query.whereIn(filterKey, Array.isArray(normalized) ? normalized : [normalized]);
-        continue;
-      }
-      if (value.between != null) {
-        const normalized = normalizeFilterValue(value.between);
-        if (Array.isArray(normalized) && normalized.length === 2) {
-          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
-          query.whereBetween(filterKey, [a, b]);
-        }
-        continue;
-      }
-      if (value.inside != null) {
-        const normalized = normalizeFilterValue(value.inside);
-        if (Array.isArray(normalized) && normalized.length === 2) {
-          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
-          query.where(filterKey, '>', a).andWhere(filterKey, '<', b);
-        }
-        continue;
-      }
-    }
-
-    const normalized = normalizeFilterValue(value);
-    if (Array.isArray(normalized)) {
-      query.whereIn(filterKey, normalized);
-    } else {
-      query.where(filterKey, normalized);
-    }
-  }
-}
+const { logAction } = require('../utils/log.js');
+const { parseFilterParams, applyFilterObject } = require('../utils/filters.js');
+const { buildPaginationResponse } = require('../utils/pagination.js');
 
 // GET /contest-category - Listar relaciones contest_category con filtros y expand
 router.get('/', authMiddleware, async (req, res) => {
@@ -92,8 +23,8 @@ router.get('/', authMiddleware, async (req, res) => {
     const countQuery = global.knex('contest_category').count('id as count').first();
     const dataQuery = global.knex('contest_category as cc').select('cc.id', 'cc.contest_id', 'cc.category_id');
 
-    applyFilterObject(countQuery, filterParams);
-    applyFilterObject(dataQuery, filterParams);
+    applyFilterObject(countQuery, filterParams, { nestedKey: 'category' });
+    applyFilterObject(dataQuery, filterParams, { nestedKey: 'category' });
 
     const includeCategory = expand.includes('category');
     if (includeCategory) {
@@ -123,33 +54,12 @@ router.get('/', authMiddleware, async (req, res) => {
       return result;
     });
 
-    const baseUrl = `${req.protocol}://${req.get('host')}${req.path}`;
-    const queryParams = { ...req.query, page: currentPage };
-    const currentQuery = new URLSearchParams(queryParams).toString();
-    const firstQuery = new URLSearchParams({ ...req.query, page: 1 }).toString();
-    const lastQuery = new URLSearchParams({ ...req.query, page: pageCount }).toString();
 
-    await LogOperacion(
-      currentUser.id,
-      `Consulta de contest-category - ${currentUser.username}`,
-      { filter: filterParams, expand },
-      new Date()
-    );
 
-    res.json({
-      items,
-      _links: {
-        self: { href: `${baseUrl}?${currentQuery}` },
-        first: { href: `${baseUrl}?${firstQuery}` },
-        last: { href: `${baseUrl}?${lastQuery}` }
-      },
-      _meta: {
-        totalCount,
-        pageCount,
-        currentPage,
-        perPage
-      }
-    });
+    await logAction(req, `Consulta de contest-category - ${req.user.username}`, { filter: filterParams, expand });
+
+    const pagination = buildPaginationResponse(req, totalCount, currentPage, perPage);
+    res.json({ items, ...pagination });
   } catch (error) {
     console.error('Error en GET /contest-category:', error);
     res.status(500).json({
@@ -218,12 +128,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
 
     await global.knex('contest_category').insert(data);
 
-    await LogOperacion(
-      req.user.id,
-      `Creación de ContestCategory - ${req.user.username}`,
-      JSON.stringify(data),
-      new Date()
-    );
+    await logAction(req, `Creación de ContestCategory - ${req.user.username}`, JSON.stringify(data));
 
     return res.status(201).json({
       success: true,

@@ -2,78 +2,9 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
-const LogOperacion = require('../controllers/log_operaciones.js');
-
-function normalizeFilterValue(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string' && value.includes(',')) {
-    return value.split(',').map(item => item.trim()).filter(Boolean);
-  }
-  return value;
-}
-
-function parseFilterParams(query) {
-  const filter = {};
-
-  if (query.filter && typeof query.filter === 'object') {
-    Object.assign(filter, query.filter);
-  }
-
-  for (const [key, value] of Object.entries(query)) {
-    const match = key.match(/^filter\[(.+)\]$/);
-    if (match) {
-      filter[match[1]] = value;
-    }
-  }
-
-  return filter;
-}
-
-function applyFilterObject(query, filter) {
-  if (!filter || typeof filter !== 'object') return;
-
-  for (const [key, value] of Object.entries(filter)) {
-    if (value == null || key === 'role') continue;
-
-    if (key === 'profile' && typeof value === 'object') {
-      applyFilterObject(query, value);
-      continue;
-    }
-
-    const filterKey = key.replace(/^profile\./, '');
-
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      if (value.in != null) {
-        const normalized = normalizeFilterValue(value.in);
-        query.whereIn(filterKey, Array.isArray(normalized) ? normalized : [normalized]);
-        continue;
-      }
-      if (value.between != null) {
-        const normalized = normalizeFilterValue(value.between);
-        if (Array.isArray(normalized) && normalized.length === 2) {
-          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
-          query.whereBetween(filterKey, [a, b]);
-        }
-        continue;
-      }
-      if (value.inside != null) {
-        const normalized = normalizeFilterValue(value.inside);
-        if (Array.isArray(normalized) && normalized.length === 2) {
-          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
-          query.where(filterKey, '>', a).andWhere(filterKey, '<', b);
-        }
-        continue;
-      }
-    }
-
-    const normalized = normalizeFilterValue(value);
-    if (Array.isArray(normalized)) {
-      query.whereIn(filterKey, normalized);
-    } else {
-      query.where(filterKey, normalized);
-    }
-  }
-}
+const { logAction } = require('../utils/log.js');
+const { normalizeFilterValue, parseFilterParams, applyFilterObject } = require('../utils/filters.js');
+const { insertAndGetId, insertAndGet } = require('../utils/db.js');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -96,7 +27,7 @@ router.get('/', authMiddleware, async (req, res) => {
       .filter(Boolean);
 
     let query = global.knex('profile_contest').select('*');
-    applyFilterObject(query, filterParams);
+    applyFilterObject(query, filterParams, { nestedKey: 'profile', skipKeys: ['role'] });
 
     if (!isAdmin) {
       const judgedContestIdsQuery = global.knex('contest')
@@ -202,12 +133,7 @@ router.get('/', authMiddleware, async (req, res) => {
       }
     }
 
-    await LogOperacion(
-      currentUser.id,
-      `Consulta de profile-contest - ${currentUser.username}`,
-      { filter: filterParams, expand, role: roleGet },
-      new Date()
-    );
+    await logAction(req, `Consulta de profile-contest - ${req.user.username}`, { filter: filterParams, expand, role: roleGet });
 
     res.json({ items });
   } catch (error) {
@@ -256,12 +182,11 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       return res.status(409).json({ success: false, message: 'El perfil ya está inscrito en este concurso' });
     }
 
-    const [insertRow] = await global.knex('profile_contest').insert({
+    const id = await insertAndGetId(global.knex, 'profile_contest', {
       profile_id,
       contest_id,
       category_id: category_id || null
-    }).returning('id');
-    const id = insertRow?.id ?? insertRow;
+    });
 
     let item = await global.knex('profile_contest').where({ id }).first();
 
@@ -292,12 +217,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       }
     }
 
-    await LogOperacion(
-      currentUser.id,
-      `Inscripción en concurso - ${currentUser.username}`,
-      JSON.stringify({ profile_id, contest_id, category_id }),
-      new Date()
-    );
+    await logAction(req, `Inscripción en concurso - ${req.user.username}`, JSON.stringify({ profile_id, contest_id, category_id }));
 
     res.status(201).json({ success: true, data: item });
   } catch (error) {
@@ -346,12 +266,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
 
     await global.knex('profile_contest').where({ id }).del();
 
-    await LogOperacion(
-      currentUser.id,
-      `Eliminación de inscripción en concurso id=${id} - ${currentUser.username}`,
-      JSON.stringify(record),
-      new Date()
-    );
+    await logAction(req, `Eliminación de inscripción en concurso id=${id} - ${req.user.username}`, JSON.stringify(record));
 
     res.json({ success: true, message: 'Inscripción eliminada correctamente' });
   } catch (error) {

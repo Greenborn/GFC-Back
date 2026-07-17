@@ -4,7 +4,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { insertAndGetId } = require('../utils/db.js');
+const { extractBase64, getUploadsBasePath, ensureDir, processImageBuffer, getMimeType, getThumbnailGuard } = require('../utils/images.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 
@@ -37,8 +39,6 @@ router.get('/search', async (req, res) => {
                 'image.title',
                 'image.profile_id',
                 'image.url',
-                'image.width',
-                'image.height',
                 'image.mime_type',
                 'image.image_metadata',
                 'profile.name as author_name',
@@ -94,8 +94,7 @@ router.get('/search', async (req, res) => {
             return result;
         });
 
-        // Log de la operación (sin usuario ya que es público)
-        await LogOperacion(0, `Búsqueda de imágenes: "${q}"`, null, new Date());
+        await logAction({ user: null }, `Búsqueda de imágenes: "${q}"`);
 
         res.json({
             success: true,
@@ -129,8 +128,6 @@ router.get('/all', async (req, res) => {
                 'image.title',
                 'image.profile_id',
                 'image.url',
-                'image.width',
-                'image.height',
                 'image.mime_type',
                 'image.image_metadata',
                 'profile.name as author_name',
@@ -182,8 +179,7 @@ router.get('/all', async (req, res) => {
             return result;
         });
 
-        // Log de la operación
-        await LogOperacion(0, 'Consulta de todas las imágenes', null, new Date());
+        await logAction({ user: null }, 'Consulta de todas las imágenes');
 
         res.json({
             success: true,
@@ -249,11 +245,7 @@ async function generateThumbnails(imageId, sourcePath) {
   }
 }
 
-function extractBase64(dataUri) {
-  if (!dataUri || typeof dataUri !== 'string') return null;
-  const raw = dataUri.includes('base64,') ? dataUri.split('base64,')[1] : dataUri;
-  return raw;
-}
+
 
 router.post('/', authMiddleware, writeProtection, async (req, res) => {
   const { title, profile_id, photo_base64, url } = req.body;
@@ -276,33 +268,14 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     }
 
     let imageUrl = (url && url !== '_') ? url : null;
+    let imgResult = null;
 
     if (photo_base64 && photo_base64.file) {
-      const base64Data = extractBase64(photo_base64.file);
-      if (!base64Data) {
+      imgResult = await saveImageFromBase64(photo_base64.file);
+      if (!imgResult) {
         return res.status(400).json({ success: false, message: 'Formato de imagen inválido' });
       }
-
-      const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
-      const imagesDir = path.join(uploadsBasePath, 'images');
-      if (!fs.existsSync(imagesDir)) {
-        fs.mkdirSync(imagesDir, { recursive: true });
-      }
-
-      const uniqueSuffix = crypto.randomBytes(8).toString('hex');
-      const filename = `${Date.now()}_${uniqueSuffix}.jpg`;
-      const filepath = path.join(imagesDir, filename);
-
-      const buffer = Buffer.from(base64Data, 'base64');
-      const imgMetadata = await sharp(buffer).metadata();
-      const outputBuffer = await sharp(buffer)
-        .rotate()
-        .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 100, mozjpeg: true })
-        .toBuffer();
-
-      fs.writeFileSync(filepath, outputBuffer);
-      imageUrl = path.posix.join('images', filename);
+      imageUrl = imgResult.url;
     }
 
     if (!imageUrl) {
@@ -318,34 +291,20 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       url: imageUrl
     };
 
-    if (photo_base64 && photo_base64.file) {
-      if (imgMetadata) {
-        insertData.width = imgMetadata.width || null;
-        insertData.height = imgMetadata.height || null;
-        const mimeMap = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', tiff: 'image/tiff', svg: 'image/svg+xml' };
-        insertData.mime_type = mimeMap[imgMetadata.format] || `image/${imgMetadata.format}`;
-      }
+    if (imgResult) {
+      insertData.width = imgResult.width;
+      insertData.height = imgResult.height;
+      insertData.mime_type = getMimeType(imgResult.format);
     }
 
-    const [insertRow] = await global.knex('image').insert(insertData).returning('id');
-    const id = insertRow?.id ?? insertRow;
+    const id = await insertAndGetId(global.knex, 'image', insertData);
 
     const created = await global.knex('image').where({ id }).first();
 
-    if (photo_base64 && photo_base64.file && created.url) {
-      const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
-      const sourcePath = path.join(uploadsBasePath, created.url);
-      if (fs.existsSync(sourcePath)) {
-        generateThumbnails(id, sourcePath);
-      }
-    }
+    const guard = getThumbnailGuard(id, created.url);
+    if (guard) generateThumbnails(guard.imageId, guard.sourcePath);
 
-    await LogOperacion(
-      currentUser.id,
-      `Creación de imagen - ${currentUser.username}`,
-      JSON.stringify({ code, title, profile_id, id }),
-      new Date()
-    );
+    await logAction(req, `Creación de imagen - ${req.user.username}`, JSON.stringify({ code, title, profile_id, id }));
 
     res.status(201).json({ success: true, data: created });
   } catch (error) {
@@ -392,34 +351,12 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
     }
 
     if (photo_base64 && photo_base64.file) {
-      const base64Data = (() => {
-        const raw = photo_base64.file.includes('base64,') ? photo_base64.file.split('base64,')[1] : photo_base64.file;
-        return raw || null;
-      })();
-      if (base64Data) {
-        const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
-        const imagesDir = path.join(uploadsBasePath, 'images');
-        if (!fs.existsSync(imagesDir)) {
-          fs.mkdirSync(imagesDir, { recursive: true });
-        }
-        const uniqueSuffix = crypto.randomBytes(8).toString('hex');
-        const filename = `${Date.now()}_${uniqueSuffix}.jpg`;
-        const filepath = path.join(imagesDir, filename);
-        const buffer = Buffer.from(base64Data, 'base64');
-        const imgMetadata = await sharp(buffer).metadata();
-        const outputBuffer = await sharp(buffer)
-          .rotate()
-          .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 100, mozjpeg: true })
-          .toBuffer();
-        fs.writeFileSync(filepath, outputBuffer);
-        updateData.url = path.posix.join('images', filename);
-        if (imgMetadata) {
-          updateData.width = imgMetadata.width || null;
-          updateData.height = imgMetadata.height || null;
-          const mimeMap = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', tiff: 'image/tiff', svg: 'image/svg+xml' };
-          updateData.mime_type = mimeMap[imgMetadata.format] || `image/${imgMetadata.format}`;
-        }
+      const result = await saveImageFromBase64(photo_base64.file);
+      if (result) {
+        updateData.url = result.url;
+        updateData.width = result.width;
+        updateData.height = result.height;
+        updateData.mime_type = getMimeType(result.format);
       }
     }
 
@@ -430,20 +367,10 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
     await global.knex('image').where({ id }).update(updateData);
     const updated = await global.knex('image').where({ id }).first();
 
-    if (photo_base64 && photo_base64.file && updated.url) {
-      const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
-      const sourcePath = path.join(uploadsBasePath, updated.url);
-      if (fs.existsSync(sourcePath)) {
-        generateThumbnails(id, sourcePath);
-      }
-    }
+    const guard = getThumbnailGuard(id, updated.url);
+    if (guard) generateThumbnails(guard.imageId, guard.sourcePath);
 
-    await LogOperacion(
-      currentUser.id,
-      `Actualización de imagen id=${id} - ${currentUser.username}`,
-      JSON.stringify(updateData),
-      new Date()
-    );
+    await logAction(req, `Actualización de imagen id=${id} - ${req.user.username}`, JSON.stringify(updateData));
 
     res.json({ success: true, data: updated });
   } catch (error) {
@@ -478,12 +405,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     await global.knex('thumbnail').where({ image_id: id }).del();
     await global.knex('image').where({ id }).del();
 
-    await LogOperacion(
-      currentUser.id,
-      `Eliminación de imagen id=${id} - ${currentUser.username}`,
-      JSON.stringify({ code: existing.code, title: existing.title, profile_id: existing.profile_id }),
-      new Date()
-    );
+    await logAction(req, `Eliminación de imagen id=${id} - ${req.user.username}`, JSON.stringify({ code: existing.code, title: existing.title, profile_id: existing.profile_id }));
 
     res.json({ success: true, message: 'Imagen eliminada correctamente' });
   } catch (error) {

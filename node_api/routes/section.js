@@ -1,6 +1,8 @@
 const express      = require('express');
 const router       = express.Router();
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { buildPaginationResponse } = require('../utils/pagination.js');
+const { insertAndGetId } = require('../utils/db.js');
 const authMiddleware = require('../middleware/authMiddleware');
 
 /**
@@ -40,23 +42,8 @@ router.get('/', authMiddleware, async (req, res) => {
             .limit(perPage)
             .offset(offset);
 
-        const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
-        const buildHref = (pageNumber) => `${baseUrl}?${new URLSearchParams({ ...req.query, page: pageNumber }).toString()}`;
-
-        return res.json({
-            items,
-            _links: {
-                self: { href: buildHref(page) },
-                first: { href: buildHref(1) },
-                last: { href: buildHref(pageCount) }
-            },
-            _meta: {
-                totalCount,
-                pageCount,
-                currentPage: page,
-                perPage
-            }
-        });
+        const pagination = buildPaginationResponse(req, totalCount, page, perPage);
+        return res.json({ items, ...pagination });
     } catch (error) {
         console.error('Error al obtener secciones:', error);
         res.status(500).json({ message: 'Error al obtener secciones' });
@@ -65,7 +52,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.get('/get_all', authMiddleware, async (req, res) => {
     try {
-      await LogOperacion(req.user.id, 'Consulta de Secciones - ' + req.user.username, null, new Date()) 
+      await logAction(req, 'Consulta de Secciones - ' + req.user.username) 
 
       res.json({ 
         items: await global.knex('section'),
@@ -100,7 +87,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     await global.knex('section').where('id', id).update({ name });
 
-    await LogOperacion(req.user.id, 'Modificación de Sección - ' + req.user.username, null, new Date());
+    await logAction(req, 'Modificación de Sección - ' + req.user.username);
 
     return res.json({ stat: true, text: 'Registro actualizado correctamente' });
   } catch (error) {
@@ -135,7 +122,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     await global.knex('section').where('id', id).del();
 
-    await LogOperacion(req.user.id, 'Eliminación de Sección - ' + req.user.username, null, new Date());
+    await logAction(req, 'Eliminación de Sección - ' + req.user.username);
 
     return res.status(204).send();
   } catch (error) {
@@ -160,10 +147,9 @@ async function createSection(req, res) {
       return res.json({ stat: false, text: 'El nombre no puede superar los 45 caracteres' });
     }
 
-    const [row] = await global.knex('section').insert({ name }).returning('id');
-    const newId = row?.id ?? row;
+    const newId = await insertAndGetId(global.knex, 'section', { name });
 
-    await LogOperacion(req.user.id, 'Creación de Sección - ' + req.user.username, null, new Date());
+    await logAction(req, 'Creación de Sección - ' + req.user.username);
 
     return res.json({ stat: true, text: 'Sección creada correctamente', id: newId });
   } catch (error) {

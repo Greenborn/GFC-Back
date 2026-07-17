@@ -2,18 +2,13 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { insertAndGetId } = require('../utils/db.js');
 
 // GET /contest-record - Listar registros de contests_records
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    // Log de operación
-    await LogOperacion(
-      req.user.id,
-      `Consulta de contest_records - ${req.user.username}`,
-      null,
-      new Date()
-    );
+    await logAction(req, `Consulta de contest_records - ${req.user.username}`);
 
     // Parámetros de consulta
     const { page = 1, 'per-page': perPage = 20, sort } = req.query;
@@ -84,13 +79,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'ID inválido' });
     }
 
-    // Log de operación
-    await LogOperacion(
-      req.user.id,
-      `Consulta de contest_record ID ${id} - ${req.user.username}`,
-      null,
-      new Date()
-    );
+    await logAction(req, `Consulta de contest_record ID ${id} - ${req.user.username}`);
 
     // Buscar registro
     const record = await global.knex('contests_records')
@@ -157,48 +146,18 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
         .del();
       
       if (deletedCount > 0) {
-        // Log de operación de borrado
-        await LogOperacion(
-          req.user.id,
-          `Borrado de contest_records FOTO_DEL_ANIO temporada ${data.temporada} - ${req.user.username}`,
-          JSON.stringify({ type: 'FOTO_DEL_ANIO', temporada: data.temporada, registros_eliminados: deletedCount }),
-          new Date()
-        );
+        await logAction(req, `Borrado de contest_records FOTO_DEL_ANIO temporada ${data.temporada} - ${req.user.username}`, JSON.stringify({ type: 'FOTO_DEL_ANIO', temporada: data.temporada, registros_eliminados: deletedCount }));
       }
     }
 
-    // Insertar registro y obtener el ID de forma compatible
-    let newId;
-    const clientName = global.knex.client?.config?.client || '';
-    const isPostgres = clientName === 'pg' || clientName === 'postgresql' || clientName === 'postgres';
-    
-    if (isPostgres) {
-      // PostgreSQL - usar returning('id')
-      const inserted = await global.knex('contests_records').insert(data).returning('id');
-      if (Array.isArray(inserted) && inserted.length > 0) {
-        const first = inserted[0];
-        newId = (typeof first === 'object' && first !== null && 'id' in first) ? first.id : first;
-      } else {
-        newId = inserted;
-      }
-    } else {
-      // MySQL, SQLite, etc.
-      const result = await global.knex('contests_records').insert(data);
-      newId = Array.isArray(result) ? result[0] : result;
-    }
+    const newId = await insertAndGetId(global.knex, 'contests_records', data);
 
     // Obtener el registro creado
     const newRecord = await global.knex('contests_records')
       .where('id', newId)
       .first();
 
-    // Log de operación
-    await LogOperacion(
-      req.user.id,
-      `Creación de contest_record - ${req.user.username}`,
-      JSON.stringify({ id: newId, contest_id }),
-      new Date()
-    );
+    await logAction(req, `Creación de contest_record - ${req.user.username}`, JSON.stringify({ id: newId, contest_id }));
 
     res.status(201).json({
       success: true,
@@ -279,13 +238,7 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
       .where('id', id)
       .first();
 
-    // Log de operación
-    await LogOperacion(
-      req.user.id,
-      `Actualización de contest_record ID ${id} - ${req.user.username}`,
-      JSON.stringify({ id, contest_id }),
-      new Date()
-    );
+    await logAction(req, `Actualización de contest_record ID ${id} - ${req.user.username}`, JSON.stringify({ id, contest_id }));
 
     res.json({
       success: true,
@@ -374,13 +327,7 @@ router.patch('/:id', authMiddleware, writeProtection, async (req, res) => {
       .where('id', id)
       .first();
 
-    // Log de operación
-    await LogOperacion(
-      req.user.id,
-      `Actualización parcial de contest_record ID ${id} - ${req.user.username}`,
-      JSON.stringify({ id, updatedFields: Object.keys(data) }),
-      new Date()
-    );
+    await logAction(req, `Actualización parcial de contest_record ID ${id} - ${req.user.username}`, JSON.stringify({ id, updatedFields: Object.keys(data) }));
 
     res.json({
       success: true,
@@ -429,13 +376,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
       .where('id', id)
       .del();
 
-    // Log de operación
-    await LogOperacion(
-      req.user.id,
-      `Eliminación de contest_record ID ${id} - ${req.user.username}`,
-      JSON.stringify({ id, deleted_record: recordExists }),
-      new Date()
-    );
+    await logAction(req, `Eliminación de contest_record ID ${id} - ${req.user.username}`, JSON.stringify({ id, deleted_record: recordExists }));
 
     res.json({
       success: true,

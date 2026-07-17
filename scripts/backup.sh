@@ -62,62 +62,31 @@ else
 fi
 
 # ──────────────────────────────────────────
-# Backup de archivos vía SSH (archivo por archivo)
+# Backup de archivos vía SSH (rsync incremental con reintentos infinitos)
 # ──────────────────────────────────────────
 REMOTE_DIR_NAME=$(basename "$FILES_PATH")
-FILES_BACKUP_DIR="${BACKUP_DEST}/${REMOTE_DIR_NAME}_${TIMESTAMP}"
+FILES_BACKUP_DIR="${BACKUP_DEST}/${REMOTE_DIR_NAME}"
 mkdir -p "$FILES_BACKUP_DIR"
 
 SSH_OPTS="-p $SSH_PORT -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3"
 
-echo "Conectando a ${SSH_USER}@${SSH_HOST}:${SSH_PORT} para copiar archivos desde ${FILES_PATH}"
+echo "Sincronizando archivos desde ${SSH_USER}@${SSH_HOST}:${FILES_PATH} → ${FILES_BACKUP_DIR}"
 
-FILE_LIST=$(sshpass -p "$SSH_PASS" ssh $SSH_OPTS "${SSH_USER}@${SSH_HOST}" \
-    "find \"${FILES_PATH}\" -type f 2>/dev/null" || true)
+RSYNC_OPTS="-az --partial --append-verify --info=progress2 --delete --compress-level=3 --no-inc-recursive --timeout=120"
 
-if [ -z "$FILE_LIST" ]; then
-    echo "Advertencia: No se encontraron archivos en ${FILES_PATH}"
-else
-    TOTAL_FILES=$(echo "$FILE_LIST" | wc -l)
-    COUNT=0
-    ERROR_COUNT=0
-
-    while IFS= read -r remote_file; do
-        [ -z "$remote_file" ] && continue
-        COUNT=$((COUNT + 1))
-        rel_path="${remote_file#${FILES_PATH}/}"
-        local_file="${FILES_BACKUP_DIR}/${rel_path}"
-        local_dir=$(dirname "$local_file")
-
-        mkdir -p "$local_dir"
-
-        echo "[${COUNT}/${TOTAL_FILES}] Copiando: ${rel_path}"
-
-        MAX_RETRIES=10
-        RETRY_DELAY=5
-        DOWNLOAD_OK=1
-
-        for ((attempt=1; attempt<=MAX_RETRIES; attempt++)); do
-            if sshpass -p "$SSH_PASS" rsync -az --partial -e "ssh $SSH_OPTS" \
-                "${SSH_USER}@${SSH_HOST}:${remote_file}" \
-                "${local_file}" >/dev/null 2>&1; then
-                DOWNLOAD_OK=0
-                break
-            fi
-            if [ $attempt -lt $MAX_RETRIES ]; then
-                echo "  Conexión interrumpida, reintentando (${attempt}/${MAX_RETRIES}) en ${RETRY_DELAY}s..."
-                sleep "$RETRY_DELAY"
-            fi
-        done
-
-        if [ $DOWNLOAD_OK -ne 0 ]; then
-            echo "  Error: No se pudo copiar ${rel_path} después de ${MAX_RETRIES} intentos"
-            ERROR_COUNT=$((ERROR_COUNT + 1))
-        fi
-    done <<< "$FILE_LIST"
-
-    echo "Copia de archivos completada — ${COUNT} archivos procesados, ${ERROR_COUNT} errores → ${FILES_BACKUP_DIR}"
-fi
+RETRY_DELAY=5
+while true; do
+    if sshpass -p "$SSH_PASS" rsync $RSYNC_OPTS -e "ssh $SSH_OPTS" \
+        "${SSH_USER}@${SSH_HOST}:${FILES_PATH}/" \
+        "${FILES_BACKUP_DIR}/"; then
+        echo "Sincronización de archivos completada"
+        break
+    fi
+    echo "  Conexión interrumpida, reintentando en ${RETRY_DELAY}s..."
+    sleep "$RETRY_DELAY"
+    RETRY_DELAY=$((RETRY_DELAY * 2))
+    [ "$RETRY_DELAY" -gt 60 ] && RETRY_DELAY=60
+done
 
 echo "Backup finalizado exitosamente"
 echo "  BD:      ${DB_BACKUP_FILE}"

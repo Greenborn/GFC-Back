@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -45,12 +45,7 @@ router.get('/', authMiddleware, async (req, res) => {
     query.orderBy('id', 'asc');
     const profiles = await query;
 
-    await LogOperacion(
-      currentUser.id,
-      `Consulta profile-registrable contest_id=${contestId} role=${roleGet} - ${currentUser.username}`,
-      null,
-      new Date()
-    );
+    await logAction(req, `Consulta profile-registrable contest_id=${contestId} role=${roleGet} - ${req.user.username}`);
 
     res.json({ items: profiles });
   } catch (error) {

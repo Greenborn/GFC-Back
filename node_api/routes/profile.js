@@ -6,67 +6,10 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const LogOperacion = require('../controllers/log_operaciones.js');
+const { logAction } = require('../utils/log.js');
+const { normalizeFilterValue, applyFilterObject } = require('../utils/filters.js');
+const { escapeLikePattern } = require('../utils/strings.js');
 const upload = multer({ storage: multer.memoryStorage() });
-
-function normalizeFilterValue(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string' && value.includes(',')) {
-    return value.split(',').map(item => item.trim()).filter(Boolean);
-  }
-  return value;
-}
-
-function applyFilterObject(query, filter) {
-  if (!filter || typeof filter !== 'object') return;
-
-  for (const [key, value] of Object.entries(filter)) {
-    if (value == null) continue;
-
-    if (key === 'profile' && typeof value === 'object') {
-      applyFilterObject(query, value);
-      continue;
-    }
-
-    const filterKey = key.replace(/^profile\./, '');
-
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      if (value.in != null) {
-        const normalized = normalizeFilterValue(value.in);
-        query.whereIn(filterKey, Array.isArray(normalized) ? normalized : [normalized]);
-        continue;
-      }
-      if (value.between != null) {
-        const normalized = normalizeFilterValue(value.between);
-        if (Array.isArray(normalized) && normalized.length === 2) {
-          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
-          query.whereBetween(filterKey, [a, b]);
-        }
-        continue;
-      }
-      if (value.inside != null) {
-        const normalized = normalizeFilterValue(value.inside);
-        if (Array.isArray(normalized) && normalized.length === 2) {
-          const [a, b] = normalized.map(Number).sort((x, y) => x - y);
-          query.where(filterKey, '>', a).andWhere(filterKey, '<', b);
-        }
-        continue;
-      }
-    }
-
-    const normalized = normalizeFilterValue(value);
-
-    if (Array.isArray(normalized)) {
-      query.whereIn(filterKey, normalized);
-    } else {
-      query.where(filterKey, normalized);
-    }
-  }
-}
-
-function escapeLikePattern(value) {
-  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-}
 
 router.get('/:id', authMiddleware, async (req, res) => {
   const profileId = parseInt(req.params.id, 10);
@@ -108,7 +51,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       response.user = await global.knex('user').where({ profile_id: profileId }).first() || null;
     }
 
-    await LogOperacion(currentUser.id, `Consulta de perfil ${profileId}${expand.includes('user') ? ' con user expandido' : ''} - ${currentUser.username}`, null, new Date());
+    await logAction(req, `Consulta de perfil ${profileId}${expand.includes('user') ? ' con user expandido' : ''} - ${currentUser.username}`);
     return res.json(response);
   } catch (error) {
     console.error(error);
@@ -198,7 +141,7 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
     await global.knex('profile').where({ id: profileId }).update(updateData);
     const updatedProfile = await global.knex('profile').where({ id: profileId }).first();
 
-    await LogOperacion(currentUser.id, `Actualización de perfil ${profileId} - ${currentUser.username}`, JSON.stringify({ profileId, updateData }), new Date());
+    await logAction(req, `Actualización de perfil ${profileId} - ${currentUser.username}`, JSON.stringify({ profileId, updateData }));
     return res.json({ success: true, profile: updatedProfile });
   } catch (error) {
     console.error(error);
@@ -218,7 +161,7 @@ router.get('/', authMiddleware, async (req, res) => {
       query.where('id', profileId);
     }
 
-    applyFilterObject(query, filterParams);
+    applyFilterObject(query, filterParams, { nestedKey: 'profile' });
 
     const rawSearchTerm = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     const searchTerm = rawSearchTerm.substring(0, 100);
@@ -270,7 +213,7 @@ router.get('/', authMiddleware, async (req, res) => {
       }
     }
 
-    await LogOperacion(req.user.id, `Consulta de perfiles${expand.includes('user') ? ' con user expandido' : ''} - ${req.user.username}`, null, new Date());
+    await logAction(req, `Consulta de perfiles${expand.includes('user') ? ' con user expandido' : ''} - ${req.user.username}`);
     res.json({ items });
   } catch (error) {
     console.error(error);
