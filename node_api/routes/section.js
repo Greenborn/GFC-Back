@@ -46,7 +46,7 @@ router.get('/', authMiddleware, async (req, res) => {
         return res.json({ items, ...pagination });
     } catch (error) {
         console.error('Error al obtener secciones:', error);
-        res.status(500).json({ message: 'Error al obtener secciones' });
+        return res.status(500).json({ message: 'Error al obtener secciones' });
     }
 });
 
@@ -58,8 +58,8 @@ router.get('/get_all', authMiddleware, async (req, res) => {
         items: await global.knex('section'),
       });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al obtener registros' });
+      console.error('Error en GET /section/get_all:', error);
+      return res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
 

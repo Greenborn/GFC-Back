@@ -9,8 +9,8 @@ router.get('/get_all', authMiddleware, async (req, res) => {
 
     res.json({ items: await global.knex('role').orderBy('id', 'asc') });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al obtener roles' });
+    console.error('Error en GET /role/get_all:', error);
+    return res.status(500).json({ message: 'Error al obtener roles' });
   }
 });
 

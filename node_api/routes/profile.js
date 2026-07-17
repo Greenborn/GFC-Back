@@ -216,8 +216,8 @@ router.get('/', authMiddleware, async (req, res) => {
     await logAction(req, `Consulta de perfiles${expand.includes('user') ? ' con user expandido' : ''} - ${req.user.username}`);
     res.json({ items });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al obtener perfiles' });
+    console.error('Error en GET /profile:', error);
+    return res.status(500).json({ message: 'Error al obtener perfiles' });
   }
 });
 

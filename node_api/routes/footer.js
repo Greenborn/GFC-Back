@@ -18,8 +18,8 @@ router.get('/get', async (req, res) => {
 
     res.json({ stat: true, item });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ stat: false, text: 'Error al obtener el registro' });
+    console.error('Error en GET /footer/get:', error);
+    return res.status(500).json({ stat: false, text: 'Error al obtener el registro' });
   }
 });
 
@@ -41,8 +41,8 @@ router.put('/edit', adminMiddleware, async (req, res) => {
       return res.json({ stat: false, text: 'No se encontró el registro para actualizar' });
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ stat: false, text: 'Error al actualizar el registro' });
+    console.error('Error en PUT /footer/edit:', error);
+    return res.status(500).json({ stat: false, text: 'Error al actualizar el registro' });
   }
 });
 

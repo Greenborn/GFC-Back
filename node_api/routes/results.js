@@ -235,7 +235,7 @@ router.post('/recalcular-ranking', authMiddleware, async (req, res) => {
     
   } catch (error) {
     console.error('Error al recalcular ranking:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       success: false, 
       message: 'Error interno al recalcular ranking',
       error: error.message 

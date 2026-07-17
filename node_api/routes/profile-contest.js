@@ -138,7 +138,7 @@ router.get('/', authMiddleware, async (req, res) => {
     res.json({ items });
   } catch (error) {
     console.error('Error en GET /profile-contest:', error);
-    res.status(500).json({ success: false, message: 'Error al obtener profile_contest', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al obtener profile_contest', error: error.message });
   }
 });
 
@@ -225,7 +225,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       return res.status(409).json({ success: false, message: 'El perfil ya está inscrito en este concurso' });
     }
     console.error('Error en POST /profile-contest:', error);
-    res.status(500).json({ success: false, message: 'Error al inscribir perfil en concurso', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al inscribir perfil en concurso', error: error.message });
   }
 });
 
@@ -274,7 +274,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
       return res.status(409).json({ success: false, message: 'No se puede eliminar la inscripción porque tiene resultados asociados' });
     }
     console.error(`Error en DELETE /profile-contest/${req.params.id}:`, error);
-    res.status(500).json({ success: false, message: 'Error al eliminar inscripción', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al eliminar inscripción', error: error.message });
   }
 });
 

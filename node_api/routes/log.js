@@ -7,8 +7,8 @@ router.get('/get_all', adminMiddleware, async (req, res) => {
     const registros = await global.knex('log_operaciones')
     res.json(registros);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al obtener registros' });
+    console.error('Error en GET /log/get_all:', error);
+    return res.status(500).json({ message: 'Error al obtener registros' });
   }
 });
 

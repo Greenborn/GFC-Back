@@ -62,7 +62,7 @@ router.get('/', authMiddleware, async (req, res) => {
     res.json({ items, ...pagination });
   } catch (error) {
     console.error('Error en GET /contest-category:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error al obtener contest_category',
       error: error.message

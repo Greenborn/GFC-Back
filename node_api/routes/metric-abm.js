@@ -13,7 +13,7 @@ router.get('/', authMiddleware, async (req, res) => {
     res.json({ success: true, items });
   } catch (error) {
     console.error('Error en GET /metric-abm:', error);
-    res.status(500).json({ success: false, message: 'Error al obtener métricas', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al obtener métricas', error: error.message });
   }
 });
 
@@ -30,7 +30,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     res.json({ success: true, data: item });
   } catch (error) {
     console.error('Error en GET /metric-abm/:id:', error);
-    res.status(500).json({ success: false, message: 'Error al obtener métrica', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al obtener métrica', error: error.message });
   }
 });
 
@@ -61,7 +61,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     res.status(201).json({ success: true, data: created });
   } catch (error) {
     console.error('Error en POST /metric-abm:', error);
-    res.status(500).json({ success: false, message: 'Error al crear métrica', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al crear métrica', error: error.message });
   }
 });
 
@@ -102,7 +102,7 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
     res.json({ success: true, data: updated });
   } catch (error) {
     console.error('Error en PUT /metric-abm/:id:', error);
-    res.status(500).json({ success: false, message: 'Error al actualizar métrica', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al actualizar métrica', error: error.message });
   }
 });
 
@@ -129,7 +129,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     res.json({ success: true, message: 'Métrica eliminada correctamente' });
   } catch (error) {
     console.error('Error en DELETE /metric-abm/:id:', error);
-    res.status(500).json({ success: false, message: 'Error al eliminar métrica', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al eliminar métrica', error: error.message });
   }
 });
 

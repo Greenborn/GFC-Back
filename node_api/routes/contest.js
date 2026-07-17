@@ -181,7 +181,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     } catch (error) {
         console.error('Error al obtener concursos:', error);
-        res.status(500).json({
+        return res.status(500).json({
             message: 'Error interno del servidor al obtener concursos',
             error: error.message
         });
@@ -201,8 +201,8 @@ router.get('/get_all', authMiddleware, async (req, res) => {
             contest_result: await global.knex('contest_result')
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error al obtener registros' });
+        console.error('Error en GET /contest/get_all:', error);
+        return res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
 
@@ -276,7 +276,7 @@ router.get('/participants', authMiddleware, async (req, res) => {
 
     } catch (error) {
         console.error('Error al obtener participantes del concurso:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: 'Error interno del servidor al obtener participantes'
         });
@@ -819,7 +819,7 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
 
         const compiledDir = path.join(IMG_REPOSITORY_PATH, 'compilado_premiadas');
         if (fs.existsSync(compiledDir)) {
-            try { fs.rmSync(compiledDir, { recursive: true, force: true }); } catch (e) {}
+            try { fs.rmSync(compiledDir, { recursive: true, force: true }); } catch (e) { console.error('Error eliminando directorio compilado:', e); }
         }
         fs.mkdirSync(compiledDir, { recursive: true });
         console.log('Creado directorio base:', compiledDir);
@@ -881,7 +881,7 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
                         totalFotografias++;
                         console.log('Copiada fotografía:', srcPath, '->', destPath);
                     }
-                } catch (e) {}
+                } catch (e) { console.error('Error copiando fotografía:', e); }
             }
         }
 
@@ -893,7 +893,7 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
         const zipName = `compilado_premiadas_${year}.zip`;
         const zipPath = path.join(IMG_REPOSITORY_PATH, zipName);
         if (fs.existsSync(zipPath)) {
-            try { fs.unlinkSync(zipPath); } catch (e) {}
+            try { fs.unlinkSync(zipPath); } catch (e) { console.error('Error eliminando ZIP anterior:', e); }
         }
         await new Promise((resolve, reject) => {
             console.log('Generando ZIP:', zipPath);
@@ -915,6 +915,7 @@ router.get('/compiled-winners', authMiddleware, async (req, res) => {
         console.log('Respuesta enviada con download_url:', downloadUrl);
         return res.json({ success: true, year, download_url: downloadUrl });
     } catch (error) {
+        console.error('Error al compilar premiadas del año:', error);
         return res.status(500).json({ success: false, message: 'Error interno al compilar premiadas del año', error: error.message });
     }
 });
@@ -1043,7 +1044,7 @@ router.delete('/:id', adminMiddleware, async (req, res) => {
         await trx.rollback();
         
         console.error('Error al eliminar concurso:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: 'Error interno del servidor al eliminar el concurso',
             error: error.message

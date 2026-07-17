@@ -29,7 +29,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     res.status(201).json({ success: true, data: created });
   } catch (error) {
     console.error('Error en POST /metric:', error);
-    res.status(500).json({ success: false, message: 'Error al crear métrica', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al crear métrica', error: error.message });
   }
 });
 
@@ -41,8 +41,8 @@ router.get('/get_all', authMiddleware, async (req, res) => {
         items: await global.knex('metric_abm'),
       });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al obtener registros' });
+      console.error('Error en GET /metric/get_all:', error);
+      return res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
 
@@ -111,7 +111,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     res.json({ success: true, message: 'Métrica eliminada correctamente' });
   } catch (error) {
     console.error('Error en DELETE /metric/:id:', error);
-    res.status(500).json({ success: false, message: 'Error al eliminar métrica', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al eliminar métrica', error: error.message });
   }
 });
 

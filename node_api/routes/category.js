@@ -46,7 +46,7 @@ router.get('/', authMiddleware, async (req, res) => {
         return res.json({ items, ...pagination });
     } catch (error) {
         console.error('Error al obtener categorías:', error);
-        res.status(500).json({ message: 'Error al obtener registros' });
+        return res.status(500).json({ message: 'Error al obtener registros' });
     }
 });
 
@@ -58,8 +58,8 @@ router.get('/get_all', authMiddleware, async (req, res) => {
         items: await global.knex('category'),
       });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al obtener registros' });
+      console.error('Error en GET /category/get_all:', error);
+      return res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
 

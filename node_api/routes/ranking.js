@@ -31,6 +31,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     return res.json({ items: data });
   } catch (error) {
+    console.error('Error en GET /ranking:', error);
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
 });
@@ -174,6 +175,7 @@ router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) 
       }
     });
   } catch (error) {
+    console.error('Error en GET /ranking/detalle/:contest_id/:profile_id:', error);
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
 });
@@ -299,6 +301,7 @@ router.get('/detalle/:profile_id', authMiddleware, async (req, res) => {
       count: cachedData.items.length
     });
   } catch (error) {
+    console.error('Error en GET /ranking/detalle/:profile_id:', error);
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
 });
@@ -497,6 +500,7 @@ router.get('/detalle', authMiddleware, async (req, res) => {
       count: cachedData.length
     });
   } catch (error) {
+    console.error('Error en GET /ranking/detalle:', error);
     return res.status(500).json({ success: false, message: 'Error interno', error: error.message });
   }
 });

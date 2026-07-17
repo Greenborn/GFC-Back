@@ -65,7 +65,7 @@ router.get('/', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('Error en GET /contest-record:', error);
-    res.status(500).json({ message: 'Error al obtener registros', error: error.message });
+    return res.status(500).json({ message: 'Error al obtener registros', error: error.message });
   }
 });
 
@@ -93,7 +93,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     res.json(record);
   } catch (error) {
     console.error(`Error en GET /contest-record/${req.params.id}:`, error);
-    res.status(500).json({ message: 'Error al obtener registro', error: error.message });
+    return res.status(500).json({ message: 'Error al obtener registro', error: error.message });
   }
 });
 
@@ -166,7 +166,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     });
   } catch (error) {
     console.error('Error en POST /contest-record:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       success: false,
       message: 'Error al crear registro', 
       error: error.message 
@@ -247,7 +247,7 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
     });
   } catch (error) {
     console.error(`Error en PUT /contest-record/${req.params.id}:`, error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       success: false,
       message: 'Error al actualizar registro', 
       error: error.message 
@@ -336,7 +336,7 @@ router.patch('/:id', authMiddleware, writeProtection, async (req, res) => {
     });
   } catch (error) {
     console.error(`Error en PATCH /contest-record/${req.params.id}:`, error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       success: false,
       message: 'Error al actualizar registro', 
       error: error.message 
@@ -384,7 +384,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     });
   } catch (error) {
     console.error(`Error en DELETE /contest-record/${req.params.id}:`, error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       success: false,
       message: 'Error al eliminar registro', 
       error: error.message 

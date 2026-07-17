@@ -50,7 +50,7 @@ router.get('/', authMiddleware, async (req, res) => {
     res.json({ items: profiles });
   } catch (error) {
     console.error('Error en GET /profile-registrable:', error);
-    res.status(500).json({ success: false, message: 'Error al obtener perfiles registrables', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al obtener perfiles registrables', error: error.message });
   }
 });
 

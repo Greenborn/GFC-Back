@@ -26,8 +26,8 @@ router.get('/get_all', async (req, res) => {
         items: await query,
       });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al obtener registros' });
+      console.error('Error en GET /fotoclub/get_all:', error);
+      return res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
 
@@ -43,8 +43,8 @@ router.get('/:id', async (req, res) => {
 
       res.json(fotoclub);
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al obtener el fotoclub' });
+      console.error('Error en GET /fotoclub/:id:', error);
+      return res.status(500).json({ message: 'Error al obtener el fotoclub' });
     }
 })
 
@@ -158,7 +158,7 @@ router.post('/create', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error(error);
     await logAction(req, 'Error al crear Fotoclub', { error: error.message });
-    res.status(500).json({ stat: false, text: 'Ocurrió un error al crear el fotoclub.' });
+    return res.status(500).json({ stat: false, text: 'Ocurrió un error al crear el fotoclub.' });
   }
 });
 
@@ -210,7 +210,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
   } catch (error) {
     console.error(error);
     await logAction(req, 'Error al eliminar Fotoclub', { error: error.message });
-    res.status(500).json({ stat: false, text: 'Ocurrió un error interno, contacte con soporte.' });
+    return res.status(500).json({ stat: false, text: 'Ocurrió un error interno, contacte con soporte.' });
   }
 });
 

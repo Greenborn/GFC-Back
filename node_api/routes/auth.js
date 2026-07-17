@@ -62,9 +62,8 @@ router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
       return res.status(200).json({ r: true });
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ r: false, error: 'Error interno del servidor' });
-    return
+    console.error('Error en POST /auth/recupera_pass_new_pass:', error);
+    return res.status(500).json({ r: false, error: 'Error interno del servidor' });
   }
 })
 
@@ -99,9 +98,8 @@ router.post('/recupera_pass_confirm_code', async (req, res) => {
       return res.status(200).json({ r: true });
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ r: false, error: 'Error interno del servidor' });
-    return
+    console.error('Error en POST /auth/recupera_pass_confirm_code:', error);
+    return res.status(500).json({ r: false, error: 'Error interno del servidor' });
   }
 })
 
@@ -160,9 +158,8 @@ router.post('/recupera_pass', writeProtection, async (req, res) => {
     }
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ r: false, error: 'Error interno del servidor' });
-    return
+    console.error('Error en POST /auth/recupera_pass:', error);
+    return res.status(500).json({ r: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -225,9 +222,8 @@ router.post('/login', async (req, res) => {
     req.session.save()
     return
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ r: false, error: 'Error interno del servidor' });
-    return
+    console.error('Error en POST /auth/login:', error);
+    return res.status(500).json({ r: false, error: 'Error interno del servidor' });
   }
 });
 

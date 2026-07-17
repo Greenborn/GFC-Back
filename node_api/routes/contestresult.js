@@ -364,8 +364,8 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     if (crCacheKey) contestResultCache.set(crCacheKey, result);
     res.json(result);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error interno' });
+    console.error('Error en GET /contest-result:', error);
+    return res.status(500).json({ message: 'Error interno' });
   }
 });
 
@@ -495,7 +495,7 @@ router.post('/contest-result', authMiddleware, writeProtection, async (req, res)
     res.status(201).json({ success: true, data: created });
   } catch (error) {
     console.error('Error en POST /contest-result:', error);
-    res.status(500).json({ success: false, message: 'Error al crear resultado de concurso', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al crear resultado de concurso', error: error.message });
   }
 });
 
@@ -606,8 +606,8 @@ router.get('/foto-del-anio', async (req, res) => {
       url_grabacion: contestRecord?.url || null
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error interno' });
+    console.error('Error en GET /foto-del-anio:', error);
+    return res.status(500).json({ message: 'Error interno' });
   }
 });
 
@@ -631,7 +631,7 @@ router.delete('/contest-result/:id', authMiddleware, writeProtection, async (req
     res.json({ success: true, message: 'Resultado de concurso eliminado correctamente' });
   } catch (error) {
     console.error('Error en DELETE /contest-result/:id:', error);
-    res.status(500).json({ success: false, message: 'Error al eliminar resultado de concurso', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al eliminar resultado de concurso', error: error.message });
   }
 });
 

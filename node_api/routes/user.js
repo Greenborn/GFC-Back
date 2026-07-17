@@ -81,8 +81,8 @@ router.get('/get_all', authMiddleware, async (req, res) => {
         fotoclub: await global.knex('fotoclub')
       });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al obtener registros' });
+      console.error('Error en GET /user/get_all:', error);
+      return res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
 
@@ -278,8 +278,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
     };
     res.json(response);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al obtener usuario' });
+    console.error('Error en GET /user/:id:', error);
+    return res.status(500).json({ message: 'Error al obtener usuario' });
   }
 });
 

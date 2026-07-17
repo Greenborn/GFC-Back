@@ -104,7 +104,7 @@ router.get('/search', async (req, res) => {
 
     } catch (error) {
         console.error('Error en búsqueda de imágenes:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: 'Error interno del servidor',
             data: []
@@ -186,7 +186,7 @@ router.get('/all', async (req, res) => {
 
     } catch (error) {
         console.error('Error al obtener imágenes:', error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: 'Error interno del servidor',
             data: []
@@ -305,7 +305,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     res.status(201).json({ success: true, data: created });
   } catch (error) {
     console.error('Error en POST /images:', error);
-    res.status(500).json({ success: false, message: 'Error al crear imagen', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al crear imagen', error: error.message });
   }
 });
 
@@ -371,7 +371,7 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
     res.json({ success: true, data: updated });
   } catch (error) {
     console.error('Error en PUT /images/:id:', error);
-    res.status(500).json({ success: false, message: 'Error al actualizar imagen', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al actualizar imagen', error: error.message });
   }
 });
 
@@ -406,7 +406,7 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     res.json({ success: true, message: 'Imagen eliminada correctamente' });
   } catch (error) {
     console.error('Error en DELETE /images/:id:', error);
-    res.status(500).json({ success: false, message: 'Error al eliminar imagen', error: error.message });
+    return res.status(500).json({ success: false, message: 'Error al eliminar imagen', error: error.message });
   }
 });
 
