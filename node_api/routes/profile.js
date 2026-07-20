@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
+const { authMiddlewareOptional } = require('../middleware/authMiddleware');
 const { logAction } = require('../utils/log.js');
 const { normalizeFilterValue, applyFilterObject } = require('../utils/filters.js');
 const { escapeLikePattern } = require('../utils/strings.js');
@@ -149,10 +150,16 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
   }
 });
 
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', authMiddlewareOptional, async (req, res) => {
   try {
     const expand = req.query.expand ? req.query.expand.split(',').map(s => s.trim()) : [];
     const filterParams = req.query.filter || {};
+    const isPublicExecutive = filterParams.executive === 'true' || filterParams.executive === '1';
+
+    if (!isPublicExecutive && !req.user) {
+      return res.status(401).json({ message: 'No autorizado' });
+    }
+
     const profileId = req.query['filter[profile.id]'] || req.query['filter[id]'] || filterParams['profile.id'] || filterParams.id || (filterParams.profile && filterParams.profile.id);
 
     let query = global.knex('profile').orderBy('id', 'asc');
@@ -181,7 +188,7 @@ router.get('/', authMiddleware, async (req, res) => {
       });
     }
 
-    if (req.user.role_id == '2' || req.user.role_id === 2 || req.user.role_id === '2') {
+    if (req.user && (req.user.role_id == '2' || req.user.role_id === 2 || req.user.role_id === '2')) {
       const currentProfile = await global.knex('profile').where({ id: req.user.profile_id }).first();
       const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
 
@@ -213,7 +220,9 @@ router.get('/', authMiddleware, async (req, res) => {
       }
     }
 
-    await logAction(req, `Consulta de perfiles${expand.includes('user') ? ' con user expandido' : ''} - ${req.user.username}`);
+    if (req.user) {
+      await logAction(req, `Consulta de perfiles${expand.includes('user') ? ' con user expandido' : ''} - ${req.user.username}`);
+    }
     res.json({ items });
   } catch (error) {
     console.error('Error en GET /profile:', error);

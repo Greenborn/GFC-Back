@@ -93,9 +93,8 @@ router.post('/', authMiddleware, upload.fields([
 });
 
 // Endpoint para listar concursos con expansión de categorías y secciones (compatible con API PHP)
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        await logAction(req, `Consulta de listado de concursos - ${req.user.username}`);
 
         // Parámetros de consulta
         const { expand, sort, page = 1, 'per-page': perPage = 20, search } = req.query;
@@ -188,9 +187,8 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-router.get('/get_all', authMiddleware, async (req, res) => {
+router.get('/get_all', async (req, res) => {
     try {
-        await logAction(req, 'Consulta de Concursos - ' + req.user.username)
 
         res.json({
             items: await global.knex('contest'),
