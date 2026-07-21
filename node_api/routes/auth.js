@@ -204,30 +204,36 @@ router.post('/login', async (req, res) => {
     req.session.token = token;
     req.session.profile = profile;
 
-    // Guardar el token en user_tokens
-    await global.knex('user_tokens').insert({
-      user_id: user.id,
-      token: token,
-      created_at: new Date(),
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      ip_address: req.ip,
-      user_agent: req.headers['user-agent'] || null
-    });
+    // Guardar el token (user_tokens si existe, sino legacy access_token)
+    try {
+      await global.knex('user_tokens').insert({
+        user_id: user.id,
+        token: token,
+        created_at: new Date(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        ip_address: req.ip,
+        user_agent: req.headers['user-agent'] || null
+      });
 
-    // Limitar a MAX_SESSIONS concurrentes: eliminar la más vieja si excede
-    const activeCount = await global.knex('user_tokens')
-      .where({ user_id: user.id, is_active: true })
-      .count('id as count')
-      .first();
-
-    if (Number(activeCount.count) > MAX_SESSIONS) {
-      const oldest = await global.knex('user_tokens')
+      // Limitar a MAX_SESSIONS concurrentes: eliminar la más vieja si excede
+      const activeCount = await global.knex('user_tokens')
         .where({ user_id: user.id, is_active: true })
-        .orderByRaw('COALESCE(last_used_at, created_at) ASC')
+        .count('id as count')
         .first();
-      if (oldest) {
-        await global.knex('user_tokens').where({ id: oldest.id }).del();
+
+      if (Number(activeCount.count) > MAX_SESSIONS) {
+        const oldest = await global.knex('user_tokens')
+          .where({ user_id: user.id, is_active: true })
+          .orderByRaw('COALESCE(last_used_at, created_at) ASC')
+          .first();
+        if (oldest) {
+          await global.knex('user_tokens').where({ id: oldest.id }).del();
+        }
       }
+    } catch (_) {
+      await global.knex('user')
+        .update({ access_token: token })
+        .where({ id: user.id });
     }
 
     res.status(200).send({ 
@@ -254,7 +260,11 @@ router.post('/cerrar_sesion', async (req, res) => {
     const authHeader = req.headers['authorization'];
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const bearerToken = authHeader.replace('Bearer ', '');
-      await global.knex('user_tokens').where({ token: bearerToken }).del();
+      try {
+        await global.knex('user_tokens').where({ token: bearerToken }).del();
+      } catch (_) {
+        await global.knex('user').where({ access_token: bearerToken }).update({ access_token: null });
+      }
     }
     req.session.destroy((err) => {
       if (err) {
