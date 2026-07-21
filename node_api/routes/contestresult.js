@@ -520,7 +520,7 @@ router.post('/disable_user', authMiddleware, writeProtection, async (req, res) =
     }
     const updates = { status, updated_at: new Date().toISOString() };
     if (status === 0) {
-      updates.access_token = null;
+      await global.knex('user_tokens').where({ user_id: id }).del();
     }
     const result = await global.knex('user').where({ id }).update(updates);
     await logAction(req, (status === 0 ? 'Deshabilitar' : 'Habilitar') + ' Usuario - ' + req.user.username, JSON.stringify({ targetUserId: id, status }));

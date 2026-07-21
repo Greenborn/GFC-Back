@@ -41,7 +41,8 @@ const knex = require('knex')({
     connection: connectionConfig,
     pool: poolConfig,
     migrations: {
-        directory: './migrations'
+        directory: './migrations',
+        disableMigrationsListValidation: true
     }
 })
 global.knex = knex
@@ -52,7 +53,8 @@ module.exports = {
       connection: connectionConfig,
       pool: poolConfig,
       migrations: {
-        directory: './migrations'
+        directory: './migrations',
+        disableMigrationsListValidation: true
       }
     },
     production: {
@@ -60,7 +62,8 @@ module.exports = {
       connection: connectionConfig,
       pool: poolConfig,
       migrations: {
-        directory: './migrations'
+        directory: './migrations',
+        disableMigrationsListValidation: true
       }
     }
 };

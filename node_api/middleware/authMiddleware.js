@@ -69,10 +69,17 @@ async function authMiddleware(req, res, next) {
   const ruta = req.originalUrl || req.url;
 
   try {
-    const localUser = await global.knex('user').where({ access_token: token }).first();
-    if (localUser) {
-      req.user = localUser;
-      return next();
+    const tokenRow = await global.knex('user_tokens')
+      .where({ token, is_active: true })
+      .whereRaw('(expires_at IS NULL OR expires_at > NOW())')
+      .first();
+    if (tokenRow) {
+      await global.knex('user_tokens').where({ id: tokenRow.id }).update({ last_used_at: new Date() });
+      const localUser = await global.knex('user').where({ id: tokenRow.user_id }).first();
+      if (localUser) {
+        req.user = localUser;
+        return next();
+      }
     }
 
     const cached = tokenCache.get(token);
@@ -142,10 +149,17 @@ async function authMiddlewareOptional(req, res, next) {
   const ruta = req.originalUrl || req.url;
 
   try {
-    const localUser = await global.knex('user').where({ access_token: token }).first();
-    if (localUser) {
-      req.user = localUser;
-      return next();
+    const tokenRow = await global.knex('user_tokens')
+      .where({ token, is_active: true })
+      .whereRaw('(expires_at IS NULL OR expires_at > NOW())')
+      .first();
+    if (tokenRow) {
+      await global.knex('user_tokens').where({ id: tokenRow.id }).update({ last_used_at: new Date() });
+      const localUser = await global.knex('user').where({ id: tokenRow.user_id }).first();
+      if (localUser) {
+        req.user = localUser;
+        return next();
+      }
     }
 
     const cached = tokenCache.get(token);

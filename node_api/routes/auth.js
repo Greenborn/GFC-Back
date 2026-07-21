@@ -12,6 +12,7 @@ const { saveImageFromBase64, getMimeType } = require('../utils/images.js')
 const Mailer = require('../controllers/mailer.js')
 const writeProtection = require('../middleware/writeProtection.js')
 
+const MAX_SESSIONS = 5
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar'
 
 router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
@@ -203,10 +204,31 @@ router.post('/login', async (req, res) => {
     req.session.token = token;
     req.session.profile = profile;
 
-    // Guardar el token en la base de datos del usuario
-    await global.knex('user')
-      .update({ access_token: token })
-      .where({ id: user.id });
+    // Guardar el token en user_tokens
+    await global.knex('user_tokens').insert({
+      user_id: user.id,
+      token: token,
+      created_at: new Date(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      ip_address: req.ip,
+      user_agent: req.headers['user-agent'] || null
+    });
+
+    // Limitar a MAX_SESSIONS concurrentes: eliminar la más vieja si excede
+    const activeCount = await global.knex('user_tokens')
+      .where({ user_id: user.id, is_active: true })
+      .count('id as count')
+      .first();
+
+    if (Number(activeCount.count) > MAX_SESSIONS) {
+      const oldest = await global.knex('user_tokens')
+        .where({ user_id: user.id, is_active: true })
+        .orderByRaw('COALESCE(last_used_at, created_at) ASC')
+        .first();
+      if (oldest) {
+        await global.knex('user_tokens').where({ id: oldest.id }).del();
+      }
+    }
 
     res.status(200).send({ 
       r: true, 
@@ -227,15 +249,24 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/cerrar_sesion', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Error al cerrar sesión:', err);
-      res.status(500).send({ error: 'Error interno del servidor' });
-    } else {
-      return res.json({ stat: true, text: 'No hay sesión activa' });
+router.post('/cerrar_sesion', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const bearerToken = authHeader.replace('Bearer ', '');
+      await global.knex('user_tokens').where({ token: bearerToken }).del();
     }
-  });
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Error al cerrar sesión:', err);
+        return res.status(500).send({ error: 'Error interno del servidor' });
+      }
+      return res.json({ stat: true, text: 'Sesión cerrada' });
+    });
+  } catch (error) {
+    console.error('Error en POST /cerrar_sesion:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 router.get('/session', async (req, res) => {
