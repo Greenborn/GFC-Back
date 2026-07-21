@@ -116,21 +116,27 @@ app_admin.use((err, req, res, next) => {
 // Puerto del servidor
 const port = process.env.SERVICE_PORT_ADMIN || 3000;
 
-server_admin.listen(port, () => {
-    console.log(`Servidor API Admin escuchando en puerto ${port}`);
-    console.log(`Base de datos configurada: ${process.env.DB_CLIENT || 'postgresql'}`);
-    console.log(`Health check disponible en: http://localhost:${port}/health`);
-});
+// Ejecutar migraciones automáticas antes de iniciar el servidor
+global.knex.migrate.latest()
+  .then(() => console.log('Migraciones ejecutadas correctamente'))
+  .catch(err => console.error('Error al ejecutar migraciones:', err.message))
+  .finally(() => {
+    server_admin.listen(port, () => {
+        console.log(`Servidor API Admin escuchando en puerto ${port}`);
+        console.log(`Base de datos configurada: ${process.env.DB_CLIENT || 'postgresql'}`);
+        console.log(`Health check disponible en: http://localhost:${port}/health`);
+    });
 
-// Log de inicio del servidor
-setTimeout(async () => {
-    try {
-        await LogOperacion(0, 'Se inicia el servidor', null, new Date());
-        console.log('Log de inicio del servidor registrado exitosamente');
-    } catch (error) {
-        console.error('Error al registrar log de inicio:', error);
-    }
-}, 1000);
+    // Log de inicio del servidor
+    setTimeout(async () => {
+        try {
+            await LogOperacion(0, 'Se inicia el servidor', null, new Date());
+            console.log('Log de inicio del servidor registrado exitosamente');
+        } catch (error) {
+            console.error('Error al registrar log de inicio:', error);
+        }
+    }, 1000);
+  });
 
 // Manejo de señales de terminación
 process.on('SIGTERM', () => {
