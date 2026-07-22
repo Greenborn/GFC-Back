@@ -32,7 +32,8 @@ router.post('/', authMiddleware, upload.fields([
             max_img_section,
             start_date,
             end_date,
-            organization_type
+            organization_type,
+            is_test
         } = req.body;
 
         if (!name) {
@@ -74,6 +75,7 @@ router.post('/', authMiddleware, upload.fields([
             img_url,
             rules_url,
             organization_type: organization_type || null,
+            is_test: is_test === true || is_test === 'true' || is_test === 1 || is_test === '1' || false,
             judged: false
         };
 
@@ -311,6 +313,7 @@ router.get('/:id(\\d+)', authMiddleware, async (req, res) => {
             rules_url: contest.rules_url,
             sub_title: contest.sub_title || '',
             organization_type: contest.organization_type,
+            is_test: contest.is_test === 1 || contest.is_test === true || String(contest.is_test) === '1',
             judged: contest.judged === 1 || contest.judged === true || String(contest.judged) === '1',
             active: (() => {
                 const now = new Date();
@@ -417,7 +420,8 @@ router.put('/:id', adminMiddleware, upload.fields([
             start_date,
             end_date,
             organization_type,
-            judged
+            judged,
+            is_test
         } = req.body;
 
         const updateData = {};
@@ -473,6 +477,11 @@ router.put('/:id', adminMiddleware, upload.fields([
         if (Object.prototype.hasOwnProperty.call(req.body, 'judged')) {
             const judgedValue = String(judged).toLowerCase();
             updateData.judged = ['1', 'true', 'yes', 'on'].includes(judgedValue);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'is_test')) {
+            const isTestValue = String(is_test).toLowerCase();
+            updateData.is_test = ['1', 'true', 'yes', 'on'].includes(isTestValue);
         }
 
         const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';

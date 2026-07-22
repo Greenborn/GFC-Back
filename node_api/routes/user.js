@@ -179,8 +179,14 @@ router.put('/:id', authMiddleware, async (req, res) => {
       }
     }
 
+    if (!isAdmin) {
+      if (Object.prototype.hasOwnProperty.call(payload, 'is_test_enabled')) {
+        return res.status(403).json({ success: false, message: 'Solo administradores pueden editar el campo is_test_enabled' });
+      }
+    }
+
     const allowedFields = isAdmin || isDelegate
-      ? ['username', 'email', 'status', 'role_id', 'profile_id', 'dni']
+      ? ['username', 'email', 'status', 'role_id', 'profile_id', 'dni', 'is_test_enabled']
       : ['username', 'email', 'dni'];
 
     const updateData = {};
