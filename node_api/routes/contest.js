@@ -8,6 +8,7 @@ const { logAction } = require('../utils/log.js');
 const { saveUploadedFile } = require('../utils/images.js');
 const { buildPaginationResponse } = require('../utils/pagination.js');
 const authMiddleware = require('../middleware/authMiddleware');
+const { authMiddlewareOptional } = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 const { isValidOrganizationType } = require('../utils/organizationType');
 const { insertAndGetId } = require('../utils/db.js');
@@ -95,7 +96,7 @@ router.post('/', authMiddleware, upload.fields([
 });
 
 // Endpoint para listar concursos con expansión de categorías y secciones (compatible con API PHP)
-router.get('/', async (req, res) => {
+router.get('/', authMiddlewareOptional, async (req, res) => {
     try {
 
         // Parámetros de consulta
@@ -104,9 +105,20 @@ router.get('/', async (req, res) => {
         const itemsPerPage = parseInt(perPage);
         const offset = (currentPage - 1) * itemsPerPage;
 
-        // Construir query base para contests (excluir borrados lógicos)
+        const canSeeTest = req.user && (req.user.is_test_enabled === 1 || req.user.is_test_enabled === true || String(req.user.is_test_enabled) === '1');
+
+        // Construir query base para contests (excluir borrados lógicos y ocultar pruebas si corresponde)
         let contestQuery = global.knex('contest').select('*').whereNull('deleted_at');
         let countQuery = global.knex('contest').count('id as count').whereNull('deleted_at').first();
+
+        if (!canSeeTest) {
+            contestQuery = contestQuery.where(function () {
+                this.where('is_test', false).orWhereNull('is_test');
+            });
+            countQuery = countQuery.where(function () {
+                this.where('is_test', false).orWhereNull('is_test');
+            });
+        }
 
         // Filtro de búsqueda en los campos name y description
         if (search && search.trim()) {
@@ -189,11 +201,18 @@ router.get('/', async (req, res) => {
     }
 });
 
-router.get('/get_all', async (req, res) => {
+router.get('/get_all', authMiddlewareOptional, async (req, res) => {
     try {
+        const isTestUser = req.user && (req.user.is_test_enabled === 1 || req.user.is_test_enabled === true || String(req.user.is_test_enabled) === '1');
 
+        let contestQuery = global.knex('contest').whereNull('deleted_at');
+        if (!isTestUser) {
+            contestQuery = contestQuery.where(function () {
+                this.where('is_test', false).orWhereNull('is_test');
+            });
+        }
         res.json({
-            items: await global.knex('contest').whereNull('deleted_at'),
+            items: await contestQuery,
             contest_category: await global.knex('contest_category'),
             category: await global.knex('category'),
             //section: await global.knex('section'),
@@ -229,6 +248,15 @@ router.get('/participants', authMiddleware, async (req, res) => {
         // Verificar que el concurso existe
         const contest = await global.knex('contest').where('id', contestId).first();
         if (!contest || contest.deleted_at) {
+            return res.status(404).json({
+                success: false,
+                message: 'Concurso no encontrado'
+            });
+        }
+
+        const isTestContest = contest.is_test === 1 || contest.is_test === true || String(contest.is_test) === '1';
+        const userCanSeeTest = req.user && (req.user.is_test_enabled === 1 || req.user.is_test_enabled === true || String(req.user.is_test_enabled) === '1');
+        if (isTestContest && !userCanSeeTest) {
             return res.status(404).json({
                 success: false,
                 message: 'Concurso no encontrado'
@@ -292,6 +320,12 @@ router.get('/:id(\\d+)', authMiddleware, async (req, res) => {
 
         const contest = await global.knex('contest').where({ id: contestId }).first();
         if (!contest || contest.deleted_at) {
+            return res.status(404).json({ message: 'Concurso no encontrado' });
+        }
+
+        const isTestContest = contest.is_test === 1 || contest.is_test === true || String(contest.is_test) === '1';
+        const userCanSeeTest = req.user && (req.user.is_test_enabled === 1 || req.user.is_test_enabled === true || String(req.user.is_test_enabled) === '1');
+        if (isTestContest && !userCanSeeTest) {
             return res.status(404).json({ message: 'Concurso no encontrado' });
         }
 
@@ -533,6 +567,15 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
     try {
         const contest = await global.knex('contest').where('id', contestId).first();
         if (!contest || contest.deleted_at) {
+            return res.status(404).json({
+                success: false,
+                message: 'Concurso no encontrado'
+            });
+        }
+
+        const isTestContest = contest.is_test === 1 || contest.is_test === true || String(contest.is_test) === '1';
+        const userCanSeeTest = req.user && (req.user.is_test_enabled === 1 || req.user.is_test_enabled === true || String(req.user.is_test_enabled) === '1');
+        if (isTestContest && !userCanSeeTest) {
             return res.status(404).json({
                 success: false,
                 message: 'Concurso no encontrado'
