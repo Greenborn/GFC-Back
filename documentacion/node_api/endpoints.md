@@ -7,6 +7,7 @@ Esta documentación describe todos los endpoints disponibles en la API Node.js d
 ## Documentación Específica por Módulo
 
 - [Contest Records (contests_records)](endpoint_contest_record.md) - CRUD completo para registros de concursos
+- [User Preferences](endpoint_user_preferences.md) - Preferencias clave-valor por usuario
 
 ## Información General
 
@@ -2174,6 +2175,90 @@ Obtiene todas las fotos del año registradas en el sistema, agrupadas por tempor
 - **Agrupamiento**: Por temporada (año)
 - **Ordenamiento**: Temporada DESC, orden ASC dentro de cada grupo
 - **Estadísticas**: Incluye totales de temporadas y fotos
+
+---
+
+## 13. Preferencias de Usuario
+
+### 13.1 Obtener todas las preferencias
+**GET** `/user/preferences`
+
+Devuelve un objeto con todas las preferencias del usuario autenticado.
+
+#### Headers
+```
+Authorization: Bearer <token>
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": {
+    "theme": "dark",
+    "notifications_enabled": true
+  }
+}
+```
+
+### 13.2 Obtener una preferencia específica
+**GET** `/user/preferences/:key`
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": {
+    "theme": "dark"
+  }
+}
+```
+
+### 13.3 Guardar preferencias (crear o actualizar)
+**PUT** `/user/preferences`
+
+Crea o actualiza múltiples preferencias. Requiere que todas las claves estén definidas en `user_preferences_meta`.
+
+#### Body
+```json
+{
+  "theme": "dark",
+  "notifications_enabled": true
+}
+```
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": {
+    "theme": "dark",
+    "notifications_enabled": true
+  }
+}
+```
+
+#### Respuesta de Error (400) — Clave no permitida
+```json
+{
+  "success": false,
+  "message": "Las siguientes claves no son propiedades permitidas",
+  "invalid_keys": ["unknown_key"]
+}
+```
+
+### 13.4 Eliminar una preferencia
+**DELETE** `/user/preferences/:key`
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Preferencia eliminada"
+}
+```
+
+Ver documentación completa en [endpoint_user_preferences.md](endpoint_user_preferences.md).
 
 ---
 
