@@ -9,6 +9,7 @@ Esta documentación describe todos los endpoints disponibles en la API Node.js d
 - [Contest Records (contests_records)](endpoint_contest_record.md) - CRUD completo para registros de concursos
 - [User Preferences](endpoint_user_preferences.md) - Preferencias clave-valor por usuario
 - [Contest Judge](endpoint_contest_judge.md) - Gestión de jueces de concurso
+- [Contest Preselected Photo](endpoint_contest_preselected_photo.md) - Preselección de fotos por jurado
 
 ## Información General
 

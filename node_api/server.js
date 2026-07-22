@@ -99,6 +99,7 @@ app_admin.use('/api/contest-category', require('./routes/contest-category.js'));
 app_admin.use('/api/contest-section', require('./routes/contest-section.js'));
 app_admin.use('/api/contest-record', require('./routes/contestrecord.js')); // CRUD de contests_records
 app_admin.use('/api/contest-judge', require('./routes/contest-judge.js')); // CRUD de jueces de concurso
+app_admin.use('/api/contest-preselected-photo', require('./routes/contest-preselected-photo.js')); // Preselección de fotos por jurado
 app_admin.use('/api/images', require('./routes/images.js'));
 app_admin.use('/api/log', require('./routes/log.js'));
 app_admin.use('/api/results', require('./routes/results.js'));
