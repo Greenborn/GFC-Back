@@ -182,6 +182,16 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       return res.status(409).json({ success: false, message: 'El perfil ya está inscrito en este concurso' });
     }
 
+    const userForProfile = await global.knex('user').where({ profile_id }).first();
+    if (userForProfile) {
+      const isJudge = await global.knex('contest_judge')
+        .where({ contest_id, user_id: userForProfile.id })
+        .first();
+      if (isJudge) {
+        return res.status(403).json({ success: false, message: 'Un juez del concurso no puede inscribirse como participante' });
+      }
+    }
+
     const id = await insertAndGetId(global.knex, 'profile_contest', {
       profile_id,
       contest_id,
