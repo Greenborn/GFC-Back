@@ -89,6 +89,7 @@ app_admin.use('/api/section', require('./routes/section.js'));
 app_admin.use('/api/metric', require('./routes/metrics.js'));
 app_admin.use('/api/metric-abm', require('./routes/metric-abm.js'));
 app_admin.use('/api/user', require('./routes/user.js'));
+app_admin.use('/api/user', require('./routes/user_preferences.js'));
 app_admin.use('/api/profile', require('./routes/profile.js'));
 app_admin.use('/api/profile-registrable', require('./routes/profile-registrable.js'));
 app_admin.use('/api/profile-contest', require('./routes/profile-contest.js'));
