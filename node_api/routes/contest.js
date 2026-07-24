@@ -1197,7 +1197,10 @@ router.post('/clone-data', adminMiddleware, async (req, res) => {
             if (results.length) {
                 const contestResultData = [];
                 for (const r of results) {
-                    const metricId = await insertAndGetId(trx, 'metric', { prize: 'SIN PREMIO', score: 0 });
+                    const { rows: [{ id: metricId }] } = await trx.raw(
+                        'INSERT INTO "metric" ("prize", "score") VALUES (?, ?) RETURNING "id"',
+                        ['SIN PREMIO', 0]
+                    );
                     contestResultData.push({
                         contest_id: destinoId,
                         image_id: r.image_id,
