@@ -672,3 +672,4 @@ async function generarCodigoImagen(knex, imageId, contestId, sectionId) {
 
 
 module.exports = router;
+module.exports.generarCodigoImagen = generarCodigoImagen;

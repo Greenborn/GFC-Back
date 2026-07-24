@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const { logAction } = require('../utils/log.js');
 const { saveUploadedFile } = require('../utils/images.js');
 const { buildPaginationResponse } = require('../utils/pagination.js');
+const { generarCodigoImagen } = require('./contestresult.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const { authMiddlewareOptional } = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
@@ -1193,9 +1194,15 @@ router.post('/clone-data', adminMiddleware, async (req, res) => {
                 copied.profile_contest = participants.length;
             } else copied.profile_contest = 0;
 
-            const results = await trx('contest_result').where({ contest_id: origenId }).select('image_id', 'section_id');
+            const results = await trx('contest_result')
+                .where({ contest_id: origenId })
+                .join('image', 'contest_result.image_id', 'image.id')
+                .select('contest_result.image_id', 'contest_result.section_id', 'image.url as image_url');
             if (results.length) {
                 const contestResultData = [];
+                const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
+                const cloneDir = path.join(uploadsBasePath, `_clone_${destinoId}`);
+
                 for (const r of results) {
                     const { rows: [{ id: metricId }] } = await trx.raw(
                         'INSERT INTO "metric" ("prize", "score") VALUES (?, ?) RETURNING "id"',
@@ -1207,8 +1214,27 @@ router.post('/clone-data', adminMiddleware, async (req, res) => {
                         section_id: r.section_id,
                         metric_id: metricId
                     });
+
+                    // Copiar archivo físico de la imagen preservando estructura
+                    if (r.image_url) {
+                        const srcPath = path.join(uploadsBasePath, r.image_url);
+                        if (fs.existsSync(srcPath)) {
+                            const destPath = path.join(cloneDir, r.image_url);
+                            const destDir = path.dirname(destPath);
+                            if (!fs.existsSync(destDir)) {
+                                fs.mkdirSync(destDir, { recursive: true });
+                            }
+                            fs.copyFileSync(srcPath, destPath);
+                        }
+                    }
                 }
                 await trx('contest_result').insert(contestResultData);
+
+                // Regenerar códigos de imagen después de insertar los contest_result
+                for (const r of results) {
+                    await generarCodigoImagen(trx, r.image_id, destinoId, r.section_id);
+                }
+
                 copied.contest_result = results.length;
             } else copied.contest_result = 0;
 
