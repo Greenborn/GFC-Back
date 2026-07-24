@@ -1101,6 +1101,7 @@ router.delete('/:id', adminMiddleware, async (req, res) => {
  */
 router.post('/clone-data', adminMiddleware, async (req, res) => {
     try {
+        console.log('[CLONE-v3] generate_series approach - metricIds from raw SQL');
         const { origen_id, destino_id } = req.body;
 
         if (!origen_id || !destino_id) {
