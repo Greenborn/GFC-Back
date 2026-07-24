@@ -69,7 +69,16 @@ curl -X PUT "http://localhost:3000/api/contest/5/set-judging" \
 }
 ```
 
+### Respuesta: Sin jueces asignados (400)
+```json
+{
+  "success": false,
+  "message": "No se puede iniciar el juzgamiento: el concurso debe tener al menos un juez asignado"
+}
+```
+
 ### Notas
+- **Validación**: Antes de pasar a juzgamiento, se verifica que el concurso tenga al menos un juez asignado en la tabla `contest_judge`. Si no hay ningún juez, se rechaza con error 400.
 - Al marcar un concurso como "en juzgamiento", `judged` siempre se setea en `false`, incluso si ya estaba juzgado (permite re-abrir juzgamiento).
 - El campo `is_judging` se expone como booleano en todas las respuestas del concurso (`GET /contest/:id`, `GET /contest/`, etc.).
 

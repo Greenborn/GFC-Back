@@ -570,6 +570,18 @@ router.put('/:id/set-judging', adminMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
         }
 
+        // Verificar que tenga al menos un juez asignado
+        const judgesCount = await global.knex('contest_judge')
+            .where({ contest_id: contestId })
+            .count('* as count')
+            .first();
+        if (!judgesCount || Number(judgesCount.count) === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No se puede iniciar el juzgamiento: el concurso debe tener al menos un juez asignado'
+            });
+        }
+
         await global.knex('contest')
             .where({ id: contestId })
             .update({ is_judging: true, judged: false });
