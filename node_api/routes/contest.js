@@ -1092,4 +1092,148 @@ router.delete('/:id', adminMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * POST /contest/clone-data
+ * Clona datos de un concurso origen a un concurso destino de pruebas.
+ * Copia: categorías, secciones, jueces, records, participantes y resultados (sin premios).
+ * El concurso destino DEBE tener is_test = true.
+ */
+router.post('/clone-data', adminMiddleware, async (req, res) => {
+    try {
+        const { origen_id, destino_id } = req.body;
+
+        if (!origen_id || !destino_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'Los campos origen_id y destino_id son obligatorios'
+            });
+        }
+
+        const origenId = parseInt(origen_id, 10);
+        const destinoId = parseInt(destino_id, 10);
+
+        if (isNaN(origenId) || isNaN(destinoId) || origenId <= 0 || destinoId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'origen_id y destino_id deben ser números válidos'
+            });
+        }
+
+        if (origenId === destinoId) {
+            return res.status(400).json({
+                success: false,
+                message: 'El concurso origen y destino no pueden ser el mismo'
+            });
+        }
+
+        const origen = await global.knex('contest').where({ id: origenId }).first();
+        if (!origen || origen.deleted_at) {
+            return res.status(404).json({
+                success: false,
+                message: 'Concurso origen no encontrado'
+            });
+        }
+
+        const destino = await global.knex('contest').where({ id: destinoId }).first();
+        if (!destino || destino.deleted_at) {
+            return res.status(404).json({
+                success: false,
+                message: 'Concurso destino no encontrado'
+            });
+        }
+
+        const isTestDestino = destino.is_test === 1 || destino.is_test === true || String(destino.is_test) === '1';
+        if (!isTestDestino) {
+            return res.status(400).json({
+                success: false,
+                message: 'El concurso destino debe ser un concurso de pruebas (is_test = true)'
+            });
+        }
+
+        const result = await global.knex.transaction(async (trx) => {
+            const deleted = {
+                contest_category: await trx('contest_category').where({ contest_id: destinoId }).del(),
+                contest_section: await trx('contest_section').where({ contest_id: destinoId }).del(),
+                contest_judge: await trx('contest_judge').where({ contest_id: destinoId }).del(),
+                contests_records: await trx('contests_records').where({ contest_id: destinoId }).del(),
+                profile_contest: await trx('profile_contest').where({ contest_id: destinoId }).del(),
+                contest_result: await trx('contest_result').where({ contest_id: destinoId }).del(),
+                contest_preselected_photo: await trx('contest_preselected_photo').where({ contest_id: destinoId }).del()
+            };
+
+            const copied = {};
+
+            const categories = await trx('contest_category').where({ contest_id: origenId }).select('category_id');
+            if (categories.length) {
+                await trx('contest_category').insert(categories.map(c => ({ contest_id: destinoId, category_id: c.category_id })));
+                copied.contest_category = categories.length;
+            } else copied.contest_category = 0;
+
+            const sections = await trx('contest_section').where({ contest_id: origenId }).select('section_id');
+            if (sections.length) {
+                await trx('contest_section').insert(sections.map(s => ({ contest_id: destinoId, section_id: s.section_id })));
+                copied.contest_section = sections.length;
+            } else copied.contest_section = 0;
+
+            const judges = await trx('contest_judge').where({ contest_id: origenId }).select('user_id');
+            if (judges.length) {
+                await trx('contest_judge').insert(judges.map(j => ({ contest_id: destinoId, user_id: j.user_id, created_at: new Date() })));
+                copied.contest_judge = judges.length;
+            } else copied.contest_judge = 0;
+
+            const records = await trx('contests_records').where({ contest_id: origenId }).select('url', 'object', 'type', 'temporada');
+            if (records.length) {
+                await trx('contests_records').insert(records.map(r => ({ contest_id: destinoId, url: r.url, object: r.object, type: r.type, temporada: r.temporada })));
+                copied.contests_records = records.length;
+            } else copied.contests_records = 0;
+
+            const participants = await trx('profile_contest').where({ contest_id: origenId }).select('profile_id', 'category_id');
+            if (participants.length) {
+                await trx('profile_contest').insert(participants.map(p => ({ profile_id: p.profile_id, contest_id: destinoId, category_id: p.category_id })));
+                copied.profile_contest = participants.length;
+            } else copied.profile_contest = 0;
+
+            const results = await trx('contest_result').where({ contest_id: origenId }).select('image_id', 'section_id');
+            if (results.length) {
+                await trx('contest_result').insert(results.map(r => ({ contest_id: destinoId, image_id: r.image_id, section_id: r.section_id, metric_id: null })));
+                copied.contest_result = results.length;
+            } else copied.contest_result = 0;
+
+            const preselected = await trx('contest_preselected_photo').where({ contest_id: origenId }).select('image_id');
+            if (preselected.length) {
+                await trx('contest_preselected_photo').insert(preselected.map(p => ({ contest_id: destinoId, image_id: p.image_id, preselected: false, votes: '[]' })));
+                copied.contest_preselected_photo = preselected.length;
+            } else copied.contest_preselected_photo = 0;
+
+            return { deleted, copied };
+        });
+
+        await logAction(req, `Clonación de datos de concurso ${origenId} → ${destinoId} - ${req.user.username}`, {
+            origen_id: origenId,
+            destino_id: destinoId,
+            origen_nombre: origen.name,
+            destino_nombre: destino.name,
+            ...result
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `Datos clonados exitosamente del concurso "${origen.name}" al concurso "${destino.name}"`,
+            data: {
+                origen_id: origenId,
+                destino_id: destinoId,
+                ...result
+            }
+        });
+
+    } catch (error) {
+        console.error('Error al clonar datos de concurso:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error interno al clonar datos del concurso',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

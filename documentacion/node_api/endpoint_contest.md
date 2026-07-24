@@ -90,3 +90,145 @@ curl -X GET "http://localhost:3000/api/contest?search=verano&expand=categories,s
 - La expansión de `categories` y `sections` se realiza solo si se incluye el parámetro `expand`.
 - El parámetro `search` filtra concursos cuyo `name` o `description` contienen el término ingresado.
 - El parámetro `sort=-id` ordena los concursos del más reciente al más antiguo.
+
+---
+
+## Clonar Datos de Concurso (solo administradores)
+
+### Endpoint
+**POST** `/api/contest/clone-data`
+
+### Descripción
+Clona los datos relacionados de un concurso origen a un concurso destino de pruebas. Copia categorías, secciones, jueces, registros, participantes, resultados (sin premios) y fotos preseleccionadas. El concurso destino **debe** tener `is_test = true`.
+
+### Seguridad
+- **Autenticación**: Requerida (Bearer Token)
+- **Permisos**: Solo administradores (`role_id == '1'`)
+
+### Headers
+```
+Authorization: Bearer <token_admin>
+Content-Type: application/json
+```
+
+### Body (JSON)
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `origen_id` | integer | Sí | ID del concurso origen cuyos datos se copiarán |
+| `destino_id` | integer | Sí | ID del concurso destino (debe ser `is_test = true`) |
+
+### Ejemplo de Solicitud
+```bash
+curl -X POST "http://localhost:3000/api/contest/clone-data" \
+  -H "Authorization: Bearer <token_admin>" \
+  -H "Content-Type: application/json" \
+  -d '{"origen_id": 58, "destino_id": 62}'
+```
+
+### Proceso
+1. Valida que ambos concursos existan y no estén borrados lógicamente
+2. Verifica que el concurso destino tenga `is_test = true`
+3. Elimina todos los datos existentes del destino en las tablas relacionadas
+4. Copia los datos desde el origen al destino (todo dentro de una **transacción**):
+   - `contest_category` - Relaciones con categorías
+   - `contest_section` - Relaciones con secciones
+   - `contest_judge` - Jueces asignados
+   - `contests_records` - Registros/documentos
+   - `profile_contest` - Participantes inscritos
+   - `contest_result` - Imágenes **sin premios** (`metric_id = NULL`)
+   - `contest_preselected_photo` - Fotos preseleccionadas (votos reseteados)
+
+### Tablas NO copiadas
+| Tabla | Motivo |
+|-------|--------|
+| `contest` | El destino ya existe con sus propios datos |
+| `metric` / `metric_abm` | No se copian las métricas/premios |
+| Archivos físicos | Solo se copian referencias, no los archivos de imagen |
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "message": "Datos clonados exitosamente del concurso \"Concurso Anual 2025\" al concurso \"Test Simulación\"",
+  "data": {
+    "origen_id": 58,
+    "destino_id": 62,
+    "deleted": {
+      "contest_category": 3,
+      "contest_section": 1,
+      "contest_judge": 0,
+      "contests_records": 2,
+      "profile_contest": 10,
+      "contest_result": 25,
+      "contest_preselected_photo": 0
+    },
+    "copied": {
+      "contest_category": 5,
+      "contest_section": 3,
+      "contest_judge": 2,
+      "contests_records": 4,
+      "profile_contest": 50,
+      "contest_result": 120,
+      "contest_preselected_photo": 30
+    }
+  }
+}
+```
+
+### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "Los campos origen_id y destino_id son obligatorios"
+}
+```
+```json
+{
+  "success": false,
+  "message": "origen_id y destino_id deben ser números válidos"
+}
+```
+```json
+{
+  "success": false,
+  "message": "El concurso destino debe ser un concurso de pruebas (is_test = true)"
+}
+```
+
+### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado. Solo administradores pueden acceder a este recurso."
+}
+```
+
+### Respuesta de Error (404)
+```json
+{
+  "success": false,
+  "message": "Concurso origen no encontrado"
+}
+```
+```json
+{
+  "success": false,
+  "message": "Concurso destino no encontrado"
+}
+```
+
+### Respuesta de Error (500)
+```json
+{
+  "success": false,
+  "message": "Error interno al clonar datos del concurso",
+  "error": "Detalles del error"
+}
+```
+
+### Características del Endpoint
+- **Autenticación**: Requerida (Bearer Token)
+- **Permisos**: Solo admin (`role_id == '1'`)
+- **Transaccional**: Sí, toda la operación se ejecuta en una transacción
+- **Logging**: Se registra la operación con detalles de origen, destino y conteos
+- **Idempotencia**: Se pueden ejecutar múltiples veces sobre el mismo destino (se limpian los datos previos)
