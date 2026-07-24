@@ -1195,7 +1195,16 @@ router.post('/clone-data', adminMiddleware, async (req, res) => {
 
             const results = await trx('contest_result').where({ contest_id: origenId }).select('image_id', 'section_id');
             if (results.length) {
-                await trx('contest_result').insert(results.map(r => ({ contest_id: destinoId, image_id: r.image_id, section_id: r.section_id, metric_id: null })));
+                const metricsData = results.map(() => ({ prize: 'SIN PREMIO', score: 0 }));
+                const insertedMetrics = await trx('metric').insert(metricsData).returning('id');
+                const metricIds = insertedMetrics.map(m => m.id ?? m);
+                const contestResultData = results.map((r, i) => ({
+                    contest_id: destinoId,
+                    image_id: r.image_id,
+                    section_id: r.section_id,
+                    metric_id: metricIds[i]
+                }));
+                await trx('contest_result').insert(contestResultData);
                 copied.contest_result = results.length;
             } else copied.contest_result = 0;
 
