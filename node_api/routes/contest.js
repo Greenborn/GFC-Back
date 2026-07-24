@@ -1244,33 +1244,21 @@ router.post('/clone-data', adminMiddleware, async (req, res) => {
                     newImageIds.push(newImageId);
                 }
 
-                // Crear TODAS las métricas en una sola query usando generate_series
-                const metricResult = await trx.raw(
-                    'INSERT INTO "metric" ("prize", "score") SELECT ?, ? FROM generate_series(1, ?) RETURNING "id"',
-                    ['SIN PREMIO', 0, results.length]
-                );
-                let metricIds = metricResult.rows.map(r => r.id);
-
-                // Validar que la cantidad de métricas creadas coincida con los resultados
-                if (metricIds.length !== results.length) {
-                    console.error(`[CLONE-ERROR] metricIds.length (${metricIds.length}) !== results.length (${results.length}). Creando métricas faltantes...`);
-                    const faltantes = results.length - metricIds.length;
-                    for (let j = 0; j < faltantes; j++) {
-                        const { rows: [{ id: mid }] } = await trx.raw(
-                            'INSERT INTO "metric" ("prize", "score") VALUES (?, ?) RETURNING "id"',
-                            ['SIN PREMIO', 0]
-                        );
-                        metricIds.push(mid);
-                    }
+                // Insertar contest_result con nuevas image_id y métricas individuales
+                const contestResultData = [];
+                for (let i = 0; i < results.length; i++) {
+                    const r = results[i];
+                    const { rows: [{ id: metricId }] } = await trx.raw(
+                        'INSERT INTO "metric" ("prize", "score") VALUES (?, ?) RETURNING "id"',
+                        ['SIN PREMIO', 0]
+                    );
+                    contestResultData.push({
+                        contest_id: destinoId,
+                        image_id: newImageIds[i],
+                        section_id: r.section_id,
+                        metric_id: metricId
+                    });
                 }
-
-                // Insertar contest_result con las nuevas image_id
-                const contestResultData = results.map((r, i) => ({
-                    contest_id: destinoId,
-                    image_id: newImageIds[i],
-                    section_id: r.section_id,
-                    metric_id: metricIds[i]
-                }));
                 await trx('contest_result').insert(contestResultData);
 
                 // Copiar archivos físicos y regenerar códigos sobre las nuevas imágenes
