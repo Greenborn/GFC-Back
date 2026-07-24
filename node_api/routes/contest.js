@@ -1199,23 +1199,28 @@ router.post('/clone-data', adminMiddleware, async (req, res) => {
                 .join('image', 'contest_result.image_id', 'image.id')
                 .select('contest_result.image_id', 'contest_result.section_id', 'image.url as image_url');
             if (results.length) {
-                const contestResultData = [];
                 const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
                 const cloneDir = path.join(uploadsBasePath, `_clone_${destinoId}`);
 
-                for (const r of results) {
-                    const { rows: [{ id: metricId }] } = await trx.raw(
-                        'INSERT INTO "metric" ("prize", "score") VALUES (?, ?) RETURNING "id"',
-                        ['SIN PREMIO', 0]
-                    );
-                    contestResultData.push({
-                        contest_id: destinoId,
-                        image_id: r.image_id,
-                        section_id: r.section_id,
-                        metric_id: metricId
-                    });
+                // Crear TODAS las métricas en una sola query usando generate_series
+                const metricResult = await trx.raw(
+                    'INSERT INTO "metric" ("prize", "score") SELECT ?, ? FROM generate_series(1, ?) RETURNING "id"',
+                    ['SIN PREMIO', 0, results.length]
+                );
+                const metricIds = metricResult.rows.map(r => r.id);
 
-                    // Copiar archivo físico de la imagen preservando estructura
+                const contestResultData = results.map((r, i) => ({
+                    contest_id: destinoId,
+                    image_id: r.image_id,
+                    section_id: r.section_id,
+                    metric_id: metricIds[i]
+                }));
+                await trx('contest_result').insert(contestResultData);
+
+                // Copiar archivos físicos y regenerar códigos
+                for (const r of results) {
+                    await generarCodigoImagen(trx, r.image_id, destinoId, r.section_id);
+
                     if (r.image_url) {
                         const srcPath = path.join(uploadsBasePath, r.image_url);
                         if (fs.existsSync(srcPath)) {
@@ -1227,12 +1232,6 @@ router.post('/clone-data', adminMiddleware, async (req, res) => {
                             fs.copyFileSync(srcPath, destPath);
                         }
                     }
-                }
-                await trx('contest_result').insert(contestResultData);
-
-                // Regenerar códigos de imagen después de insertar los contest_result
-                for (const r of results) {
-                    await generarCodigoImagen(trx, r.image_id, destinoId, r.section_id);
                 }
 
                 copied.contest_result = results.length;
