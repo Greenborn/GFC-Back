@@ -77,7 +77,8 @@ router.post('/', authMiddleware, upload.fields([
             rules_url,
             organization_type: organization_type || null,
             is_test: is_test === true || is_test === 'true' || is_test === 1 || is_test === '1' || false,
-            judged: false
+            judged: false,
+            is_judging: false
         };
 
         const contestId = await insertAndGetId(global.knex, 'contest', contestData);
@@ -350,6 +351,7 @@ router.get('/:id(\\d+)', authMiddleware, async (req, res) => {
             deleted_at: contest.deleted_at || null,
             is_test: contest.is_test === 1 || contest.is_test === true || String(contest.is_test) === '1',
             judged: contest.judged === 1 || contest.judged === true || String(contest.judged) === '1',
+            is_judging: contest.is_judging === 1 || contest.is_judging === true || String(contest.is_judging) === '1',
             active: (() => {
                 const now = new Date();
                 const endDate = new Date(contest.end_date);
@@ -519,6 +521,11 @@ router.put('/:id', adminMiddleware, upload.fields([
             updateData.is_test = ['1', 'true', 'yes', 'on'].includes(isTestValue);
         }
 
+        if (Object.prototype.hasOwnProperty.call(req.body, 'is_judging')) {
+            const isJudgingValue = String(is_judging).toLowerCase();
+            updateData.is_judging = ['1', 'true', 'yes', 'on'].includes(isJudgingValue);
+        }
+
         const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
         const imagesDir = path.join(uploadsBasePath, 'images');
         if (!fs.existsSync(imagesDir)) {
@@ -547,6 +554,46 @@ router.put('/:id', adminMiddleware, upload.fields([
     } catch (error) {
         console.error('Error al actualizar concurso:', error);
         return res.status(500).json({ success: false, message: 'Error interno al actualizar concurso', error: error.message });
+    }
+});
+
+// Endpoint para poner un concurso en etapa de juzgamiento (solo admin)
+router.put('/:id/set-judging', adminMiddleware, async (req, res) => {
+    try {
+        const contestId = parseInt(req.params.id, 10);
+        if (isNaN(contestId) || contestId <= 0) {
+            return res.status(400).json({ success: false, message: 'ID de concurso inválido' });
+        }
+
+        const contest = await global.knex('contest').where({ id: contestId }).first();
+        if (!contest || contest.deleted_at) {
+            return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+        }
+
+        await global.knex('contest')
+            .where({ id: contestId })
+            .update({ is_judging: true, judged: false });
+
+        await logAction(req, `Concurso puesto en juzgamiento - ${req.user.username}`, {
+            contest_id: contestId,
+            contest_name: contest.name
+        });
+
+        const updated = await global.knex('contest').where({ id: contestId }).first();
+
+        return res.json({
+            success: true,
+            data: {
+                id: updated.id,
+                name: updated.name,
+                is_judging: updated.is_judging === 1 || updated.is_judging === true || String(updated.is_judging) === '1',
+                judged: updated.judged === 1 || updated.judged === true || String(updated.judged) === '1'
+            },
+            message: `El concurso "${contest.name}" ha sido puesto en etapa de juzgamiento`
+        });
+    } catch (error) {
+        console.error('Error al poner concurso en juzgamiento:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al poner concurso en juzgamiento', error: error.message });
     }
 });
 

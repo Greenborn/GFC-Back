@@ -100,6 +100,7 @@ async function actualizarRanking() {
   const contests = await knex('contest')
     .select('id')
     .where({ organization_type: 'INTERNO', judged: true })
+    .andWhere(function () { this.where('is_test', false).orWhereNull('is_test'); })
     .andWhere('end_date', '>=', startOfYear);
   console.log(`Concursos juzgados del año actual encontrados: ${contests.length}`, startOfYear);
   const contestIds = contests.map(c => c.id);
@@ -233,6 +234,7 @@ async function validarRanking(options = {}) {
   const contests = await knex('contest')
     .select('id', 'end_date')
     .where({ organization_type: organizationType, judged: true })
+    .andWhere(function () { this.where('is_test', false).orWhereNull('is_test'); })
     .andWhere('end_date', '>=', startOfYear);
   const contestIds = contests
     .filter(c => new Date(c.end_date).getFullYear() === year)

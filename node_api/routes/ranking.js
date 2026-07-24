@@ -46,7 +46,10 @@ router.get('/detalle/:contest_id/:profile_id', authMiddleware, async (req, res) 
 
     await logAction(req, `Consulta detalle ranking contest_id=${contestId} profile_id=${profileId}`);
 
-    const contest = await global.knex('contest').where({ id: contestId }).first();
+    const contest = await global.knex('contest')
+      .where({ id: contestId })
+      .andWhere(function () { this.where('is_test', false).orWhereNull('is_test'); })
+      .first();
     if (!contest) {
       return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
     }
@@ -196,7 +199,11 @@ router.get('/detalle/:profile_id', authMiddleware, async (req, res) => {
     }
 
     const startOfYear = new Date(year, 0, 1);
-    const contestsYear = await global.knex('contest').select('id', 'end_date').where('end_date', '>=', startOfYear).andWhere('judged', true);
+    const contestsYear = await global.knex('contest')
+      .select('id', 'end_date')
+      .where('end_date', '>=', startOfYear)
+      .andWhere('judged', true)
+      .andWhere(function () { this.where('is_test', false).orWhereNull('is_test'); });
     const contestsIdsYear = contestsYear.filter(c => new Date(c.end_date).getFullYear() === year).map(c => c.id);
 
     const inscriptions = await global.knex('profile_contest').select('contest_id').where({ profile_id: profileId }).whereIn('contest_id', contestsIdsYear);
@@ -324,7 +331,10 @@ router.get('/detalle', authMiddleware, async (req, res) => {
     }
 
     if (Number.isFinite(contestId)) {
-      const contest = await global.knex('contest').where({ id: contestId }).first();
+      const contest = await global.knex('contest')
+        .where({ id: contestId })
+        .andWhere(function () { this.where('is_test', false).orWhereNull('is_test'); })
+        .first();
       if (!contest) {
         return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
       }
@@ -421,7 +431,11 @@ router.get('/detalle', authMiddleware, async (req, res) => {
     }
 
     const startOfYear = new Date(year, 0, 1);
-    const contestsYear = await global.knex('contest').select('id', 'end_date').where('end_date', '>=', startOfYear).andWhere('judged', true);
+    const contestsYear = await global.knex('contest')
+      .select('id', 'end_date')
+      .where('end_date', '>=', startOfYear)
+      .andWhere('judged', true)
+      .andWhere(function () { this.where('is_test', false).orWhereNull('is_test'); });
     const contestsIdsYear = contestsYear.filter(c => new Date(c.end_date).getFullYear() === year).map(c => c.id);
     const inscriptions = await global.knex('profile_contest').select('contest_id').where({ profile_id: profileId }).whereIn('contest_id', contestsIdsYear);
     const resultsContests = await global.knex('contest_result as cr')
