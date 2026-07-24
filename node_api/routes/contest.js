@@ -1198,29 +1198,85 @@ router.post('/clone-data', adminMiddleware, async (req, res) => {
             const results = await trx('contest_result')
                 .where({ contest_id: origenId })
                 .join('image', 'contest_result.image_id', 'image.id')
-                .select('contest_result.image_id', 'contest_result.section_id', 'image.url as image_url');
+                .select(
+                    'contest_result.image_id',
+                    'contest_result.section_id',
+                    'image.url as image_url',
+                    'image.title as image_title',
+                    'image.code as image_code',
+                    'image.profile_id as orig_profile_id',
+                    'image.width',
+                    'image.height',
+                    'image.mime_type',
+                    'image.image_metadata'
+                );
             if (results.length) {
                 const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
                 const cloneDir = path.join(uploadsBasePath, `_clone_${destinoId}`);
+
+                // Obtener un perfil del destino para asociar las imágenes simuladas
+                const destProfile = await trx('profile_contest')
+                    .where({ contest_id: destinoId })
+                    .select('profile_id')
+                    .first();
+                const defaultProfileId = destProfile ? destProfile.profile_id : null;
+
+                // Crear nuevas imágenes (simulando carga de usuario) y recopilar nuevos IDs
+                const newImageIds = [];
+                for (const r of results) {
+                    const metaJson = r.image_metadata
+                        ? (typeof r.image_metadata === 'object' ? JSON.stringify(r.image_metadata) : r.image_metadata)
+                        : null;
+                    const [{ id: newImageId }] = await trx.raw(`
+                        INSERT INTO "image" ("code", "title", "profile_id", "url", "width", "height", "mime_type", "image_metadata")
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb)
+                        RETURNING "id"
+                    `, [
+                        r.image_code || 'CLONED_TEMP',
+                        r.image_title || 'Sin título',
+                        defaultProfileId || r.orig_profile_id,
+                        r.image_url,
+                        r.width || null,
+                        r.height || null,
+                        r.mime_type || null,
+                        metaJson
+                    ]);
+                    newImageIds.push(newImageId);
+                }
 
                 // Crear TODAS las métricas en una sola query usando generate_series
                 const metricResult = await trx.raw(
                     'INSERT INTO "metric" ("prize", "score") SELECT ?, ? FROM generate_series(1, ?) RETURNING "id"',
                     ['SIN PREMIO', 0, results.length]
                 );
-                const metricIds = metricResult.rows.map(r => r.id);
+                let metricIds = metricResult.rows.map(r => r.id);
 
+                // Validar que la cantidad de métricas creadas coincida con los resultados
+                if (metricIds.length !== results.length) {
+                    console.error(`[CLONE-ERROR] metricIds.length (${metricIds.length}) !== results.length (${results.length}). Creando métricas faltantes...`);
+                    const faltantes = results.length - metricIds.length;
+                    for (let j = 0; j < faltantes; j++) {
+                        const { rows: [{ id: mid }] } = await trx.raw(
+                            'INSERT INTO "metric" ("prize", "score") VALUES (?, ?) RETURNING "id"',
+                            ['SIN PREMIO', 0]
+                        );
+                        metricIds.push(mid);
+                    }
+                }
+
+                // Insertar contest_result con las nuevas image_id
                 const contestResultData = results.map((r, i) => ({
                     contest_id: destinoId,
-                    image_id: r.image_id,
+                    image_id: newImageIds[i],
                     section_id: r.section_id,
                     metric_id: metricIds[i]
                 }));
                 await trx('contest_result').insert(contestResultData);
 
-                // Copiar archivos físicos y regenerar códigos
-                for (const r of results) {
-                    await generarCodigoImagen(trx, r.image_id, destinoId, r.section_id);
+                // Copiar archivos físicos y regenerar códigos sobre las nuevas imágenes
+                for (let i = 0; i < results.length; i++) {
+                    const r = results[i];
+                    await generarCodigoImagen(trx, newImageIds[i], destinoId, r.section_id);
 
                     if (r.image_url) {
                         const srcPath = path.join(uploadsBasePath, r.image_url);
