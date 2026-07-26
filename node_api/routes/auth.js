@@ -236,6 +236,13 @@ router.post('/login', async (req, res) => {
         .where({ id: user.id });
     }
 
+    await new Promise((resolve, reject) => {
+      req.session.save(err => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
     res.status(200).send({ 
       r: true, 
       status: true,
@@ -247,7 +254,6 @@ router.post('/login', async (req, res) => {
       token: token, 
       message: 'Login exitoso' 
     });
-    req.session.save()
     return
   } catch (error) {
     console.error('Error en POST /auth/login:', error);

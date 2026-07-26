@@ -8,7 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
-    "migrate:status": "knex migrate:status"
+    "migrate:status": "knex migrate:status",
+    "update-deploy": "bash ../scripts/deploy-update.sh"
   },
   "repository": {
     "type": "git",

@@ -1,3 +1,9 @@
+---
+name: deploy-update
+description: Actualizar un despliegue existente en producción vía SSH con script autónomo.
+requires: [deploy-produccion]
+---
+
 # Skill: deploy-update
 
 Actualizar un despliegue existente en producción vía SSH. Este skill **requiere** que el despliegue inicial se haya realizado con el skill `deploy-produccion`.
@@ -72,3 +78,7 @@ bash .opencode/skills/deploy-update/scripts/deploy-update.sh \
 - La contraseña se almacena en un archivo temporal (`mktemp`) y se elimina al finalizar, sin exponerse en la lista de procesos.
 - Si el `git stash` no encuentra cambios locales, no falla — continúa normalmente.
 - Cada paso crítico detiene el script si falla (`set -euo pipefail` en remoto).
+
+### Reglas para generación de scripts
+
+- **Prohibido usar parámetros posicionales (`$1`, `$2`, `$@`, etc.)** al generar scripts. Usar siempre variables con nombre (`--flag=valor` o variables de entorno).

@@ -909,3 +909,4 @@ Si SSL está configurado, verificar también:
 8. **Registrar cada paso** con `echo` descriptivo para que el usuario sepa qué está ocurriendo.
 9. **Prohibido `||` como fallback de parámetros** — validar explícitamente cada entrada requerida.
 10. **Manejo de errores:** Todo fallo debe mostrar el mensaje de error real del comando. Prohibido `catch {}` vacío o silencioso.
+11. **Prohibido usar parámetros posicionales (`$1`, `$2`, `$@`, etc.)** al generar scripts. Usar siempre variables con nombre (`--flag=valor` o variables de entorno).
