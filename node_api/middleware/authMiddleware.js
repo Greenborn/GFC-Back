@@ -31,6 +31,25 @@ function resolveSsoRole(email) {
   return 3;
 }
 
+async function renewSsoToken(token, uniqueId) {
+  try {
+    const response = await axios.post(
+      `${AUTH_SERVICE_URL}/auth/renew`,
+      { unique_id: uniqueId },
+      { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
+    );
+    if (response.data?.success && response.data?.data?.bearer_token) {
+      return response.data.data;
+    }
+    return null;
+  } catch (err) {
+    const ssoBody = err.response?.data;
+    const ssoStatus = err.response?.status;
+    console.error(`[Auth] Error al renovar token SSO (${ssoStatus}): ${JSON.stringify(ssoBody)}`);
+    return null;
+  }
+}
+
 async function syncSsoUser(ssoUser) {
   const email = ssoUser.email;
   let user = await global.knex('user').where({ email }).first();
@@ -88,13 +107,25 @@ async function authMiddleware(req, res, next) {
       return next();
     }
 
+    const uniqueId = req.query.unique_id;
+
     const cached = tokenCache.get(token);
     if (cached && cached.expiresAt > Date.now()) {
       req.user = await syncSsoUser(cached.user);
+      if (uniqueId) {
+        renewSsoToken(token, uniqueId).then(renewData => {
+          if (renewData) {
+            const newToken = renewData.bearer_token;
+            const ssoUser = renewData.user;
+            tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+          } else {
+            tokenCache.delete(token);
+          }
+        }).catch(() => {});
+      }
       return next();
     }
 
-    const uniqueId = req.query.unique_id;
     if (!uniqueId) {
       console.warn(`[Auth] unique_id ausente para token SSO — ${tokenPreview} — ruta: ${ruta}`);
       await LogOperacion(0, 'auth - token SSO sin unique_id', JSON.stringify({ ruta, tokenPreview }), new Date());
@@ -115,7 +146,16 @@ async function authMiddleware(req, res, next) {
       console.error(`[Auth] Error al consultar SSO (${ssoStatus}): ${ssoErrorDetail} — token: ${tokenPreview} — ruta: ${ruta}`);
       await LogOperacion(0, 'auth - error SSO', JSON.stringify({ status: ssoStatus, respuesta: ssoBody, ruta, tokenPreview }), new Date());
 
-      if (ssoBody?.require_reauth || ssoBody?.error === 'TOKEN_EXPIRED' || ssoStatus === 401) {
+      if (ssoBody?.require_reauth || ssoBody?.error === 'TOKEN_EXPIRED' || ssoBody?.error === 'INVALID_TOKEN' || ssoStatus === 401) {
+        const renewData = await renewSsoToken(token, uniqueId);
+        if (renewData) {
+          const newToken = renewData.bearer_token;
+          const ssoUser = renewData.user;
+          tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+          req.user = await syncSsoUser(ssoUser);
+          res.setHeader('X-New-Token', newToken);
+          return next();
+        }
         tokenCache.delete(token);
         return res.status(401).json({ success: false, message: 'Sesión expirada', require_reauth: true });
       }
@@ -133,6 +173,15 @@ async function authMiddleware(req, res, next) {
     await LogOperacion(0, 'auth - token SSO rechazado', JSON.stringify({ respuesta: response.data, uniqueId, ruta, tokenPreview }), new Date());
 
     if (response.data?.require_reauth) {
+      const renewData = await renewSsoToken(token, uniqueId);
+      if (renewData) {
+        const newToken = renewData.bearer_token;
+        const ssoUser = renewData.user;
+        tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+        req.user = await syncSsoUser(ssoUser);
+        res.setHeader('X-New-Token', newToken);
+        return next();
+      }
       tokenCache.delete(token);
       return res.status(401).json({ success: false, message: 'Sesión expirada', require_reauth: true });
     }
@@ -174,13 +223,25 @@ async function authMiddlewareOptional(req, res, next) {
       return next();
     }
 
+    const uniqueId = req.query.unique_id;
+
     const cached = tokenCache.get(token);
     if (cached && cached.expiresAt > Date.now()) {
       req.user = await syncSsoUser(cached.user);
+      if (uniqueId) {
+        renewSsoToken(token, uniqueId).then(renewData => {
+          if (renewData) {
+            const newToken = renewData.bearer_token;
+            const ssoUser = renewData.user;
+            tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+          } else {
+            tokenCache.delete(token);
+          }
+        }).catch(() => {});
+      }
       return next();
     }
 
-    const uniqueId = req.query.unique_id;
     if (!uniqueId) {
       return next();
     }
@@ -195,6 +256,13 @@ async function authMiddlewareOptional(req, res, next) {
       const ssoBody = ssoErr.response?.data;
       const ssoStatus = ssoErr.response?.status;
       console.error(`[Auth] Error SSO (opcional) ${ssoStatus}: ${JSON.stringify(ssoBody)} — ${tokenPreview}`);
+      const renewData = await renewSsoToken(token, uniqueId);
+      if (renewData) {
+        const newToken = renewData.bearer_token;
+        const ssoUser = renewData.user;
+        tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+        req.user = await syncSsoUser(ssoUser);
+      }
       return next();
     }
 
