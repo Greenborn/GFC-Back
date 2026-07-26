@@ -31,10 +31,10 @@ function resolveSsoRole(email) {
   return 3;
 }
 
-async function renewSsoToken(token, uniqueId) {
+async function extendSsoSession(token, uniqueId) {
   try {
     const response = await axios.post(
-      `${AUTH_SERVICE_URL}/auth/renew`,
+      `${AUTH_SERVICE_URL}/auth/extend`,
       { unique_id: uniqueId },
       { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
     );
@@ -45,7 +45,7 @@ async function renewSsoToken(token, uniqueId) {
   } catch (err) {
     const ssoBody = err.response?.data;
     const ssoStatus = err.response?.status;
-    console.error(`[Auth] Error al renovar token SSO (${ssoStatus}): ${JSON.stringify(ssoBody)}`);
+    console.error(`[Auth] Error al extender sesión SSO (${ssoStatus}): ${JSON.stringify(ssoBody)}`);
     return null;
   }
 }
@@ -113,13 +113,11 @@ async function authMiddleware(req, res, next) {
     if (cached && cached.expiresAt > Date.now()) {
       req.user = await syncSsoUser(cached.user);
       if (uniqueId) {
-        renewSsoToken(token, uniqueId).then(renewData => {
-          if (renewData) {
-            const newToken = renewData.bearer_token;
-            const ssoUser = renewData.user;
-            tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
-          } else {
-            tokenCache.delete(token);
+        extendSsoSession(token, uniqueId).then(extendData => {
+          if (extendData) {
+            const bearerToken = extendData.bearer_token;
+            const ssoUser = extendData.user;
+            tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
           }
         }).catch(() => {});
       }
@@ -147,13 +145,13 @@ async function authMiddleware(req, res, next) {
       await LogOperacion(0, 'auth - error SSO', JSON.stringify({ status: ssoStatus, respuesta: ssoBody, ruta, tokenPreview }), new Date());
 
       if (ssoBody?.require_reauth || ssoBody?.error === 'TOKEN_EXPIRED' || ssoBody?.error === 'INVALID_TOKEN' || ssoStatus === 401) {
-        const renewData = await renewSsoToken(token, uniqueId);
-        if (renewData) {
-          const newToken = renewData.bearer_token;
-          const ssoUser = renewData.user;
-          tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+        const extendData = await extendSsoSession(token, uniqueId);
+        if (extendData) {
+          const bearerToken = extendData.bearer_token;
+          const ssoUser = extendData.user;
+          tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
           req.user = await syncSsoUser(ssoUser);
-          res.setHeader('X-New-Token', newToken);
+          res.setHeader('X-New-Token', bearerToken);
           return next();
         }
         tokenCache.delete(token);
@@ -173,13 +171,13 @@ async function authMiddleware(req, res, next) {
     await LogOperacion(0, 'auth - token SSO rechazado', JSON.stringify({ respuesta: response.data, uniqueId, ruta, tokenPreview }), new Date());
 
     if (response.data?.require_reauth) {
-      const renewData = await renewSsoToken(token, uniqueId);
-      if (renewData) {
-        const newToken = renewData.bearer_token;
-        const ssoUser = renewData.user;
-        tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+      const extendData = await extendSsoSession(token, uniqueId);
+      if (extendData) {
+        const bearerToken = extendData.bearer_token;
+        const ssoUser = extendData.user;
+        tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
         req.user = await syncSsoUser(ssoUser);
-        res.setHeader('X-New-Token', newToken);
+        res.setHeader('X-New-Token', bearerToken);
         return next();
       }
       tokenCache.delete(token);
@@ -229,13 +227,11 @@ async function authMiddlewareOptional(req, res, next) {
     if (cached && cached.expiresAt > Date.now()) {
       req.user = await syncSsoUser(cached.user);
       if (uniqueId) {
-        renewSsoToken(token, uniqueId).then(renewData => {
-          if (renewData) {
-            const newToken = renewData.bearer_token;
-            const ssoUser = renewData.user;
-            tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
-          } else {
-            tokenCache.delete(token);
+        extendSsoSession(token, uniqueId).then(extendData => {
+          if (extendData) {
+            const bearerToken = extendData.bearer_token;
+            const ssoUser = extendData.user;
+            tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
           }
         }).catch(() => {});
       }
@@ -256,11 +252,11 @@ async function authMiddlewareOptional(req, res, next) {
       const ssoBody = ssoErr.response?.data;
       const ssoStatus = ssoErr.response?.status;
       console.error(`[Auth] Error SSO (opcional) ${ssoStatus}: ${JSON.stringify(ssoBody)} — ${tokenPreview}`);
-      const renewData = await renewSsoToken(token, uniqueId);
-      if (renewData) {
-        const newToken = renewData.bearer_token;
-        const ssoUser = renewData.user;
-        tokenCache.set(newToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+      const extendData = await extendSsoSession(token, uniqueId);
+      if (extendData) {
+        const bearerToken = extendData.bearer_token;
+        const ssoUser = extendData.user;
+        tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
         req.user = await syncSsoUser(ssoUser);
       }
       return next();
