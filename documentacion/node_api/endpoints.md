@@ -138,7 +138,7 @@ Renueva el token JWT usando el refresh token.
 ### 2.1 Obtener Lista de Usuarios
 **GET** `/user/get_all`
 
-Obtiene el listado completo de usuarios junto con datos auxiliares de `profile`, `role` y `fotoclub`.
+Obtiene el listado de usuarios (paginado, ordenado y filtrable) junto con datos auxiliares de `profile`, `role` y `fotoclub`.
 
 #### Permisos
 - Requiere token Bearer en el header `Authorization`.
@@ -147,6 +147,29 @@ Obtiene el listado completo de usuarios junto con datos auxiliares de `profile`,
   - usuarios con `role_id == 3`
   - usuarios cuyo `profile.fotoclub_id` pertenece al mismo fotoclub que el delegado
 - Administradores (`role_id == 1`) y otros roles reciben el listado completo sin este filtro.
+
+#### Parámetros de Query (todos opcionales)
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `page` | int | Número de página (desde 1). Default: `1` |
+| `per-page` | int | Cantidad de registros por página. Default: `20` |
+| `sort` | string | Columna de ordenado. Valores válidos: `id`, `username`, `email`, `dni`, `status`, `role_id`, `profile_id`, `created_at`, `updated_at`. Default: `id` |
+| `sort_dir` | string | Dirección: `asc` o `desc`. Default: `asc` |
+| `search` / `q` | string | Término de búsqueda sobre `username`, `email`, `dni` (insensible a mayúsculas/acentos) y `id` (si el término es numérico) |
+| `filter[id]` | int | Filtro exacto por id (soporta coma para múltiples: `1,2,3`) |
+| `filter[status]` | int | Filtro exacto por estado (0 o 1) |
+| `filter[role_id]` | int | Filtro exacto por rol |
+| `filter[profile_id]` | int | Filtro exacto por perfil |
+| `filter[username]` | string | Filtro por nombre de usuario |
+| `filter[email]` | string | Filtro por email |
+| `filter[dni]` | string | Filtro por DNI |
+
+Notas de filtros:
+- Los filtros admiten notación `filter[columna]` (bracket) y también el objeto `filter[columna]=valor`.
+- Valores múltiples con coma: `filter[role_id]=1,2`.
+- Filtros con operadores: `filter[status][in]=0,1`, `filter[id][between]=1,100`, `filter[id][inside]=1,100`.
+- Los filtros se combinan con el resto (búsqueda, delegado) mediante `AND`.
 
 #### Headers
 ```
@@ -161,11 +184,25 @@ Authorization: Bearer <token>
       "id": 1,
       "username": "admin",
       "email": "admin@example.com",
+      "dni": null,
+      "status": 1,
       "role_id": 1,
       "profile_id": 10,
-      "status": 1
+      "created_at": null,
+      "updated_at": "1722983871"
     }
   ],
+  "_links": {
+    "self": { "href": "http://host/api/user/get_all?page=1" },
+    "first": { "href": "http://host/api/user/get_all?page=1" },
+    "last": { "href": "http://host/api/user/get_all?page=5" }
+  },
+  "_meta": {
+    "totalCount": 100,
+    "pageCount": 5,
+    "currentPage": 1,
+    "perPage": 20
+  },
   "profile": [
     {
       "id": 10,
@@ -186,6 +223,26 @@ Authorization: Bearer <token>
     }
   ]
 }
+```
+
+> Nota de seguridad: los campos sensibles (`password_hash`, `password_reset_token`, `access_token`, `sign_up_verif_code`, `sign_up_verif_token`, `pass_recovery_date`) nunca se incluyen en la respuesta.
+
+#### Ejemplos de uso
+```bash
+# Paginación básica
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/user/get_all?page=2&per-page=10"
+
+# Ordenado descendente por username
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/user/get_all?sort=username&sort_dir=desc"
+
+# Búsqueda por término (username/email/dni/id)
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/user/get_all?search=lucho"
+
+# Filtro por rol
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/user/get_all?filter[role_id]=3"
+
+# Filtro por estado y búsqueda combinados
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/user/get_all?filter[status]=1&search=adrian&sort=email&sort_dir=asc&page=1&per-page=20"
 ```
 
 ### 2.2 Obtener Usuario por ID

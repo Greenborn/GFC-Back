@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const { logAction } = require('../utils/log.js')
 const { escapeLikePattern, baseUnaccent, sanitizeSearchTerm } = require('../utils/strings.js')
+const { parseFilterParams, applyFilterObject } = require('../utils/filters.js')
+const { buildPaginationResponse } = require('../utils/pagination.js')
 const authMiddleware = require('../middleware/authMiddleware');
 
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';
@@ -58,41 +60,87 @@ router.get('/get_all', authMiddleware, async (req, res) => {
     try {
       await logAction(req, 'Consulta de Usuarios - ' + req.user.username);
 
-      const usersQuery = global.knex('user').orderBy('id', 'asc');
+      // ── Paginación ──
+      const page = parseInt(req.query.page, 10) > 0 ? parseInt(req.query.page, 10) : 1;
+      const perPage = parseInt(req.query['per-page'], 10) > 0 ? parseInt(req.query['per-page'], 10) : 20;
 
+      // ── Ordenado ──
+      const sortDir = req.query.sort_dir === 'desc' ? 'desc' : 'asc';
+      const validSorts = ['id', 'username', 'email', 'dni', 'status', 'role_id', 'profile_id', 'created_at', 'updated_at'];
+      const sort = validSorts.includes(req.query.sort) ? req.query.sort : 'id';
+      const orderBy = { column: sort, dir: sortDir };
+
+      // ── Búsqueda ──
       const rawSearch = (typeof req.query.search === 'string' && req.query.search.trim()) ||
                         (typeof req.query.q === 'string' && req.query.q.trim()) || '';
       const searchTerm = sanitizeSearchTerm(rawSearch);
-      if (searchTerm) {
-        const likeSearch = `%${escapeLikePattern(searchTerm)}%`;
-        usersQuery.where(function () {
-          this.whereRaw(baseUnaccent('username') + " LIKE ? ESCAPE '\\'", [likeSearch])
-            .orWhereRaw(baseUnaccent('email') + " LIKE ? ESCAPE '\\'", [likeSearch])
-            .orWhereRaw(baseUnaccent('dni') + " LIKE ? ESCAPE '\\'", [likeSearch]);
 
-          if (!Number.isNaN(Number(searchTerm))) {
-            this.orWhere('id', Number(searchTerm));
-          }
-        });
-      }
+      // ── Filtros ──
+      const filterParams = parseFilterParams(req.query);
+      const filterKeys = Object.keys(filterParams).filter(k => validSorts.includes(k));
 
-      if (req.user.role_id == '2' || req.user.role_id === 2) {
-        const currentProfile = await global.knex('profile').where({ id: req.user.profile_id }).first();
-        const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
-
-        if (fotoclubId) {
-          usersQuery
-            .where('role_id', 3)
-            .whereIn('profile_id', function () {
-              this.select('id').from('profile').where({ fotoclub_id: fotoclubId });
-            });
-        } else {
-          usersQuery.where('role_id', 3).where('profile_id', -1);
+      // ── Aplicar filtros/búsqueda/restricción a un query de user ──
+      const applyUserFilters = (query) => {
+        if (filterKeys.length > 0) {
+          const filter = {};
+          for (const k of filterKeys) filter[k] = filterParams[k];
+          applyFilterObject(query, filter);
         }
+
+        if (searchTerm) {
+          const likeSearch = `%${escapeLikePattern(searchTerm)}%`;
+          query.where(function () {
+            this.whereRaw(baseUnaccent('username') + " LIKE ? ESCAPE '\\'", [likeSearch])
+              .orWhereRaw(baseUnaccent('email') + " LIKE ? ESCAPE '\\'", [likeSearch])
+              .orWhereRaw(baseUnaccent('dni') + " LIKE ? ESCAPE '\\'", [likeSearch]);
+
+            if (!Number.isNaN(Number(searchTerm))) {
+              this.orWhere('id', Number(searchTerm));
+            }
+          });
+        }
+
+        if (isDelegate) {
+          if (fotoclubId) {
+            query
+              .where('role_id', 3)
+              .whereIn('profile_id', function () {
+                this.select('id').from('profile').where({ fotoclub_id: fotoclubId });
+              });
+          } else {
+            query.where('role_id', 3).where('profile_id', -1);
+          }
+        }
+      };
+
+      // ── Restricción para delegados ──
+      const isDelegate = req.user.role_id == '2' || req.user.role_id === 2;
+      let fotoclubId = null;
+      if (isDelegate) {
+        const currentProfile = await global.knex('profile').where({ id: req.user.profile_id }).first();
+        fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
       }
+
+      // ── Total (solo con filtros) ──
+      const countQuery = global.knex('user').count({ total: 'id' });
+      applyUserFilters(countQuery);
+      const countRow = await countQuery.first();
+      const totalCount = Number(countRow?.total) || 0;
+
+      // ── Data con orden y paginación ──
+      const itemsQuery = global.knex('user')
+        .select('id', 'username', 'email', 'dni', 'status', 'role_id', 'profile_id', 'created_at', 'updated_at');
+      applyUserFilters(itemsQuery);
+      const items = await itemsQuery
+        .orderBy(orderBy.column, orderBy.dir)
+        .offset((page - 1) * perPage)
+        .limit(perPage);
+
+      const pagination = buildPaginationResponse(req, totalCount, page, perPage);
 
       res.json({
-        items: await usersQuery,
+        items,
+        ...pagination,
         profile: await global.knex('profile'),
         role: await global.knex('role'),
         fotoclub: await global.knex('fotoclub')
