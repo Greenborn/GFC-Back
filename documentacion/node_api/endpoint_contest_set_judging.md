@@ -84,7 +84,83 @@ curl -X PUT "http://localhost:3000/api/contest/5/set-judging" \
 
 ---
 
-## 2. Campo `is_judging` en respuestas de concurso
+## 2. Sacar concurso de juzgamiento
+
+### Endpoint
+**PUT** `/api/contest/:id/disable-judging`
+
+### Descripción
+Saca un concurso de la etapa de juzgamiento setenado `is_judging = false`. No modifica el campo `judged`. Solo administradores.
+
+### Seguridad
+- **Autenticación**: Requiere token Bearer
+- **Permisos**: Solo administradores (`role_id == '1'`)
+
+### Headers
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+### Parámetros de ruta
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `id` | integer | Sí | ID del concurso |
+
+### Body
+No requiere body.
+
+### Ejemplo de Solicitud
+```bash
+curl -X PUT "http://localhost:3000/api/contest/5/disable-judging" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": {
+    "id": 5,
+    "name": "Concurso Anual 2026",
+    "is_judging": false,
+    "judged": false
+  },
+  "message": "El concurso \"Concurso Anual 2026\" ha sido sacado de la etapa de juzgamiento"
+}
+```
+
+### Respuesta: Concurso no encontrado (404)
+```json
+{
+  "success": false,
+  "message": "Concurso no encontrado"
+}
+```
+
+### Respuesta: Acceso denegado (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado. Solo administradores pueden acceder a este recurso."
+}
+```
+
+### Respuesta: ID inválido (400)
+```json
+{
+  "success": false,
+  "message": "ID de concurso inválido"
+}
+```
+
+### Notas
+- No requiere validación de jueces asignados (a diferencia de `set-judging`).
+- Al sacar de juzgamiento, `judged` permanece intacto.
+
+---
+
+## 3. Campo `is_judging` en respuestas de concurso
 
 El campo `is_judging` está disponible en los siguientes endpoints existentes:
 

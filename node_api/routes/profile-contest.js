@@ -176,6 +176,11 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       }
     }
 
+    const contest = await global.knex('contest').where({ id: contest_id }).first();
+    if (contest && (contest.is_judging === 1 || contest.is_judging === true || String(contest.is_judging) === '1')) {
+      return res.json({ success: false, message: 'No se puede inscribir: el concurso está en etapa de juzgamiento' });
+    }
+
     const existing = await global.knex('profile_contest')
       .where({ profile_id, contest_id }).first();
     if (existing) {
@@ -255,6 +260,11 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     const record = await global.knex('profile_contest').where({ id }).first();
     if (!record) {
       return res.status(404).json({ success: false, message: 'Inscripción no encontrada' });
+    }
+
+    const contest = await global.knex('contest').where({ id: record.contest_id }).first();
+    if (contest && (contest.is_judging === 1 || contest.is_judging === true || String(contest.is_judging) === '1')) {
+      return res.json({ success: false, message: 'No se puede eliminar la inscripción: el concurso está en etapa de juzgamiento' });
     }
 
     if (isConcursante && Number(record.profile_id) !== Number(currentUser.profile_id)) {

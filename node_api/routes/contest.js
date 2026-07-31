@@ -610,6 +610,46 @@ router.put('/:id/set-judging', adminMiddleware, async (req, res) => {
     }
 });
 
+// Endpoint para sacar un concurso de la etapa de juzgamiento (solo admin)
+router.put('/:id/disable-judging', adminMiddleware, async (req, res) => {
+    try {
+        const contestId = parseInt(req.params.id, 10);
+        if (isNaN(contestId) || contestId <= 0) {
+            return res.status(400).json({ success: false, message: 'ID de concurso inválido' });
+        }
+
+        const contest = await global.knex('contest').where({ id: contestId }).first();
+        if (!contest || contest.deleted_at) {
+            return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+        }
+
+        await global.knex('contest')
+            .where({ id: contestId })
+            .update({ is_judging: false });
+
+        await logAction(req, `Concurso sacado de juzgamiento - ${req.user.username}`, {
+            contest_id: contestId,
+            contest_name: contest.name
+        });
+
+        const updated = await global.knex('contest').where({ id: contestId }).first();
+
+        return res.json({
+            success: true,
+            data: {
+                id: updated.id,
+                name: updated.name,
+                is_judging: updated.is_judging === 1 || updated.is_judging === true || String(updated.is_judging) === '1',
+                judged: updated.judged === 1 || updated.judged === true || String(updated.judged) === '1'
+            },
+            message: `El concurso "${contest.name}" ha sido sacado de la etapa de juzgamiento`
+        });
+    } catch (error) {
+        console.error('Error al sacar concurso de juzgamiento:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al sacar concurso de juzgamiento', error: error.message });
+    }
+});
+
 router.get('/compressed-photos', authMiddleware, async (req, res) => {
     // Recibe el id del concurso por req.query.id
     const contestId = parseInt(req.query.id);

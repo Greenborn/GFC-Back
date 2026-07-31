@@ -123,6 +123,17 @@ curl -X POST 'https://gfc.prod-api.greenborn.com.ar/api/profile-contest?expand=p
 }
 ```
 
+### 200 — Concurso en etapa de juzgamiento
+
+Cuando el concurso está en modo juzgamiento (`is_judging = true`) se impide la inscripción. Aplica a **todos** los roles, incluidos administradores. Se responde HTTP 200 con `success: false`.
+
+```json
+{
+  "success": false,
+  "message": "No se puede inscribir: el concurso está en etapa de juzgamiento"
+}
+```
+
 ---
 
 ## Autorización por rol
@@ -243,6 +254,17 @@ curl -X DELETE 'https://gfc.prod-api.greenborn.com.ar/profile-contest/1272?uniqu
 {
   "success": false,
   "message": "Inscripción no encontrada"
+}
+```
+
+### 200 — Concurso en etapa de juzgamiento
+
+Cuando el concurso está en modo juzgamiento (`is_judging = true`) se impide la desinscripción. Aplica a **todos** los roles, incluidos administradores. Se responde HTTP 200 con `success: false`.
+
+```json
+{
+  "success": false,
+  "message": "No se puede eliminar la inscripción: el concurso está en etapa de juzgamiento"
 }
 ```
 
