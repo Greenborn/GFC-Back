@@ -6,7 +6,7 @@ const path = require('path');
 const sharp = require('sharp');
 const { logAction } = require('../utils/log.js');
 const { insertAndGetId } = require('../utils/db.js');
-const { extractBase64, getUploadsBasePath, ensureDir, processImageBuffer, getMimeType, getThumbnailGuard } = require('../utils/images.js');
+const { extractBase64, getUploadsBasePath, ensureDir, processImageBuffer, saveImageFromBase64, getMimeType, getThumbnailGuard } = require('../utils/images.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 
