@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const { logAction } = require('../utils/log.js')
+const { escapeLikePattern, baseUnaccent, sanitizeSearchTerm } = require('../utils/strings.js')
 const authMiddleware = require('../middleware/authMiddleware');
 
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';
@@ -58,6 +59,22 @@ router.get('/get_all', authMiddleware, async (req, res) => {
       await logAction(req, 'Consulta de Usuarios - ' + req.user.username);
 
       const usersQuery = global.knex('user').orderBy('id', 'asc');
+
+      const rawSearch = (typeof req.query.search === 'string' && req.query.search.trim()) ||
+                        (typeof req.query.q === 'string' && req.query.q.trim()) || '';
+      const searchTerm = sanitizeSearchTerm(rawSearch);
+      if (searchTerm) {
+        const likeSearch = `%${escapeLikePattern(searchTerm)}%`;
+        usersQuery.where(function () {
+          this.whereRaw(baseUnaccent('username') + " LIKE ? ESCAPE '\\'", [likeSearch])
+            .orWhereRaw(baseUnaccent('email') + " LIKE ? ESCAPE '\\'", [likeSearch])
+            .orWhereRaw(baseUnaccent('dni') + " LIKE ? ESCAPE '\\'", [likeSearch]);
+
+          if (!Number.isNaN(Number(searchTerm))) {
+            this.orWhere('id', Number(searchTerm));
+          }
+        });
+      }
 
       if (req.user.role_id == '2' || req.user.role_id === 2) {
         const currentProfile = await global.knex('profile').where({ id: req.user.profile_id }).first();
