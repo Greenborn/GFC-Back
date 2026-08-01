@@ -490,6 +490,8 @@ router.post('/contest-result', authMiddleware, writeProtection, async (req, res)
 
     const created = await global.knex('contest_result').where({ id }).first();
 
+    contestResultCache.invalidateAll();
+
     await logAction(req, `Creación de resultado de concurso - ${req.user.username}`, JSON.stringify({ contest_id, image_id, metric_id, section_id }));
 
     res.status(201).json({ success: true, data: created });
@@ -630,6 +632,8 @@ router.delete('/contest-result/:id', authMiddleware, writeProtection, async (req
 
     await global.knex('contest_result').where({ id }).del();
 
+    contestResultCache.invalidateAll();
+
     await logAction(req, `Eliminación de resultado de concurso id=${id} - ${req.user.username}`, JSON.stringify(existing));
 
     res.json({ success: true, message: 'Resultado de concurso eliminado correctamente' });
@@ -669,6 +673,11 @@ async function generarCodigoImagen(knex, imageId, contestId, sectionId) {
   await knex('image').where({ id: imageId }).update({ code: newCode });
 }
 
-
+// Invalida el caché de resultados de concurso. Se usa tras operaciones de
+// escritura que afectan contest_result o el estado judged de un concurso.
+function invalidateContestResultCache() {
+  contestResultCache.invalidateAll();
+}
 
 module.exports = router;
+module.exports.invalidateContestResultCache = invalidateContestResultCache;

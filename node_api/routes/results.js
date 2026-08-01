@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const { actualizarRanking } = require('../controllers/ranking');
+const { invalidateContestResultCache } = require('./contestresult');
 
 // Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile, el contest_result, la metric y la metric_abm
 async function complementaInfoImagen(resultado, knex) {
@@ -175,6 +176,8 @@ router.post('/judging', authMiddleware, async (req, res) => {
     // Actualizar judged=true en el único concurso involucrado
     await trx('contest').where({ id: contestIds[0] }).update({ judged: true });
   });
+
+  invalidateContestResultCache();
 
   // Actualizar image_metadata con los resultados del jurado
   const contestName = await global.knex('contest').where({ id: contestIds[0] }).select('name').first();

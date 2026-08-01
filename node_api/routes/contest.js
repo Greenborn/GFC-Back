@@ -12,6 +12,7 @@ const { authMiddlewareOptional } = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 const { isValidOrganizationType } = require('../utils/organizationType');
 const { insertAndGetId } = require('../utils/db.js');
+const { invalidateContestResultCache } = require('./contestresult');
 
 const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
 const upload = multer({ storage: multer.memoryStorage() });
@@ -548,6 +549,10 @@ router.put('/:id', adminMiddleware, upload.fields([
             .where({ id: contestId })
             .update(updateData);
 
+        if (Object.prototype.hasOwnProperty.call(updateData, 'judged')) {
+            invalidateContestResultCache();
+        }
+
         await logAction(req, `Actualización de Concurso - ${req.user.username}`, { before: existingContest, after: updateData });
 
         return res.json({ success: true, id: contestId, ...updateData });
@@ -585,6 +590,8 @@ router.put('/:id/set-judging', adminMiddleware, async (req, res) => {
         await global.knex('contest')
             .where({ id: contestId })
             .update({ is_judging: true, judged: false });
+
+        invalidateContestResultCache();
 
         await logAction(req, `Concurso puesto en juzgamiento - ${req.user.username}`, {
             contest_id: contestId,
@@ -625,6 +632,8 @@ router.put('/:id/disable-judging', adminMiddleware, async (req, res) => {
         await global.knex('contest')
             .where({ id: contestId })
             .update({ is_judging: false });
+
+        invalidateContestResultCache();
 
         await logAction(req, `Concurso sacado de juzgamiento - ${req.user.username}`, {
             contest_id: contestId,
