@@ -124,12 +124,12 @@ async function authMiddleware(req, res, next) {
     const cached = tokenCache.get(token);
     if (cached && cached.expiresAt > Date.now()) {
       req.user = await syncSsoUser(cached.user);
-      if (uniqueId) {
+      if (uniqueId && cached.uniqueId === uniqueId) {
         extendSsoSession(token, uniqueId).then(extendData => {
           if (extendData) {
             const bearerToken = extendData.bearer_token;
             const ssoUser = extendData.user;
-            tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+            tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
           }
         }).catch(() => {});
       }
@@ -161,7 +161,7 @@ async function authMiddleware(req, res, next) {
         if (extendData) {
           const bearerToken = extendData.bearer_token;
           const ssoUser = extendData.user;
-          tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+          tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
           req.user = await syncSsoUser(ssoUser);
           res.setHeader('X-New-Token', bearerToken);
           return next();
@@ -174,7 +174,7 @@ async function authMiddleware(req, res, next) {
 
     if (response.data?.success && response.data?.data?.valid) {
       const ssoUser = response.data.data.user;
-      tokenCache.set(token, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+      tokenCache.set(token, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
       req.user = await syncSsoUser(ssoUser);
       return next();
     }
@@ -187,7 +187,7 @@ async function authMiddleware(req, res, next) {
       if (extendData) {
         const bearerToken = extendData.bearer_token;
         const ssoUser = extendData.user;
-        tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+        tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
         req.user = await syncSsoUser(ssoUser);
         res.setHeader('X-New-Token', bearerToken);
         return next();
@@ -238,12 +238,12 @@ async function authMiddlewareOptional(req, res, next) {
     const cached = tokenCache.get(token);
     if (cached && cached.expiresAt > Date.now()) {
       req.user = await syncSsoUser(cached.user);
-      if (uniqueId) {
+      if (uniqueId && cached.uniqueId === uniqueId) {
         extendSsoSession(token, uniqueId).then(extendData => {
           if (extendData) {
             const bearerToken = extendData.bearer_token;
             const ssoUser = extendData.user;
-            tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+            tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
           }
         }).catch(() => {});
       }
@@ -268,7 +268,7 @@ async function authMiddlewareOptional(req, res, next) {
       if (extendData) {
         const bearerToken = extendData.bearer_token;
         const ssoUser = extendData.user;
-        tokenCache.set(bearerToken, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+        tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
         req.user = await syncSsoUser(ssoUser);
       }
       return next();
@@ -276,7 +276,7 @@ async function authMiddlewareOptional(req, res, next) {
 
     if (response.data?.success && response.data?.data?.valid) {
       const ssoUser = response.data.data.user;
-      tokenCache.set(token, { user: ssoUser, expiresAt: Date.now() + CACHE_TTL_MS });
+      tokenCache.set(token, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
       req.user = await syncSsoUser(ssoUser);
     }
   } catch (err) {
