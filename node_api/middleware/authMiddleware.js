@@ -14,6 +14,13 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000);
 
+function normalizeUniqueId(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 255);
+}
+
 function resolveSsoRole(email) {
   const raw = process.env.SSO_ROLE_MAP;
   if (!raw) return 3;
@@ -32,10 +39,15 @@ function resolveSsoRole(email) {
 }
 
 async function extendSsoSession(token, uniqueId) {
+  const normalizedId = normalizeUniqueId(uniqueId);
+  if (!normalizedId) {
+    console.warn(`[Auth] extend omitido: unique_id inválido — ${JSON.stringify(uniqueId)}`);
+    return null;
+  }
   try {
     const response = await axios.post(
       `${AUTH_SERVICE_URL}/auth/extend`,
-      { unique_id: uniqueId },
+      { unique_id: normalizedId },
       { headers: { Authorization: `Bearer ${token}` }, timeout: SSO_TIMEOUT }
     );
     if (response.data?.success && response.data?.data?.bearer_token) {
@@ -45,7 +57,7 @@ async function extendSsoSession(token, uniqueId) {
   } catch (err) {
     const ssoBody = err.response?.data;
     const ssoStatus = err.response?.status;
-    console.error(`[Auth] Error al extender sesión SSO (${ssoStatus}): ${JSON.stringify(ssoBody)}`);
+    console.error(`[Auth] Error al extender sesión SSO (${ssoStatus}): ${JSON.stringify(ssoBody)} — unique_id: ${normalizedId.substring(0, 30)}${normalizedId.length > 30 ? '...' : ''} (len ${normalizedId.length})`);
     return null;
   }
 }
@@ -107,7 +119,7 @@ async function authMiddleware(req, res, next) {
       return next();
     }
 
-    const uniqueId = req.query.unique_id;
+    const uniqueId = normalizeUniqueId(req.query.unique_id);
 
     const cached = tokenCache.get(token);
     if (cached && cached.expiresAt > Date.now()) {
@@ -221,7 +233,7 @@ async function authMiddlewareOptional(req, res, next) {
       return next();
     }
 
-    const uniqueId = req.query.unique_id;
+    const uniqueId = normalizeUniqueId(req.query.unique_id);
 
     const cached = tokenCache.get(token);
     if (cached && cached.expiresAt > Date.now()) {
