@@ -91,7 +91,7 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
       organization_type
     };
 
-    await global.knex('fotoclub').where('id', id).update(newFotoclub);
+    const result = await global.knex('fotoclub').where('id', id).update(newFotoclub);
 
     await logAction(req, 'Modificación de Fotoclub - ' + req.user.username, { old: oldFotoclub, new: newFotoclub });
 
