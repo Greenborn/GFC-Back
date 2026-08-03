@@ -7,6 +7,8 @@ const { sanitizarNombreSeccion, sanitizeSearchTerm, baseUnaccent } = require('..
 const { insertAndGetId } = require('../utils/db.js');
 const { buildPaginationResponse } = require('../utils/pagination.js');
 const { createCache } = require('../utils/cache');
+const { saveImageFromBase64, getMimeType, getThumbnailGuard } = require('../utils/images.js');
+const { generateThumbnails } = require('./images.js');
 
 const contestResultCache = createCache(24 * 60 * 60 * 1000);
 
@@ -498,6 +500,164 @@ router.post('/contest-result', authMiddleware, writeProtection, async (req, res)
   } catch (error) {
     console.error('Error en POST /contest-result:', error);
     return res.status(500).json({ success: false, message: 'Error al crear resultado de concurso', error: error.message });
+  }
+});
+
+// POST /contest-upload
+// Endpoint unificado para subir una fotografía a un concurso.
+// Crea (en una transacción) la imagen, la métrica inicial (prize='0', sin puntaje)
+// y el contest_result que la vincula al concurso/sección. Valida que el usuario
+// esté inscripto, no sea juez, el concurso esté activo y no se supere el límite
+// de imágenes por sección (contest.max_img_section).
+// Body: { contest_id, section_id, title, photo_base64: { file } }
+router.post('/contest-upload', authMiddleware, writeProtection, async (req, res) => {
+  const { contest_id, section_id, title, photo_base64 } = req.body;
+
+  if (!contest_id || !section_id || !title || !photo_base64 || !photo_base64.file) {
+    return res.status(400).json({ success: false, message: 'contest_id, section_id, title y photo_base64.file son requeridos' });
+  }
+
+  try {
+    const currentUser = req.user;
+    const profileId = Number(currentUser.profile_id);
+    const isAdmin = String(currentUser.role_id) === '1';
+
+    if (isAdmin) {
+      return res.status(403).json({ success: false, message: 'Un administrador no puede participar en un concurso' });
+    }
+
+    // Juez no puede participar
+    const juez = await global.knex('contest_judge')
+      .where({ contest_id: Number(contest_id), user_id: currentUser.id })
+      .first();
+    if (juez) {
+      return res.status(403).json({ success: false, message: 'Los jueces no pueden participar en el concurso' });
+    }
+
+    // Concurso existe y activo
+    const contest = await global.knex('contest')
+      .where({ id: Number(contest_id) })
+      .whereNull('deleted_at')
+      .first();
+    if (!contest) {
+      return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+    }
+    if (contest.is_judging) {
+      return res.status(403).json({ success: false, message: 'El concurso está en período de jurado y no admite nuevas cargas' });
+    }
+    if (contest.is_test) {
+      const canSeeTest = currentUser.is_test_enabled === 1 || currentUser.is_test_enabled === true || String(currentUser.is_test_enabled) === '1';
+      if (!canSeeTest) {
+        return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+      }
+    }
+    const now = new Date();
+    if (contest.start_date && now < new Date(contest.start_date)) {
+      return res.status(403).json({ success: false, message: 'El concurso aún no ha comenzado' });
+    }
+    if (contest.end_date && now > new Date(contest.end_date)) {
+      return res.status(403).json({ success: false, message: 'El concurso ha finalizado' });
+    }
+
+    // Inscripción
+    const inscripcion = await global.knex('profile_contest')
+      .where({ profile_id: profileId, contest_id: Number(contest_id) })
+      .first();
+    if (!inscripcion) {
+      return res.status(403).json({ success: false, message: 'No está inscripto en el concurso' });
+    }
+
+    // Sección válida para el concurso
+    const sectionOk = await global.knex('contest_section')
+      .where({ contest_id: Number(contest_id), section_id: Number(section_id) })
+      .first();
+    if (!sectionOk) {
+      return res.status(400).json({ success: false, message: 'La sección no pertenece al concurso' });
+    }
+
+    // Límite de imágenes por sección
+    const maxImgSection = Number(contest.max_img_section) || 0;
+    const countRow = await global.knex('contest_result as cr')
+      .join('image as i', 'cr.image_id', 'i.id')
+      .where('cr.contest_id', Number(contest_id))
+      .where('cr.section_id', Number(section_id))
+      .where('i.profile_id', profileId)
+      .countDistinct({ total: 'cr.image_id' })
+      .first();
+    if (maxImgSection > 0 && Number(countRow.total) >= maxImgSection) {
+      return res.status(409).json({ success: false, message: `Límite de imágenes por sección alcanzado (${maxImgSection})` });
+    }
+
+    // Duplicado de título en el concurso
+    const duplicado = await global.knex('contest_result as cr')
+      .join('image as i', 'cr.image_id', 'i.id')
+      .where('cr.contest_id', Number(contest_id))
+      .where('i.profile_id', profileId)
+      .where('i.title', title)
+      .first();
+    if (duplicado) {
+      return res.status(409).json({ success: false, message: 'Ya existe una imagen con ese título en el concurso' });
+    }
+
+    // ── Procesar y guardar la imagen (fuera de la transacción) ──
+    const imgResult = await saveImageFromBase64(photo_base64.file);
+    if (!imgResult) {
+      return res.status(400).json({ success: false, message: 'Formato de imagen inválido' });
+    }
+    const code = `temp_${Date.now()}_${require('crypto').randomBytes(4).toString('hex')}`;
+
+    // ── Transacción: metric + image + contest_result ──
+    const knex = global.knex;
+    let imageId;
+    let contestResultId;
+    try {
+      await knex.transaction(async (trx) => {
+        const metricId = await insertAndGetId(trx, 'metric', {
+          prize: '0',
+          score: null,
+          dni: null
+        });
+
+        const imageId2 = await insertAndGetId(trx, 'image', {
+          code,
+          title,
+          profile_id: profileId,
+          url: imgResult.url,
+          width: imgResult.width,
+          height: imgResult.height,
+          mime_type: getMimeType(imgResult.format)
+        });
+        imageId = imageId2;
+
+        contestResultId = await insertAndGetId(trx, 'contest_result', {
+          contest_id: Number(contest_id),
+          image_id: imageId2,
+          metric_id: metricId,
+          section_id: Number(section_id)
+        });
+      });
+    } catch (trxErr) {
+      console.error('Error en transacción POST /contest-upload:', trxErr);
+      return res.status(500).json({ success: false, message: 'Error al crear el registro de la foto', error: trxErr.message });
+    }
+
+    // ── Post-proceso ──
+    await generarCodigoImagen(knex, imageId, Number(contest_id), Number(section_id));
+
+    const image = await knex('image').where({ id: imageId }).first();
+    const contestResult = await knex('contest_result').where({ id: contestResultId }).first();
+
+    const guard = getThumbnailGuard(imageId, image.url);
+    if (guard) generateThumbnails(guard.imageId, guard.sourcePath);
+
+    contestResultCache.invalidateAll();
+
+    await logAction(req, `Carga de foto a concurso - ${req.user.username}`, JSON.stringify({ contest_id, section_id, title, image_id: imageId, contest_result_id: contestResultId }));
+
+    res.status(201).json({ success: true, data: { image, contest_result: contestResult } });
+  } catch (error) {
+    console.error('Error en POST /contest-upload:', error);
+    return res.status(500).json({ success: false, message: 'Error al subir la foto al concurso', error: error.message });
   }
 });
 

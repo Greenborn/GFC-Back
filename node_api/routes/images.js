@@ -410,4 +410,5 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;
+module.exports.generateThumbnails = generateThumbnails;
