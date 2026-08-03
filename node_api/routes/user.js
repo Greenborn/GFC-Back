@@ -82,9 +82,21 @@ router.get('/get_all', authMiddleware, async (req, res) => {
       // ── Aplicar filtros/búsqueda/restricción a un query de user ──
       const applyUserFilters = (query) => {
         if (filterKeys.length > 0) {
-          const filter = {};
-          for (const k of filterKeys) filter[k] = filterParams[k];
-          applyFilterObject(query, filter);
+          const likeKeys = ['email', 'username', 'dni'];
+          const exactKeys = filterKeys.filter(k => !likeKeys.includes(k));
+
+          if (exactKeys.length > 0) {
+            const filter = {};
+            for (const k of exactKeys) filter[k] = filterParams[k];
+            applyFilterObject(query, filter);
+          }
+
+          for (const k of likeKeys) {
+            const raw = filterParams[k];
+            if (raw == null || raw === '' || Array.isArray(raw) || typeof raw === 'object') continue;
+            const likeSearch = `%${escapeLikePattern(String(raw).trim().toLowerCase())}%`;
+            query.whereRaw(baseUnaccent(k) + " LIKE ? ESCAPE '\\'", [likeSearch]);
+          }
         }
 
         if (searchTerm) {
