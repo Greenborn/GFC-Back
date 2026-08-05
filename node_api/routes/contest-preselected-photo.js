@@ -5,6 +5,63 @@ const writeProtection = require('../middleware/writeProtection');
 const { logAction } = require('../utils/log.js');
 const { canJudge } = require('../utils/judging-access');
 
+// votes se guarda como mapa JSON: { [user_id]: 'aceptar' | 'rechazar' }.
+// Este es el source of truth de cada voto por juez.
+function parseVotes(raw) {
+  let parsed;
+  if (typeof raw === 'string') {
+    try { parsed = JSON.parse(raw); } catch { parsed = []; }
+  } else {
+    parsed = raw;
+  }
+
+  if (Array.isArray(parsed)) {
+    // Legacy: array de user_id que aceptaron
+    const map = {};
+    parsed.forEach((id) => { map[String(id)] = 'aceptar'; });
+    return map;
+  }
+
+  if (parsed && typeof parsed === 'object') return parsed;
+  return {};
+}
+
+function buildItem(item, includeImage) {
+  const votesMap = parseVotes(item.votes);
+
+  let acceptCount = 0;
+  let rejectCount = 0;
+  const accepters = [];
+
+  for (const [userId, vote] of Object.entries(votesMap)) {
+    if (vote === 'aceptar') { acceptCount++; accepters.push(Number(userId)); }
+    else if (vote === 'rechazar') { rejectCount++; }
+  }
+
+  const result = {
+    id: item.id,
+    contest_id: item.contest_id,
+    image_id: item.image_id,
+    preselected: acceptCount > 0,
+    votes: accepters,
+    vote_count: acceptCount + rejectCount,
+    accept_count: acceptCount,
+    reject_count: rejectCount,
+    my_vote: votesMap[String(item.__userId)] || null
+  };
+
+  if (includeImage) {
+    result.image = item.image_id != null ? {
+      id: item.image_id,
+      code: item.image_code,
+      title: item.image_title,
+      url: item.image_url
+    } : null;
+  }
+
+  return result;
+}
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const contestId = req.query.contest_id;
@@ -37,29 +94,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const items = await query;
 
-    const resultItems = items.map(item => {
-      let votes = item.votes;
-      if (typeof votes === 'string') {
-        try { votes = JSON.parse(votes); } catch { votes = []; }
-      }
-      const result = {
-        id: item.id,
-        contest_id: item.contest_id,
-        image_id: item.image_id,
-        preselected: item.preselected === 1 || item.preselected === true || String(item.preselected) === '1',
-        votes: Array.isArray(votes) ? votes : [],
-        vote_count: Array.isArray(votes) ? votes.length : 0
-      };
-      if (includeImage) {
-        result.image = item.image_id != null ? {
-          id: item.image_id,
-          code: item.image_code,
-          title: item.image_title,
-          url: item.image_url
-        } : null;
-      }
-      return result;
-    });
+    const resultItems = items.map(item => buildItem({ ...item, __userId: req.user.id }, includeImage));
 
     await logAction(req, `Consulta de fotos preseleccionadas - ${req.user.username}`, { contest_id: contestId });
 
@@ -90,38 +125,24 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     }
 
     const preselectedBool = preselected === true || preselected === 'true' || preselected === 1 || preselected === '1';
+    const voteValue = preselectedBool ? 'aceptar' : 'rechazar';
 
     const existing = await global.knex('contest_preselected_photo')
       .where({ contest_id: contestId, image_id: imageId })
       .first();
 
-    let votes = [];
-    if (existing && existing.votes) {
-      if (typeof existing.votes === 'string') {
-        try { votes = JSON.parse(existing.votes); } catch { votes = []; }
-      } else {
-        votes = existing.votes;
-      }
-    }
+    const votesMap = existing ? parseVotes(existing.votes) : {};
+    votesMap[String(req.user.id)] = voteValue;
 
-    const userId = req.user.id;
-
-    if (preselectedBool) {
-      if (!votes.includes(userId)) {
-        votes.push(userId);
-      }
-    } else {
-      votes = votes.filter(id => Number(id) !== Number(userId));
-    }
-
-    const cleanedPreselected = votes.length > 0;
+    const acceptCount = Object.values(votesMap).filter(v => v === 'aceptar').length;
+    const cleanedPreselected = acceptCount > 0;
 
     if (existing) {
       await global.knex('contest_preselected_photo')
         .where({ id: existing.id })
         .update({
           preselected: cleanedPreselected,
-          votes: JSON.stringify(votes)
+          votes: JSON.stringify(votesMap)
         });
 
       const updated = await global.knex('contest_preselected_photo').where({ id: existing.id }).first();
@@ -129,18 +150,18 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       await logAction(req, `Actualización de preselección de foto - ${req.user.username}`, JSON.stringify({
         contest_id: contestId,
         image_id: imageId,
-        preselected: cleanedPreselected,
-        votes
+        vote: voteValue,
+        votes: votesMap
       }));
 
-      return res.json({ success: true, data: updated });
+      return res.json({ success: true, data: buildItem({ ...updated, __userId: req.user.id }, false) });
     } else {
       const [newId] = await global.knex('contest_preselected_photo')
         .insert({
           contest_id: contestId,
           image_id: imageId,
           preselected: cleanedPreselected,
-          votes: JSON.stringify(votes)
+          votes: JSON.stringify(votesMap)
         })
         .returning('id');
 
@@ -149,11 +170,11 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       await logAction(req, `Creación de preselección de foto - ${req.user.username}`, JSON.stringify({
         contest_id: contestId,
         image_id: imageId,
-        preselected: cleanedPreselected,
-        votes
+        vote: voteValue,
+        votes: votesMap
       }));
 
-      return res.status(201).json({ success: true, data: created });
+      return res.status(201).json({ success: true, data: buildItem({ ...created, __userId: req.user.id }, false) });
     }
   } catch (error) {
     if (error.code === '23505' || error.code === 'ER_DUP_ENTRY') {
