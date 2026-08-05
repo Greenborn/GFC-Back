@@ -10,7 +10,7 @@ http://localhost:3000/api
 
 ## Seguridad
 - **Autenticación**: Todos los endpoints requieren token Bearer
-- **Permisos**: Solo usuarios que son **jueces del concurso** (`contest_judge`) pueden acceder
+- **Permisos**: Administradores (`role_id == '1'`) o usuarios que son **jueces del concurso** (`contest_judge`) pueden acceder
 - **Protección escritura**: El endpoint POST respeta `MODO_ESCRITURA` (`READ_ONLY`/`READ_WRITE`)
 
 ---
@@ -21,7 +21,7 @@ http://localhost:3000/api
 **GET** `/api/contest-preselected-photo`
 
 ### Descripción
-Obtiene el listado de fotos preseleccionadas de un concurso. Solo jueces del concurso.
+Obtiene el listado de fotos preseleccionadas de un concurso. Solo administradores o jueces del concurso.
 
 ### Headers
 ```
@@ -74,7 +74,7 @@ curl -X GET "http://localhost:3000/api/contest-preselected-photo?contest_id=1&ex
 ```json
 {
   "success": false,
-  "message": "Acceso denegado: solo jueces del concurso pueden ver las fotos preseleccionadas"
+  "message": "Acceso denegado: solo administradores o jueces del concurso pueden ver las fotos preseleccionadas"
 }
 ```
 
@@ -86,7 +86,7 @@ curl -X GET "http://localhost:3000/api/contest-preselected-photo?contest_id=1&ex
 **POST** `/api/contest-preselected-photo`
 
 ### Descripción
-Marca o desmarca una foto como preseleccionada. Cada juez emite su voto individual. Si al menos un juez votó a favor, la foto queda como `preselected: true`. Solo jueces del concurso.
+Marca o desmarca una foto como preseleccionada. Cada juez emite su voto individual. Si al menos un juez votó a favor, la foto queda como `preselected: true`. Solo administradores o jueces del concurso.
 
 ### Headers
 ```
@@ -148,7 +148,7 @@ Content-Type: application/json
 ```json
 {
   "success": false,
-  "message": "Acceso denegado: solo jueces del concurso pueden definir preselección"
+  "message": "Acceso denegado: solo administradores o jueces del concurso pueden definir preselección"
 }
 ```
 

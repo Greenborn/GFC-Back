@@ -3,13 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 const { logAction } = require('../utils/log.js');
-
-async function isJudge(req, contestId) {
-  const record = await global.knex('contest_judge')
-    .where({ contest_id: contestId, user_id: req.user.id })
-    .first();
-  return !!record;
-}
+const { canJudge } = require('../utils/judging-access');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -19,8 +13,8 @@ router.get('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'El parámetro contest_id es obligatorio' });
     }
 
-    if (!await isJudge(req, contestId)) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: solo jueces del concurso pueden ver las fotos preseleccionadas' });
+    if (!await canJudge(req, contestId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden ver las fotos preseleccionadas' });
     }
 
     const expand = String(req.query.expand || '')
@@ -91,8 +85,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       return res.status(400).json({ success: false, message: 'contest_id y image_id deben ser números' });
     }
 
-    if (!await isJudge(req, contestId)) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: solo jueces del concurso pueden definir preselección' });
+    if (!await canJudge(req, contestId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden definir preselección' });
     }
 
     const preselectedBool = preselected === true || preselected === 'true' || preselected === 1 || preselected === '1';

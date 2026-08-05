@@ -52,6 +52,7 @@ Concursos.
 | `deleted_at` | `TIMESTAMPTZ` | | Soft delete |
 | `is_test` | `BOOLEAN` | `DEFAULT false` | Indica si es un concurso de prueba |
 | `is_judging` | `BOOLEAN` | `DEFAULT false` | Indica si está en etapa de evaluación |
+| `judging_stage` | `VARCHAR` | | Fase del juzgamiento: `preseleccion`, `puntuacion` o `NULL` (fuera de juzgamiento) |
 
 ---
 

@@ -13,6 +13,7 @@ const adminMiddleware = require('../middleware/adminMiddleware');
 const { isValidOrganizationType } = require('../utils/organizationType');
 const { insertAndGetId } = require('../utils/db.js');
 const { invalidateContestResultCache } = require('./contestresult');
+const { canJudge } = require('../utils/judging-access');
 
 const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
 const upload = multer({ storage: multer.memoryStorage() });
@@ -353,6 +354,7 @@ router.get('/:id(\\d+)', authMiddleware, async (req, res) => {
             is_test: contest.is_test === 1 || contest.is_test === true || String(contest.is_test) === '1',
             judged: contest.judged === 1 || contest.judged === true || String(contest.judged) === '1',
             is_judging: contest.is_judging === 1 || contest.is_judging === true || String(contest.is_judging) === '1',
+            judging_stage: contest.judging_stage || null,
             active: (() => {
                 const now = new Date();
                 const endDate = new Date(contest.end_date);
@@ -555,7 +557,7 @@ router.put('/:id', adminMiddleware, upload.fields([
 
         await logAction(req, `Actualización de Concurso - ${req.user.username}`, { before: existingContest, after: updateData });
 
-        return res.json({ success: true, id: contestId, ...updateData });
+        return res.json({ success: true, id: contestId, ...updateData, judging_stage: existingContest.judging_stage || null });
     } catch (error) {
         console.error('Error al actualizar concurso:', error);
         return res.status(500).json({ success: false, message: 'Error interno al actualizar concurso', error: error.message });
@@ -589,7 +591,7 @@ router.put('/:id/set-judging', adminMiddleware, async (req, res) => {
 
         await global.knex('contest')
             .where({ id: contestId })
-            .update({ is_judging: true, judged: false });
+            .update({ is_judging: true, judged: false, judging_stage: 'preseleccion' });
 
         invalidateContestResultCache();
 
@@ -606,7 +608,8 @@ router.put('/:id/set-judging', adminMiddleware, async (req, res) => {
                 id: updated.id,
                 name: updated.name,
                 is_judging: updated.is_judging === 1 || updated.is_judging === true || String(updated.is_judging) === '1',
-                judged: updated.judged === 1 || updated.judged === true || String(updated.judged) === '1'
+                judged: updated.judged === 1 || updated.judged === true || String(updated.judged) === '1',
+                judging_stage: updated.judging_stage
             },
             message: `El concurso "${contest.name}" ha sido puesto en etapa de juzgamiento`
         });
@@ -648,13 +651,74 @@ router.put('/:id/disable-judging', adminMiddleware, async (req, res) => {
                 id: updated.id,
                 name: updated.name,
                 is_judging: updated.is_judging === 1 || updated.is_judging === true || String(updated.is_judging) === '1',
-                judged: updated.judged === 1 || updated.judged === true || String(updated.judged) === '1'
+                judged: updated.judged === 1 || updated.judged === true || String(updated.judged) === '1',
+                judging_stage: updated.judging_stage
             },
             message: `El concurso "${contest.name}" ha sido sacado de la etapa de juzgamiento`
         });
     } catch (error) {
         console.error('Error al sacar concurso de juzgamiento:', error);
         return res.status(500).json({ success: false, message: 'Error interno al sacar concurso de juzgamiento', error: error.message });
+    }
+});
+
+// Endpoint para cambiar la fase del juzgamiento (preseleccion | puntuacion)
+// Solo administradores o jueces asignados al concurso.
+router.put('/:id/judging-stage', authMiddleware, async (req, res) => {
+    try {
+        const contestId = parseInt(req.params.id, 10);
+        if (isNaN(contestId) || contestId <= 0) {
+            return res.status(400).json({ success: false, message: 'ID de concurso inválido' });
+        }
+
+        const { judging_stage } = req.body || {};
+        const validStages = ['preseleccion', 'puntuacion'];
+        if (!validStages.includes(judging_stage)) {
+            return res.status(400).json({ success: false, message: 'El campo judging_stage debe ser "preseleccion" o "puntuacion"' });
+        }
+
+        const contest = await global.knex('contest').where({ id: contestId }).first();
+        if (!contest || contest.deleted_at) {
+            return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+        }
+
+        const esJuzgado = contest.is_judging === 1 || contest.is_judging === true || String(contest.is_judging) === '1';
+        if (!esJuzgado) {
+            return res.status(400).json({ success: false, message: 'El concurso debe estar en etapa de juzgamiento para cambiar de fase' });
+        }
+
+        if (!await canJudge(req, contestId)) {
+            return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso' });
+        }
+
+        await global.knex('contest')
+            .where({ id: contestId })
+            .update({ judging_stage });
+
+        invalidateContestResultCache();
+
+        await logAction(req, `Cambio de fase de juzgamiento - ${req.user.username}`, {
+            contest_id: contestId,
+            contest_name: contest.name,
+            judging_stage
+        });
+
+        const updated = await global.knex('contest').where({ id: contestId }).first();
+
+        return res.json({
+            success: true,
+            data: {
+                id: updated.id,
+                name: updated.name,
+                is_judging: updated.is_judging === 1 || updated.is_judging === true || String(updated.is_judging) === '1',
+                judged: updated.judged === 1 || updated.judged === true || String(updated.judged) === '1',
+                judging_stage: updated.judging_stage
+            },
+            message: `El concurso "${contest.name}" ahora está en fase de ${judging_stage}`
+        });
+    } catch (error) {
+        console.error('Error al cambiar fase de juzgamiento:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al cambiar fase de juzgamiento', error: error.message });
     }
 });
 
