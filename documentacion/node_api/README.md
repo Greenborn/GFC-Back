@@ -166,20 +166,23 @@ Salida esperada (endpoint):
 ### Endpoints Públicos
 
 #### Consulta de Imágenes
-La API incluye endpoints públicos para consultar imágenes sin necesidad de autenticación:
+La API incluye endpoints para consultar imágenes:
 
-- **GET** `/api/images/search?q=termino` - Buscar imágenes por código o título
-- **GET** `/api/images/all` - Obtener todas las imágenes disponibles
+- **GET** `/api/images/search` - Buscar fotografías con filtros de concurso, paginación y orden (requiere autenticación)
+- **GET** `/api/images/all` - Obtener todas las imágenes disponibles (público)
 
-##### Características
-- **Límite**: Máximo 10 resultados por consulta
-- **Información completa**: Incluye autor, sección y URL completa
+##### Búsqueda de Imágenes
+- **Autenticación**: Requerida (Bearer token)
+- **Búsqueda por texto**: `?search=` (multicampo: título, código, premio, autor, sección, fotoclub) o `?q=` (retrocompatible, solo código/título)
+- **Filtros**: `filter[contest_id]`, `filter[profile_id]`, `filter[section_id]`, `filter[category_id]`, `filter[prize]`, `filter[author]`, `filter[code]`
+- **Paginación/orden**: `page`, `per-page` (default 10), `sort` (`title`, `code`, `author`), `sort_dir`
+- **Información completa**: Incluye autor, sección, concurso, categoría y URL completa
 - **Búsqueda flexible**: Coincidencia total o parcial
-- **Sin autenticación**: Acceso público para consultas
 
 ##### Ejemplo de uso
 ```bash
-curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/images/search?q=3336_2025_38_Color_10047"
+curl -X GET "https://gfc.prod-api.greenborn.com.ar/api/images/search?search=3336_2025_38_Color_10047" \
+  -H "Authorization: Bearer <token>"
 ```
 
 #### Consulta de Participantes

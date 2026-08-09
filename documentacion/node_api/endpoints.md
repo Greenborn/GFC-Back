@@ -1200,10 +1200,38 @@ Obtiene métricas generales del sistema.
 ### 7.1 Buscar Imágenes
 **GET** `/images/search`
 
-Busca imágenes por código o título. Endpoint público que no requiere autenticación.
+Busca fotografías por código o título, con soporte de filtros de concurso, paginación y orden. Requiere autenticación (`Authorization: Bearer <token>`).
 
 #### Query Parameters
-- `q` (string, requerido): Término de búsqueda para código o título
+
+##### Búsqueda por texto
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `q` | string | Término de búsqueda (retrocompatibilidad). Busca solo `image.code` y `image.title`. |
+| `search` | string | Término de búsqueda multicampo: `image.title`, `image.code`, `metric.prize`, autor (`profile.name + last_name`), `section.name`, `fotoclub.name`. |
+
+> Si vienen ambos, `search` tiene prioridad. Se debe pasar al menos `q`, `search` o un filtro, de lo contrario responde `400`.
+
+##### Filtros
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `filter[contest_id]` | number | Opcional. Filtra por concurso (`contest_result.contest_id`). |
+| `filter[profile_id]` | number | Opcional. Filtra por autor (`image.profile_id`). |
+| `filter[section_id]` | number \| array | Opcional. Uno o varios IDs de sección. |
+| `filter[category_id]` | number \| array | Opcional. Uno o varios IDs de categoría (vía `profile_contest`). |
+| `filter[prize]` | string \| array | Opcional. Uno o varios premios (ej. `Oro`, `Plata`). |
+| `filter[author]` | string | Opcional. Búsqueda parcial por nombre completo del autor. |
+| `filter[code]` | string | Opcional. Búsqueda parcial por código de imagen. |
+
+##### Paginación y orden
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `page` | number | Página actual (default `1`). |
+| `per-page` | number | Resultados por página (default `10`). |
+| `sort` | string | Campo de orden: `title`, `code`, `author`. Default: `code`. |
+| `sort_dir` | string | Dirección: `asc` (default) o `desc`. |
+
+> **Nota:** `sort=author` requiere que el filtro/búsqueda dispare el join a `profile`.
 
 #### Respuesta Exitosa (200)
 ```json
@@ -1217,30 +1245,73 @@ Busca imágenes por código o título. Endpoint público que no requiere autenti
       "title": "A LA DERECHA",
       "profile_id": 88,
       "url": "https://gfc.prod-api.greenborn.com.ar/images/2025/Primera/Color/3336_2025_38_Color_10047.jpg",
-      "author_name": "Juan",
-      "author_last_name": "Pérez",
       "author": "Juan Pérez",
-      "section_name": "Color",
       "section": "Color",
       "contest": {
         "id": 5,
         "name": "Concurso Nacional 2025",
         "subtitle": "Primera Edición"
+      },
+      "category": {
+        "id": 2,
+        "name": "Color"
       }
     }
   ],
   "total": 1,
-  "searchTerm": "3336_2025_38_Color_10047"
+  "totalCount": 87,
+  "searchTerm": "3336_2025_38_Color_10047",
+  "_meta": {
+    "totalCount": 87,
+    "pageCount": 9,
+    "currentPage": 1,
+    "perPage": 10
+  },
+  "_links": {
+    "self": { "href": "..." },
+    "first": { "href": "..." },
+    "last": { "href": "..." }
+  }
 }
 ```
+
+##### Campos de `data`
+- `id`, `code`, `title`, `profile_id`, `url` (con `IMG_BASE_PATH` antepuesto)
+- `author` (nombre completo; fallback `"Autor no disponible"`)
+- `section` (fallback `"Sin sección asignada"`)
+- `contest` (objeto `{id, name, subtitle}` o `null`)
+- `category` (objeto `{id, name}` o `null`)
+- Cuando el concurso **no** está juzgado (`judged` false), se omiten `width`, `height`, `mime_type`, `image_metadata`.
 
 #### Respuesta de Error (400)
 ```json
 {
   "success": false,
-  "message": "El parámetro de búsqueda \"q\" es requerido",
+  "message": "Se requiere al menos un término de búsqueda (\"q\" o \"search\") o un filtro",
   "data": []
 }
+```
+
+#### Códigos de Error
+| Código | Condición |
+|--------|-----------|
+| `400` | Sin término de búsqueda ni filtros. |
+| `401` | No autenticado. |
+| `500` | Error interno del servidor (`success: false`, `data: []`). |
+
+#### Ejemplos
+```bash
+# Búsqueda multicampo
+GET /api/images/search?search=paisaje&per-page=20&sort=title
+
+# Filtro por concurso + premio + paginación
+GET /api/images/search?filter[contest_id]=58&filter[prize]=Oro&page=2&per-page=15
+
+# Filtro múltiple (secciones)
+GET /api/images/search?filter[contest_id]=58&filter[section_id]=1&filter[section_id]=3
+
+# Retrocompatible (solo q)
+GET /api/images/search?q=3336_2025_38_Color_10047
 ```
 
 ### 7.2 Obtener Todas las Imágenes
