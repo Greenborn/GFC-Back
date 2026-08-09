@@ -9,97 +9,310 @@ const { insertAndGetId } = require('../utils/db.js');
 const { extractBase64, getUploadsBasePath, ensureDir, processImageBuffer, saveImageFromBase64, getMimeType, getThumbnailGuard } = require('../utils/images.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
+const { baseUnaccent, sanitizeSearchTerm } = require('../utils/strings.js');
+const { buildPaginationResponse } = require('../utils/pagination.js');
+
+function extractFilterArray(query, key) {
+  const vals = [];
+  const bracket = query[`filter[${key}]`];
+  if (Array.isArray(bracket)) {
+    bracket.forEach(v => { const n = Number(v); if (!isNaN(n)) vals.push(n); });
+  } else if (bracket !== undefined && bracket !== null) {
+    const n = Number(bracket); if (!isNaN(n)) vals.push(n);
+  }
+  if (query.filter && query.filter[key] !== undefined) {
+    const src = query.filter[key];
+    if (Array.isArray(src)) {
+      src.forEach(v => { const n = Number(v); if (!isNaN(n)) vals.push(n); });
+    } else {
+      const n = Number(src); if (!isNaN(n)) vals.push(n);
+    }
+  }
+  return [...new Set(vals)];
+}
+
+function extractFilterStringArray(query, key) {
+  const vals = [];
+  const bracket = query[`filter[${key}]`];
+  if (Array.isArray(bracket)) {
+    bracket.forEach(v => { if (v) vals.push(v); });
+  } else if (bracket) {
+    vals.push(bracket);
+  }
+  if (query.filter && query.filter[key] !== undefined) {
+    const src = query.filter[key];
+    if (Array.isArray(src)) {
+      src.forEach(v => { if (v) vals.push(v); });
+    } else if (src) {
+      vals.push(src);
+    }
+  }
+  return [...new Set(vals)];
+}
+
+function extractFilterString(query, key) {
+  const bracket = query[`filter[${key}]`];
+  if (bracket) return bracket;
+  if (query.filter && query.filter[key]) return query.filter[key];
+  return '';
+}
+
+function applyImageSearchFilters(query, filters, joins) {
+  const { filterProfileId, filterContestId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search } = filters;
+  if (filterProfileId) {
+    query = query.where('image.profile_id', filterProfileId);
+  }
+  if (filterContestId) {
+    query = query.where('contest_result.contest_id', filterContestId);
+  }
+  if (filterSectionIds.length > 0) {
+    query = query.whereIn('contest_result.section_id', filterSectionIds);
+  }
+  if (filterPrizes.length > 0) {
+    query = query.whereIn('metric.prize', filterPrizes);
+  }
+  if (filterCode) {
+    query = query.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
+  }
+  if (filterAuthor && joins.profile) {
+    query = query.whereRaw(
+      baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
+      [`%${filterAuthor}%`]
+    );
+  }
+  if (filterCategoryIds.length > 0) {
+    query = query.whereExists(function () {
+      this.select('*')
+        .from('profile_contest')
+        .whereRaw('profile_contest.profile_id = image.profile_id')
+        .whereRaw('profile_contest.contest_id = contest_result.contest_id')
+        .whereIn('profile_contest.category_id', filterCategoryIds);
+    });
+  }
+  if (search) {
+    query = query.andWhere(function () {
+      this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
+        .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${search}%`])
+        .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
+      if (joins.profile) {
+        this.orWhereRaw(
+          baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
+          [`%${search}%`]
+        );
+      }
+      if (joins.section) {
+        this.orWhereRaw(baseUnaccent('section.name') + ' LIKE ?', [`%${search}%`]);
+      }
+      if (joins.fotoclub) {
+        this.orWhereRaw(baseUnaccent('fotoclub.name') + ' LIKE ?', [`%${search}%`]);
+      }
+    });
+  }
+  return query;
+}
 
 /**
  * @route GET /api/images/search
- * @desc Buscar fotografías por código o título
- * @access Public
- * @param {string} q - Término de búsqueda
+ * @desc Buscar fotografías por código o título con filtros de concurso
+ * @access Private
+ * @param {string} q - Término de búsqueda (retrocompatibilidad, solo código/título)
+ * @param {string} search - Término de búsqueda (title, code, prize, autor, sección, fotoclub)
+ * @param {number} filter[contest_id] - Opcional
+ * @param {number} filter[profile_id] - Opcional
+ * @param {number|array} filter[section_id] - Opcional
+ * @param {number|array} filter[category_id] - Opcional
+ * @param {string|array} filter[prize] - Opcional
+ * @param {string} filter[author] - Opcional
+ * @param {string} filter[code] - Opcional
+ * @param {string} sort / sort_dir - Opcional
+ * @param {number} page / per-page - Opcional
  */
-router.get('/search', async (req, res) => {
+router.get('/search', authMiddleware, async (req, res) => {
     try {
-        const { q } = req.query;
-        
-        // Validar que se proporcione un término de búsqueda
-        if (!q || q.trim() === '') {
+        // ── Parse pagination ──
+        const page = parseInt(req.query.page, 10) > 0 ? parseInt(req.query.page, 10) : 1;
+        const perPage = parseInt(req.query['per-page'], 10) > 0 ? parseInt(req.query['per-page'], 10) : 10;
+
+        // ── Parse sort ──
+        const sort = req.query.sort || '';
+        const sortDir = req.query.sort_dir === 'desc' ? 'desc' : 'asc';
+
+        // ── Parse filters ──
+        const filterProfileId = Number(extractFilterString(req.query, 'profile_id')) || null;
+        const filterContestId = Number(extractFilterString(req.query, 'contest_id')) || null;
+        const filterSectionIds = extractFilterArray(req.query, 'section_id');
+        const filterCategoryIds = extractFilterArray(req.query, 'category_id');
+        const filterPrizes = extractFilterStringArray(req.query, 'prize');
+        const filterAuthor = sanitizeSearchTerm(extractFilterString(req.query, 'author'));
+        const filterCode = sanitizeSearchTerm(extractFilterString(req.query, 'code'));
+
+        // ── Búsqueda: q (retrocompat, código/título) y/o search (multicampo) ──
+        const q = (req.query.q || '').trim();
+        const rawSearch = (req.query.search || '').trim();
+        let search = sanitizeSearchTerm(rawSearch || q);
+        if (q && !rawSearch) {
+            search = sanitizeSearchTerm(q);
+        }
+        const needsSearchOrQ = !!(q || rawSearch);
+
+        if (!needsSearchOrQ && !filterProfileId && !filterContestId && !filterSectionIds.length &&
+            !filterCategoryIds.length && !filterPrizes.length && !filterAuthor && !filterCode) {
             return res.status(400).json({
                 success: false,
-                message: 'El parámetro de búsqueda "q" es requerido',
+                message: 'Se requiere al menos un término de búsqueda ("q" o "search") o un filtro',
                 data: []
             });
         }
 
-        const searchTerm = `%${q.trim()}%`;
+        // ── Determine conditional joins needed for filtering ──
+        const needsProfile = !!(search || filterAuthor || filterCategoryIds.length > 0);
+        const needsSection = !!search;
+        const needsFotoclub = !!(search && needsProfile);
+        const needsMetric = !!(filterPrizes.length > 0 || search);
 
-        // Consultar imágenes que coincidan con el código o título
-        const images = await global.knex('image')
-            .select(
-                'image.id',
-                'image.code',
-                'image.title',
-                'image.profile_id',
-                'image.url',
-                'profile.name as author_name',
-                'profile.last_name as author_last_name',
-                'section.name as section_name',
-                'contest.id as contest_id',
-                'contest.name as contest_name',
-                'contest.judged',
-                'contest.sub_title as contest_subtitle',
-                'category.id as category_id',
-                'category.name as category_name'
-            )
-            .leftJoin('profile', 'image.profile_id', 'profile.id')
-            .leftJoin('contest_result', 'image.id', 'contest_result.image_id')
-            .leftJoin('section', 'contest_result.section_id', 'section.id')
-            .leftJoin('contest', 'contest_result.contest_id', 'contest.id')
-            .leftJoin('profile_contest', function() {
-                this.on('profile.id', '=', 'profile_contest.profile_id')
-                     .andOn('contest.id', '=', 'profile_contest.contest_id');
-            })
-            .leftJoin('category', 'profile_contest.category_id', 'category.id')
-            .where(function() {
-                this.where('image.code', 'like', searchTerm)
-                    .orWhere('image.title', 'like', searchTerm);
-            })
-            .orderBy('image.title', 'asc')
-            .limit(10);
+        // ── Base query ──
+        let baseQuery = global.knex('contest_result')
+            .leftJoin('image', 'contest_result.image_id', 'image.id');
 
-        // Agregar URL base a las imágenes y formatear nombre del autor, sección, concurso y categoría
-        const imagesWithFullUrl = images.map(image => {
-            const isJudged = image.judged === true || image.judged === 1 || image.judged === 't';
-            const result = {
-                ...image,
-                url: `${process.env.IMG_BASE_PATH || ''}${image.url}`,
-                author: `${image.author_name || ''} ${image.author_last_name || ''}`.trim() || 'Autor no disponible',
-                section: image.section_name || 'Sin sección asignada',
-                contest: image.contest_name ? {
-                    id: image.contest_id,
-                    name: image.contest_name,
-                    subtitle: image.contest_subtitle
-                } : null,
-                category: image.category_name ? {
-                    id: image.category_id,
-                    name: image.category_name
-                } : null
-            };
-            if (!isJudged) {
-                delete result.width;
-                delete result.height;
-                delete result.mime_type;
-                delete result.image_metadata;
+        if (needsMetric) {
+            baseQuery = baseQuery.leftJoin('metric', 'contest_result.metric_id', 'metric.id');
+        }
+        if (needsProfile) {
+            baseQuery = baseQuery.leftJoin('profile', 'image.profile_id', 'profile.id');
+        }
+        if (needsSection) {
+            baseQuery = baseQuery.leftJoin('section', 'contest_result.section_id', 'section.id');
+        }
+        if (needsFotoclub) {
+            baseQuery = baseQuery.leftJoin('fotoclub', 'profile.fotoclub_id', 'fotoclub.id');
+        }
+
+        const joins = { profile: needsProfile, section: needsSection, fotoclub: needsFotoclub };
+
+        // ── Apply filters ──
+        baseQuery = applyImageSearchFilters(baseQuery, {
+            filterProfileId, filterContestId, filterSectionIds, filterPrizes, filterCode,
+            filterAuthor, filterCategoryIds, search
+        }, joins);
+
+        // ── Total count (unique images) ──
+        const countRow = await baseQuery.clone().countDistinct({ total: 'image.id' }).first();
+        const totalCount = Number(countRow?.total) || 0;
+        const pageCount = totalCount > 0 ? Math.ceil(totalCount / perPage) : 1;
+        const currentPage = page > pageCount ? pageCount : page;
+
+        // ── Paginated unique image IDs with sorting ──
+        const validSorts = { title: 'image.title', code: 'image.code' };
+        let imageQuery = baseQuery.clone()
+            .select('image.id')
+            .whereNotNull('image.id')
+            .groupBy('image.id');
+
+        if (sort === 'author' && needsProfile) {
+            imageQuery = imageQuery
+                .select(global.knex.raw(
+                    "MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") as sort_value"
+                ))
+                .orderByRaw("MIN(" + baseUnaccent("CONCAT_WS(' ', profile.name, profile.last_name)") + ") " + sortDir)
+                .orderBy('image.id', sortDir === 'desc' ? 'desc' : 'asc');
+        } else if (validSorts[sort]) {
+            imageQuery = imageQuery
+                .select(global.knex.raw('MIN(??) as sort_value', [validSorts[sort]]))
+                .orderByRaw('MIN(??) ' + sortDir, [validSorts[sort]])
+                .orderBy('image.id', sortDir);
+        } else {
+            imageQuery = imageQuery
+                .select(global.knex.raw('MIN(??) as sort_value', ['image.code']))
+                .orderByRaw('MIN(??) ' + sortDir, ['image.code'])
+                .orderBy('image.id', sortDir);
+        }
+
+        const pagedImageRows = await imageQuery
+            .offset((currentPage - 1) * perPage)
+            .limit(perPage);
+
+        const pagedImageIds = pagedImageRows.map(r => r.id);
+
+        let data = [];
+        if (pagedImageIds.length > 0) {
+            const rows = await global.knex('contest_result')
+                .whereIn('contest_result.image_id', pagedImageIds)
+                .leftJoin('image', 'contest_result.image_id', 'image.id')
+                .leftJoin('profile', 'image.profile_id', 'profile.id')
+                .leftJoin('section', 'contest_result.section_id', 'section.id')
+                .leftJoin('contest', 'contest_result.contest_id', 'contest.id')
+                .leftJoin('profile_contest', function() {
+                    this.on('profile.id', '=', 'profile_contest.profile_id')
+                         .andOn('contest.id', '=', 'profile_contest.contest_id');
+                })
+                .leftJoin('category', 'profile_contest.category_id', 'category.id')
+                .select(
+                    'image.id as id',
+                    'image.code',
+                    'image.title',
+                    'image.profile_id',
+                    'image.url',
+                    'image.width',
+                    'image.height',
+                    'image.mime_type',
+                    'image.image_metadata',
+                    'profile.name as author_name',
+                    'profile.last_name as author_last_name',
+                    'section.name as section_name',
+                    'contest.id as contest_id',
+                    'contest.name as contest_name',
+                    'contest.judged',
+                    'contest.sub_title as contest_subtitle',
+                    'category.id as category_id',
+                    'category.name as category_name'
+                );
+
+            const imageMap = {};
+            for (const r of rows) {
+                if (!imageMap[r.id]) {
+                    const isJudged = r.judged === true || r.judged === 1 || r.judged === 't';
+                    const result = {
+                        id: r.id,
+                        code: r.code,
+                        title: r.title,
+                        profile_id: r.profile_id,
+                        url: `${process.env.IMG_BASE_PATH || ''}${r.url}`,
+                        author: `${r.author_name || ''} ${r.author_last_name || ''}`.trim() || 'Autor no disponible',
+                        section: r.section_name || 'Sin sección asignada',
+                        contest: r.contest_name ? {
+                            id: r.contest_id,
+                            name: r.contest_name,
+                            subtitle: r.contest_subtitle
+                        } : null,
+                        category: r.category_name ? {
+                            id: r.category_id,
+                            name: r.category_name
+                        } : null
+                    };
+                    if (!isJudged) {
+                        delete result.width;
+                        delete result.height;
+                        delete result.mime_type;
+                        delete result.image_metadata;
+                    }
+                    imageMap[r.id] = result;
+                }
             }
-            return result;
-        });
+            data = pagedImageIds.map(id => imageMap[id]).filter(Boolean);
+        }
 
-        await logAction({ user: null }, `Búsqueda de imágenes: "${q}"`);
+        await logAction(req, `Búsqueda de imágenes: "${q || rawSearch}"`);
+
+        const pagination = buildPaginationResponse(req, totalCount, currentPage, perPage);
 
         res.json({
             success: true,
             message: 'Búsqueda realizada correctamente',
-            data: imagesWithFullUrl,
-            total: imagesWithFullUrl.length,
-            searchTerm: q.trim()
+            data,
+            total: data.length,
+            totalCount,
+            searchTerm: (q || rawSearch).trim(),
+            ...pagination
         });
 
     } catch (error) {
