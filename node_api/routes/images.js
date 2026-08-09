@@ -155,15 +155,6 @@ router.get('/search', authMiddleware, async (req, res) => {
         }
         const needsSearchOrQ = !!(q || rawSearch);
 
-        if (!needsSearchOrQ && !filterProfileId && !filterContestId && !filterSectionIds.length &&
-            !filterCategoryIds.length && !filterPrizes.length && !filterAuthor && !filterCode) {
-            return res.status(400).json({
-                success: false,
-                message: 'Se requiere al menos un término de búsqueda ("q" o "search") o un filtro',
-                data: []
-            });
-        }
-
         // ── Determine conditional joins needed for filtering ──
         const needsProfile = !!(search || filterAuthor || filterCategoryIds.length > 0);
         const needsSection = !!search;
