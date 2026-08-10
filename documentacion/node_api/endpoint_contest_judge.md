@@ -198,7 +198,168 @@ Authorization: Bearer <token_admin>
 
 ---
 
-## 4. Validación en Inscripción
+## 4. Reportar Juez Activo (Heartbeat)
+
+### Endpoint
+**POST** `/api/contest-judge/heartbeat`
+
+### Descripción
+Permite que un juez notifique que está activo trabajando en el concurso (pooling / heartbeat). Cada llamada actualiza el timestamp de actividad del juez en memoria. Un juez se considera "activo" si envió su último heartbeat hace 1 minuto o menos. El frontend debería llamar a este endpoint periódicamente (p. ej. cada 20-30 segundos) mientras el juez está en la pantalla de juzgamiento.
+
+### Seguridad
+- **Autenticación**: Requiere token Bearer
+- **Permisos**: Solo jueces del concurso (o administrador)
+- **Protección escritura**: Respeta `MODO_ESCRITURA` (`READ_ONLY`/`READ_WRITE`)
+
+### Headers
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+### Body de Request
+| Campo | Tipo | Requerido | Descripción |
+|-------|------|-----------|-------------|
+| `contest_id` | integer | Sí | ID del concurso que se está juzgando |
+
+```json
+{
+  "contest_id": 5
+}
+```
+
+### Ejemplo de Solicitud
+```bash
+curl -X POST "http://localhost:3000/api/contest-judge/heartbeat" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"contest_id": 5}'
+```
+
+### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "data": {
+    "contest_id": 5,
+    "is_judging": true,
+    "last_active": 1720000000000
+  }
+}
+```
+
+### Respuesta de Error (400) - Falta contest_id
+```json
+{
+  "success": false,
+  "message": "El campo contest_id es obligatorio"
+}
+```
+
+### Respuesta de Error (403) - No es juez del concurso
+```json
+{
+  "success": false,
+  "message": "Acceso denegado: el usuario no es juez de este concurso"
+}
+```
+
+### Respuesta de Error (404) - Concurso no existe
+```json
+{
+  "success": false,
+  "message": "El concurso especificado no existe"
+}
+```
+
+### Respuesta de Error (409) - Concurso no está en juzgamiento
+```json
+{
+  "success": false,
+  "message": "El concurso no está en fase de juzgamiento"
+}
+```
+
+### Notas
+- **Condición obligatoria**: El concurso debe estar en juzgamiento (`is_judging = true`), de lo contrario se rechaza con 409.
+- **Validación con cache**: Para no consultar la DB en cada heartbeat, la pertenencia del juez al concurso se valida contra una cache en memoria de la tabla `contest_judge` (TTL de 1 hora).
+- **Almacenamiento**: La actividad se guarda en un objeto en memoria (`Map`). No persiste en DB.
+- **Ventana de actividad**: Un juez se considera activo si su último heartbeat es ≤ 1 minuto.
+
+---
+
+## 5. Consultar Jueces Activos
+
+### Endpoint
+**GET** `/api/contest-judge/active`
+
+### Descripción
+Devuelve la lista de jueces del concurso que están activos (enviaron heartbeat en el último minuto), junto con su timestamp de última actividad.
+
+### Seguridad
+- **Autenticación**: Requiere token Bearer
+- **Permisos**: Administradores (`role_id == '1'`) o jueces del concurso (fila en `contest_judge`)
+
+### Headers
+```
+Authorization: Bearer <access_token>
+```
+
+### Query Parameters
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `contest_id` | integer | Sí | ID del concurso |
+
+### Ejemplo de Solicitud
+```bash
+curl -X GET "http://localhost:3000/api/contest-judge/active?contest_id=5" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Respuesta Exitosa (200)
+```json
+{
+  "items": [
+    {
+      "user_id": 5,
+      "last_active": 1720000000000,
+      "user": {
+        "id": 5,
+        "username": "juez1",
+        "email": "juez1@example.com",
+        "profile_id": 10
+      }
+    }
+  ],
+  "is_judging": true
+}
+```
+
+### Respuesta de Error (400) - Falta contest_id
+```json
+{
+  "success": false,
+  "message": "El parámetro contest_id es obligatorio"
+}
+```
+
+### Respuesta de Error (403)
+```json
+{
+  "success": false,
+  "message": "Acceso denegado: solo administradores o jueces del concurso pueden ver jueces activos"
+}
+```
+
+### Notas
+- `last_active` es el timestamp (epoch ms) del último heartbeat del juez.
+- Solo se incluyen jueces cuyo heartbeat es ≤ 1 minuto.
+- `is_judging` indica si el concurso está actualmente en fase de juzgamiento.
+- Este endpoint **no requiere** protección de escritura (es de solo lectura).
+
+---
+
+## 6. Validación en Inscripción
 
 Al inscribir un perfil en un concurso (`POST /api/profile-contest`), el sistema valida automáticamente que el usuario asociado al perfil **no sea un juez** del concurso. Si lo es, la inscripción es rechazada.
 

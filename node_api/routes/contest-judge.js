@@ -4,6 +4,13 @@ const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 const { logAction } = require('../utils/log.js');
 const { insertAndGet } = require('../utils/db.js');
+const { canJudge } = require('../utils/judging-access');
+const {
+  isJudge,
+  markActive,
+  getActiveJudgeIds,
+  invalidateContestJudges
+} = require('../utils/judge-activity');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -81,6 +88,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       created_at: new Date()
     });
 
+    invalidateContestJudges(contestId);
+
     await logAction(req, `Asignación de juez a concurso - ${req.user.username}`, JSON.stringify({ contest_id: contestId, user_id: userId }));
 
     return res.status(201).json({ success: true, data: item });
@@ -112,12 +121,88 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
 
     await global.knex('contest_judge').where({ id }).del();
 
+    invalidateContestJudges(record.contest_id);
+
     await logAction(req, `Remoción de juez de concurso - ${req.user.username}`, JSON.stringify(record));
 
     res.json({ success: true, message: 'Juez removido correctamente del concurso' });
   } catch (error) {
     console.error('Error en DELETE /contest-judge:', error);
     return res.status(500).json({ success: false, message: 'Error al quitar juez del concurso', error: error.message });
+  }
+});
+
+router.post('/heartbeat', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const { contest_id } = req.body;
+
+    if (!contest_id) {
+      return res.status(400).json({ success: false, message: 'El campo contest_id es obligatorio' });
+    }
+
+    const contestId = parseInt(contest_id, 10);
+    if (isNaN(contestId)) {
+      return res.status(400).json({ success: false, message: 'contest_id debe ser un número' });
+    }
+
+    const contest = await global.knex('contest').where('id', contestId).first();
+    if (!contest) {
+      return res.status(404).json({ success: false, message: 'El concurso especificado no existe' });
+    }
+
+    if (!contest.is_judging) {
+      return res.status(409).json({ success: false, message: 'El concurso no está en fase de juzgamiento' });
+    }
+
+    if (!await isJudge(contestId, req.user.id)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: el usuario no es juez de este concurso' });
+    }
+
+    markActive(contestId, req.user.id);
+    const lastActive = Date.now();
+
+    await logAction(req, `Heartbeat de juez activo - ${req.user.username}`, { contest_id: contestId });
+
+    res.json({ success: true, data: { contest_id: contestId, is_judging: true, last_active: lastActive } });
+  } catch (error) {
+    console.error('Error en POST /contest-judge/heartbeat:', error);
+    return res.status(500).json({ success: false, message: 'Error al registrar actividad del juez', error: error.message });
+  }
+});
+
+router.get('/active', authMiddleware, async (req, res) => {
+  try {
+    const contestId = req.query.contest_id;
+
+    if (!contestId) {
+      return res.status(400).json({ success: false, message: 'El parámetro contest_id es obligatorio' });
+    }
+
+    if (!await canJudge(req, contestId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden ver jueces activos' });
+    }
+
+    const contest = await global.knex('contest').where('id', contestId).first();
+    const active = getActiveJudgeIds(contestId);
+
+    const items = active.map(({ userId, lastActive }) => ({ user_id: userId, last_active: lastActive }));
+
+    if (active.length > 0) {
+      const users = await global.knex('user')
+        .whereIn('id', active.map(a => a.userId))
+        .select('id', 'username', 'email', 'profile_id');
+      const usersById = new Map(users.map(u => [u.id, u]));
+      for (const item of items) {
+        item.user = usersById.get(item.user_id) || null;
+      }
+    }
+
+    await logAction(req, `Consulta de jueces activos - ${req.user.username}`, { contest_id: contestId });
+
+    res.json({ items, is_judging: contest ? !!contest.is_judging : false });
+  } catch (error) {
+    console.error('Error en GET /contest-judge/active:', error);
+    return res.status(500).json({ success: false, message: 'Error al obtener jueces activos', error: error.message });
   }
 });
 
