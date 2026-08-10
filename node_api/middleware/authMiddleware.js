@@ -1,18 +1,15 @@
 const axios = require('axios');
 const LogOperacion = require('../controllers/log_operaciones');
+const MemoryCache = require('greenborn-memory-cache');
 
 const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar';
 const SSO_TIMEOUT = 5000;
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const tokenCache = new Map();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of tokenCache) {
-    if (entry.expiresAt <= now) tokenCache.delete(key);
-  }
-}, 60 * 60 * 1000);
+const tokenCache = new MemoryCache({
+  ttlMs: CACHE_TTL_MS,
+  cleanupIntervalMs: 60 * 60 * 1000
+});
 
 function normalizeUniqueId(value) {
   if (typeof value !== 'string') return null;
@@ -122,14 +119,14 @@ async function authMiddleware(req, res, next) {
     const uniqueId = normalizeUniqueId(req.query.unique_id);
 
     const cached = tokenCache.get(token);
-    if (cached && cached.expiresAt > Date.now()) {
+    if (cached) {
       req.user = await syncSsoUser(cached.user);
       if (uniqueId && cached.uniqueId === uniqueId) {
         extendSsoSession(token, uniqueId).then(extendData => {
           if (extendData) {
             const bearerToken = extendData.bearer_token;
             const ssoUser = extendData.user;
-            tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
+            tokenCache.set(bearerToken, { user: ssoUser, uniqueId });
           }
         }).catch(() => {});
       }
@@ -161,7 +158,7 @@ async function authMiddleware(req, res, next) {
         if (extendData) {
           const bearerToken = extendData.bearer_token;
           const ssoUser = extendData.user;
-          tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
+          tokenCache.set(bearerToken, { user: ssoUser, uniqueId });
           req.user = await syncSsoUser(ssoUser);
           res.setHeader('X-New-Token', bearerToken);
           return next();
@@ -174,7 +171,7 @@ async function authMiddleware(req, res, next) {
 
     if (response.data?.success && response.data?.data?.valid) {
       const ssoUser = response.data.data.user;
-      tokenCache.set(token, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
+      tokenCache.set(token, { user: ssoUser, uniqueId });
       req.user = await syncSsoUser(ssoUser);
       return next();
     }
@@ -187,7 +184,7 @@ async function authMiddleware(req, res, next) {
       if (extendData) {
         const bearerToken = extendData.bearer_token;
         const ssoUser = extendData.user;
-        tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
+        tokenCache.set(bearerToken, { user: ssoUser, uniqueId });
         req.user = await syncSsoUser(ssoUser);
         res.setHeader('X-New-Token', bearerToken);
         return next();
@@ -236,14 +233,14 @@ async function authMiddlewareOptional(req, res, next) {
     const uniqueId = normalizeUniqueId(req.query.unique_id);
 
     const cached = tokenCache.get(token);
-    if (cached && cached.expiresAt > Date.now()) {
+    if (cached) {
       req.user = await syncSsoUser(cached.user);
       if (uniqueId && cached.uniqueId === uniqueId) {
         extendSsoSession(token, uniqueId).then(extendData => {
           if (extendData) {
             const bearerToken = extendData.bearer_token;
             const ssoUser = extendData.user;
-            tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
+            tokenCache.set(bearerToken, { user: ssoUser, uniqueId });
           }
         }).catch(() => {});
       }
@@ -268,7 +265,7 @@ async function authMiddlewareOptional(req, res, next) {
       if (extendData) {
         const bearerToken = extendData.bearer_token;
         const ssoUser = extendData.user;
-        tokenCache.set(bearerToken, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
+        tokenCache.set(bearerToken, { user: ssoUser, uniqueId });
         req.user = await syncSsoUser(ssoUser);
       }
       return next();
@@ -276,7 +273,7 @@ async function authMiddlewareOptional(req, res, next) {
 
     if (response.data?.success && response.data?.data?.valid) {
       const ssoUser = response.data.data.user;
-      tokenCache.set(token, { user: ssoUser, uniqueId, expiresAt: Date.now() + CACHE_TTL_MS });
+      tokenCache.set(token, { user: ssoUser, uniqueId });
       req.user = await syncSsoUser(ssoUser);
     }
   } catch (err) {

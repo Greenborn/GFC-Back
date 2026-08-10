@@ -1,22 +1,21 @@
+const MemoryCache = require('greenborn-memory-cache');
+
 const ACTIVE_WINDOW_MS = 60 * 1000; // 1 minuto
 const JUDGE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora
 
-const judgesCache = new Map(); // contestId -> { users:Set<user_id>, fetchedAt }
+const judgesCache = new MemoryCache({ cleanupIntervalMs: 60 * 60 * 1000 }); // contestId -> Set<user_id>
 const activeJudges = new Map(); // "contestId:userId" -> timestamp
 
 async function getContestJudges(contestId) {
   const cached = judgesCache.get(contestId);
-  const now = Date.now();
-  if (cached && now - cached.fetchedAt < JUDGE_CACHE_TTL_MS) {
-    return cached.users;
-  }
+  if (cached) return cached;
 
   const rows = await global.knex('contest_judge')
     .where('contest_id', contestId)
     .select('user_id');
 
   const users = new Set(rows.map(r => Number(r.user_id)).filter(n => !isNaN(n)));
-  judgesCache.set(contestId, { users, fetchedAt: now });
+  judgesCache.set(contestId, users, JUDGE_CACHE_TTL_MS);
   return users;
 }
 

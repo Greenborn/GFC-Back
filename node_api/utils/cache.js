@@ -1,32 +1,27 @@
-function createCache(ttlMs = 3600000) {
-  const store = new Map();
+const MemoryCache = require('greenborn-memory-cache');
 
-  const interval = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of store) {
-      if (entry.expiresAt <= now) store.delete(key);
-    }
-  }, 1800000);
-  interval.unref();
+function createCache(ttlMs = 3600000) {
+  const store = new MemoryCache({
+    ttlMs,
+    cleanupIntervalMs: 30 * 60 * 1000
+  });
 
   return {
     async get(key, fetchFn) {
-      const entry = store.get(key);
-      if (entry && entry.expiresAt > Date.now()) return entry.value;
+      const cached = store.get(key);
+      if (cached !== undefined) return cached;
 
       const value = await fetchFn();
-      store.set(key, { value, expiresAt: Date.now() + ttlMs });
+      store.set(key, value, ttlMs);
       return value;
     },
 
     set(key, value) {
-      store.set(key, { value, expiresAt: Date.now() + ttlMs });
+      store.set(key, value, ttlMs);
     },
 
     getIfPresent(key) {
-      const entry = store.get(key);
-      if (entry && entry.expiresAt > Date.now()) return entry.value;
-      return null;
+      return store.get(key) ?? null;
     },
 
     invalidate(key) {
@@ -38,8 +33,7 @@ function createCache(ttlMs = 3600000) {
     },
 
     destroy() {
-      clearInterval(interval);
-      store.clear();
+      store.destroy();
     }
   };
 }
