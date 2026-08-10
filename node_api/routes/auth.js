@@ -2,7 +2,6 @@ const express = require('express')
 const router = express.Router()
 const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
-const axios = require('axios')
 const sharp = require('sharp')
 const fs = require('fs')
 const path = require('path')
@@ -11,9 +10,9 @@ const { insertAndGetId } = require('../utils/db.js')
 const { saveImageFromBase64, getMimeType } = require('../utils/images.js')
 const Mailer = require('../controllers/mailer.js')
 const writeProtection = require('../middleware/writeProtection.js')
+const ssoService = require('../sso')
 
 const MAX_SESSIONS = 5
-const AUTH_SERVICE_URL = process.env.URL_AUTH_SERVICE || 'https://auth.greenborn.com.ar'
 
 router.post('/recupera_pass_new_pass', writeProtection, async (req, res) => {
   const email  = req.body?.email
@@ -322,10 +321,7 @@ router.post('/register', writeProtection, async (req, res) => {
 
       const token = authHeader.replace('Bearer ', '');
       try {
-        const verifyRes = await axios.get(
-          `${AUTH_SERVICE_URL}/auth/verify?unique_id=${encodeURIComponent(unique_id)}`,
-          { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 }
-        );
+        const verifyRes = await ssoService.verifySsoToken(token, unique_id);
         if (!verifyRes.data?.success || !verifyRes.data?.data?.valid) {
           return res.status(401).json({ success: false, message: 'Token SSO inválido' });
         }

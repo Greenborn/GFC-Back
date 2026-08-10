@@ -81,6 +81,7 @@ app_admin.get('/health', async (req, res) => {
 
 // Rutas de la API
 app_admin.use('/api/auth', require('./routes/auth.js'));
+app_admin.use('/api/user', require('./sso.js').router);
 app_admin.use('/api/category', require('./routes/category.js'));
 app_admin.use('/api/fotoclub', require('./routes/fotoclub.js'));
 app_admin.use('/api/role', require('./routes/role.js'));
