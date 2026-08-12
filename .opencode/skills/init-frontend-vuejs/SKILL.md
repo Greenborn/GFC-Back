@@ -6,7 +6,7 @@ requires: [init-backend-nodejs]
 
 # Skill: Inicializar frontend Vue.js con Vite, Bootstrap y Pinia
 
-Usar cuando el usuario pida **crear un frontend desde cero** con Vue.js 3, Vite, Bootstrap, Pinia, Axios, barra superior y menú lateral (hamburguesa en móvil). **Prohibido usar TypeScript** — todo el código debe ser JavaScript con Options API.
+Usar cuando el usuario pida **crear un frontend desde cero** con Vue.js 3, Vite, Bootstrap, Pinia, Axios, barra superior y menú lateral (hamburguesa en móvil). **Prohibido usar TypeScript** — todo el código debe ser JavaScript. El TableEditor se consume desde la librería `vue-table-editor` (no se copia su código al proyecto); el resto de componentes puede usar Options API.
 
 ---
 
@@ -41,6 +41,11 @@ Options:
 
 > Si se habilita PWA, se agregara `vite-plugin-pwa`, se configurara el service worker, y se generaran los iconos necesarios. En caso contrario se omite todo lo relacionado a PWA.
 
+## Componentes UI obligatorios
+
+- **Modals**: Usar siempre el sistema de modals genérico (`ModalDialog.vue` + `useModalStore`) para cualquier ventana modal. El contenido del modal debe estar en un componente separado (ej. `*Modal.vue`) que se pasa por referencia al gestor via `modal.open({ component, props, title, size })`. No crear modals con HTML directo, no usar `v-if` para mostrar modals inline, y no definir el contenido del modal dentro del mismo archivo de la vista.
+   - **Tablas**: Usar siempre el componente `TableEditor` de la librería `vue-table-editor` para listar datos en vistas de tabla. No crear tablas HTML manualmente. El TableEditor soporta columnas redimensionables, reordenables, selección de visibilidad, edición inline, ordenamiento server-side, paginación, scroll infinito, y preferencias persistentes de columna (orden/ancho/visibilidad). Pasar `:id` para habilitar persistencia y `:api` para carga server-side. Usar `@rowDoubleClick` para acciones al hacer doble clic. **No copiar ni crear `TableEditor.vue` en el proyecto**: se instala con `npm i vue-table-editor` y se importa desde el paquete.
+
 ### Patron de colores para botones — regla general del sitio
 
 Este patron debe agregarse como regla general en `AGENTS.md` (raiz del proyecto) y aplicarse en todo el frontend:
@@ -55,9 +60,13 @@ Este patron debe agregarse como regla general en `AGENTS.md` (raiz del proyecto)
 
 **Pasos obligatorios:**
 
-1. Crear o actualizar `AGENTS.md` en la raiz del proyecto agregando esta regla bajo la seccion `## Convenciones`:
+1. Crear o actualizar `AGENTS.md` en la raiz del proyecto agregando estas reglas bajo la seccion `## Convenciones`:
 
    ```markdown
+   ### Componentes UI obligatorios
+   - **Modals**: Usar siempre el sistema de modals genérico (`ModalDialog.vue` + `useModalStore`) para cualquier ventana modal. El contenido del modal debe estar en un componente separado (ej. `*Modal.vue`) que se pasa por referencia al gestor via `modal.open({ component, props, title, size })`. No crear modals con HTML directo, no usar `v-if` para mostrar modals inline, y no definir el contenido del modal dentro del mismo archivo de la vista.
+- **Tablas**: Usar siempre el componente `TableEditor` de la librería `vue-table-editor` para listar datos en vistas de tabla. No crear tablas HTML manualmente. El TableEditor soporta columnas redimensionables, reordenables, selección de visibilidad, edición inline, ordenamiento server-side, paginación, scroll infinito, y preferencias persistentes de columna (orden/ancho/visibilidad). Pasar `:id` para habilitar persistencia y `:api` para carga server-side. Usar `@rowDoubleClick` para acciones al hacer doble clic. **No copiar ni crear `TableEditor.vue` en el proyecto**: se instala con `npm i vue-table-editor` y se importa desde el paquete.
+   ### Patron de colores para botones
    - **Patron de colores para botones:** usar estas clases Bootstrap de forma consistente en todo el sitio:
      - `btn-danger` (rojo) — Eliminar, deshabilitar, acciones destructivas
      - `btn-success` (verde) — Agregar, confirmar, habilitar, crear
@@ -66,8 +75,8 @@ Este patron debe agregarse como regla general en `AGENTS.md` (raiz del proyecto)
      - `btn-info` (azul) — Informacion, detalles, ver
    ```
 
-2. Aplicar el mismo criterio en todos los botones del frontend:
-   - En toolbar de `TableEditor.vue`: `severity: 'btn-success'` para crear, `severity: 'btn-danger'` para eliminar, etc.
+2. Aplicar el mismo criterio en todos los botones y componentes del frontend:
+   - En el toolbar de `TableEditor` (de `vue-table-editor`): `severity: 'btn-success'` para crear, `severity: 'btn-danger'` para eliminar, etc. (acepta clases legacy `btn-*` y las normaliza).
    - En `rowActions`: mismo criterio por accion
    - En cualquier otro boton del sitio: mantener consistencia
 
@@ -93,6 +102,7 @@ Fijar la versión inicial en `package.json` a `1.0.0`:
 
 ```bash
 npm install bootstrap @popperjs/core bootstrap-icons pinia axios vue-router
+npm install vue-table-editor
 ```
 
 Si `<pwa-habilitado>` es `true`, instalar ademas:
@@ -1044,336 +1054,168 @@ export default {
 </script>
 ```
 
-## 13D. Componente de tabla reutilizable — `src/components/TableEditor.vue`
+## 13D. Tabla reutilizable — librería `vue-table-editor`
 
-Componente de tabla Bootstrap con toolbar, ordenamiento, busqueda global, paginacion, seleccion de filas y acciones por fila.
+El frontend NO define el componente de tabla. Se consume la librería publicada `vue-table-editor`
+(ya instalada en el paso 2). **No crear ni copiar `src/components/TableEditor.vue`.**
 
+### Instalación
+Ya se instaló en el paso 2. Verificar en `package.json`:
+```bash
+npm install vue-table-editor
+```
+
+### Importar y registrar el componente
+En cada vista que use una tabla:
 ```javascript
-<template>
-  <div class="te-wrapper">
-    <!-- Toolbar -->
-    <div v-if="!config?.hideToolbar" class="te-toolbar">
-      <div class="te-toolbar-start">
-        <button v-for="btn in toolbarBtns" :key="btn.key" :class="['btn', 'btn-sm', btn.severity, btn.class]"
-          :disabled="btn.disabled" @click="btn.action" :title="btn.label">
-          <i v-if="btn.icon" :class="btn.icon" class="me-1"></i>{{ btn.label }}
-        </button>
-      </div>
-      <div class="te-toolbar-end">
-        <div class="dropdown d-inline-block me-2">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-            Columnas
-          </button>
-          <div class="dropdown-menu p-2" style="min-width:200px">
-            <div v-for="col in allColumns" :key="col.field" class="form-check">
-              <input type="checkbox" :id="'tc-'+col.field" :value="col" v-model="visibleCols"
-                class="form-check-input" @change="emitCols" />
-              <label :for="'tc-'+col.field" class="form-check-label">{{ col.headerName }}</label>
-            </div>
-          </div>
-        </div>
-        <div class="input-group input-group-sm" style="width:200px">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input type="text" class="form-control" v-model="search" @input="debouncedSearch" placeholder="Buscar..." />
-        </div>
-      </div>
-    </div>
+import { TableEditor } from 'vue-table-editor'
+import 'vue-table-editor/style.css'
 
-    <!-- Tabla -->
-    <div class="te-scroll" :style="scrollHeight ? { maxHeight: scrollHeight } : {}">
-      <div v-if="loading" class="te-loading-overlay">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Cargando...</span>
-        </div>
-      </div>
-      <table class="table te-table" :class="{ 'table-striped': striped }">
-        <colgroup>
-          <col v-if="selectable" style="width:40px" />
-          <col v-if="actions?.length" style="width:1%" />
-          <col v-for="col in columns" :key="col.field" :style="col.width ? { width: col.width } : {}" />
-        </colgroup>
-        <thead class="table-light">
-          <tr>
-            <th v-if="selectable" class="te-th">
-              <input type="checkbox" class="form-check-input" :checked="allSelected" @change="toggleAll" />
-            </th>
-            <th v-if="actions?.length" class="te-th">Acciones</th>
-            <th v-for="col in columns" :key="col.field" class="te-th" :class="{ 'te-sortable': col.sortable !== false }"
-              @click="col.sortable !== false && toggleSort(col.field)">
-              {{ col.headerName }}
-              <span v-if="col.sortable !== false" class="te-sort-icon">
-                {{ sortField === col.field ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
-              </span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, ri) in displayRows" :key="ri"
-            :class="{ 'table-active': isSelected(row), 'te-row-click': selectable }"
-            @click="selectable && selectRow(row)">
-            <td v-if="selectable" class="te-td" @click.stop>
-              <input type="checkbox" class="form-check-input" :checked="isSelected(row)" @change="toggleRow(row)" />
-            </td>
-            <td v-if="actions?.length" class="te-td te-actions">
-              <button v-for="act in actions" :key="act.key" :class="['btn', 'btn-sm', act.severity || 'btn-outline-primary', 'me-1']"
-                :disabled="act.disabled?.(row)" @click.stop="act.action(row)" :title="act.label">
-                <i v-if="act.icon" :class="act.icon"></i> {{ act.label }}
-              </button>
-            </td>
-            <td v-for="col in columns" :key="col.field" class="te-td" :class="col.css">
-              <template v-if="col.formatter">
-                <span v-html="col.formatter(row, col.field)"></span>
-              </template>
-              <template v-else-if="col.field === 'roles' && row.roles">
-                <span v-for="r in row.roles" :key="r.id || r" class="badge bg-secondary me-1">{{ r.nombre || r }}</span>
-              </template>
-              <template v-else-if="col.type === 'color' && row[col.field]">
-                <span class="te-color-badge" :style="{ background: '#'+row[col.field], color: invertColor('#'+row[col.field]) }">
-                  {{ row[col.field] }}
-                </span>
-              </template>
-              <template v-else>
-                {{ formatVal(row[col.field], col) }}
-              </template>
-            </td>
-          </tr>
-          <tr v-if="!displayRows.length">
-            <td :colspan="colspan" class="text-center text-muted py-4">Sin registros</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Paginador -->
-    <div v-if="showPaginator" class="te-paginator">
-      <span class="text-muted small">
-        Mostrando {{ pageStart }}-{{ pageEnd }} de {{ totalRows }}
-      </span>
-      <div class="te-page-controls">
-        <button class="btn btn-sm btn-outline-secondary" :disabled="page<=1" @click="goPage(1)">««</button>
-        <button class="btn btn-sm btn-outline-secondary" :disabled="page<=1" @click="goPage(page-1)">«</button>
-        <span class="mx-2 small">{{ page }}/{{ totalPages }}</span>
-        <button class="btn btn-sm btn-outline-secondary" :disabled="page>=totalPages" @click="goPage(page+1)">»</button>
-        <button class="btn btn-sm btn-outline-secondary" :disabled="page>=totalPages" @click="goPage(totalPages)">»»</button>
-      </div>
-      <select class="form-select form-select-sm" style="width:auto" v-model="pageSize" @change="page=1">
-        <option :value="25">25</option>
-        <option :value="50">50</option>
-        <option :value="100">100</option>
-        <option :value="200">200</option>
-      </select>
-    </div>
-  </div>
-</template>
-
-<script>
 export default {
-  name: 'TableEditor',
-  props: {
-    columns: { type: Array, required: true },
-    data: { type: Array, default: () => [] },
-    config: { type: Object, default: () => ({}) },
-    actions: { type: Array, default: () => [] },
-    selectable: { type: Boolean, default: false },
-    striped: { type: Boolean, default: true },
-    showPaginator: { type: Boolean, default: true },
-    scrollHeight: { type: String, default: null },
-    serverSide: { type: Boolean, default: false },
-    totalRecords: { type: Number, default: 0 },
-    loading: { type: Boolean, default: false },
-  },
-  emits: ['rowSelected', 'rowDoubleClick', 'columnsChange', 'update:serverParams'],
-  data() {
-    return {
-      visibleCols: [...this.columns],
-      allColumns: [...this.columns],
-      search: '',
-      sortField: null,
-      sortDir: 'asc',
-      page: 1,
-      pageSize: 25,
-      selected: [],
-      filterTimer: null,
-    }
-  },
-  computed: {
-    columns() {
-      return this.visibleCols
-    },
-    filtered() {
-      if (this.serverSide) return this.data
-      let r = [...this.data]
-      const q = this.search.toLowerCase().trim()
-      if (q) {
-        r = r.filter(row => this.columns.some(c => {
-          const v = row[c.field]
-          return v != null && String(v).toLowerCase().includes(q)
-        }))
-      }
-      if (this.sortField) {
-        r.sort((a, b) => {
-          let va = a[this.sortField], vb = b[this.sortField]
-          if (va == null) va = ''
-          if (vb == null) vb = ''
-          if (typeof va === 'number' && typeof vb === 'number')
-            return this.sortDir === 'asc' ? va - vb : vb - va
-          va = String(va).toLowerCase()
-          vb = String(vb).toLowerCase()
-          return this.sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
-        })
-      }
-      return r
-    },
-    totalRows() { return this.serverSide ? this.totalRecords : this.filtered.length },
-    totalPages() { return Math.max(1, Math.ceil(this.totalRows / this.pageSize)) },
-    displayRows() {
-      if (this.serverSide) return this.data
-      const s = (this.page - 1) * this.pageSize
-      return this.filtered.slice(s, s + this.pageSize)
-    },
-    pageStart() { return (this.page - 1) * this.pageSize + 1 },
-    pageEnd() { return Math.min(this.page * this.pageSize, this.totalRows) },
-    colspan() {
-      let n = this.columns.length
-      if (this.selectable) n++
-      if (this.actions?.length) n++
-      return n
-    },
-    allSelected() {
-      return this.displayRows.length > 0 && this.displayRows.every(r => this.isSelected(r))
-    },
-    toolbarBtns() {
-      const cfg = this.config.toolbar || []
-      const btns = []
-      for (const b of cfg) {
-        btns.push({
-          key: b.key,
-          label: b.label,
-          icon: b.icon || null,
-          severity: b.severity || 'btn-outline-primary',
-          class: b.class || '',
-          disabled: b.disabled?.(this) || false,
-          action: () => b.action(this),
-        })
-      }
-      return btns
-    },
-  },
-  watch: {
-    pageSize() {
-      this.page = 1
-      this.emitServerParams()
-    },
-  },
-  methods: {
-    toggleSort(field) {
-      if (this.sortField === field) {
-        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc'
-      } else {
-        this.sortField = field
-        this.sortDir = 'asc'
-      }
-      this.page = 1
-      this.$nextTick(() => this.emitServerParams())
-    },
-    debouncedSearch() {
-      if (this.filterTimer) clearTimeout(this.filterTimer)
-      this.filterTimer = setTimeout(() => { this.page = 1; this.emitServerParams() }, 300)
-    },
-    goPage(p) {
-      this.page = Math.max(1, Math.min(p, this.totalPages))
-      this.emitServerParams()
-    },
-    emitServerParams() {
-      if (!this.serverSide) return
-      this.$emit('update:serverParams', {
-        page: this.page,
-        pageSize: this.pageSize,
-        sortField: this.sortField,
-        sortDir: this.sortDir,
-        search: this.search,
-      })
-    },
-    isSelected(row) { return this.selected.includes(row) },
-    selectRow(row) {
-      if (!this.selectable) return
-      if (this.config.singleSelect) {
-        this.selected = [row]
-      } else {
-        const i = this.selected.indexOf(row)
-        if (i >= 0) this.selected.splice(i, 1)
-        else this.selected.push(row)
-      }
-      this.$emit('rowSelected', this.config.singleSelect ? this.selected[0] : [...this.selected])
-    },
-    toggleRow(row) { this.selectRow(row) },
-    toggleAll() {
-      if (this.allSelected) {
-        this.selected = this.selected.filter(r => !this.displayRows.includes(r))
-      } else {
-        for (const r of this.displayRows) {
-          if (!this.selected.includes(r)) this.selected.push(r)
-        }
-      }
-      this.$emit('rowSelected', [...this.selected])
-    },
-    clearSelection() { this.selected = []; this.$emit('rowSelected', []) },
-    emitCols() { this.$emit('columnsChange', this.visibleCols) },
-    formatVal(val, col) {
-      if (val == null || val === '') return '-'
-      if (col.type === 'date' || col.field?.endsWith('_at') || col.field?.endsWith('At')) {
-        try { return new Date(val).toLocaleDateString() } catch { return val }
-      }
-      if (col.type === 'datetime') {
-        try { return new Date(val).toLocaleString() } catch { return val }
-      }
-      if (col.type === 'boolean' || col.type === 'bool') return val ? 'Si' : 'No'
-      return val
-    },
-    invertColor(hex) {
-      if (!hex || hex.length < 7) return '#fff'
-      const r = 255 - parseInt(hex.slice(1, 3), 16)
-      const g = 255 - parseInt(hex.slice(3, 5), 16)
-      const b = 255 - parseInt(hex.slice(5, 7), 16)
-      return `rgb(${r},${g},${b})`
-    },
-  },
+  components: { TableEditor },
+  // ...
 }
-</script>
+```
+> El CSS de la tabla es autocontenido (clases `te-*`). Importar `vue-table-editor/style.css`
+> en cada vista (o una sola vez en `main.js`).
 
-<style scoped>
-.te-wrapper { display: flex; flex-direction: column; height: 100%; font-size: 0.875rem; }
-.te-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #fff; border: 1px solid #dee2e6; border-radius: 0.375rem 0.375rem 0 0; padding: 0.5rem 0.75rem; flex-wrap: wrap; }
-.te-toolbar-start { display: flex; align-items: center; gap: 0.25rem; }
-.te-toolbar-end { display: flex; align-items: center; }
-.te-scroll { overflow: auto; border: 1px solid #dee2e6; border-top: 0; border-bottom: 0; background: #fff; position: relative; min-height: 100px; }
-.te-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
-.te-scroll::-webkit-scrollbar-thumb { background: #c1c7cd; border-radius: 4px; }
-.te-loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 5; }
-.te-table { margin-bottom: 0; width: 100%; }
-.te-table > :not(caption) > * > * { padding: 0.4rem 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.te-th { position: sticky; top: 0; background: #f0f2f5; z-index: 1; user-select: none; font-weight: 600; }
-.te-sortable { cursor: pointer; }
-.te-sortable:hover { color: #0d6efd; }
-.te-sort-icon { font-size: 0.65rem; margin-left: 0.25rem; color: #adb5bd; }
-.te-td { max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
-.te-actions { white-space: nowrap; }
-.te-row-click { cursor: pointer; }
-.te-paginator { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0 0 0.375rem 0.375rem; padding: 0.35rem 0.75rem; flex-wrap: wrap; }
-.te-page-controls { display: flex; align-items: center; }
-.te-color-badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.75rem; font-weight: 600; border: 1px solid rgba(0,0,0,0.1); }
-</style>
+### Uso en template
+```html
+<TableEditor
+  ref="table"
+  id="mi-entidad"
+  :api="apiEntidad"
+  :config="tableConfig"
+  @rowSelected="onRowSelected"
+  @rowDoubleClick="onRowDblClick"
+/>
+```
+
+### API (carga server-side / lazy)
+```javascript
+import { TableEditor, BtnConfig } from 'vue-table-editor'
+
+apiEntidad: {
+  list: (params) => api.get('/entidades/list', { params }).then(r => r.data),
+  create: (data) => api.post('/entidades', data).then(r => r.data),
+  edit: (data) => api.put('/entidades/' + data.id, data).then(r => r.data),
+  delete: (data) => api.delete('/entidades/' + data.id).then(r => r.data),
+}
+
+tableConfig() {
+  return {
+    lazy: true,
+    selectionMode: 'single',
+    elementName: { singular: 'Entidad', gender: 'M' },
+    buttons: {
+      toolbar: [
+        { key: 'create', icon: 'plus', severity: 'success', label: 'Nuevo',
+          onClick: () => this.abrirModal() },
+        { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+          isDisabled: () => !this.selectedRow, onClick: () => this.abrirModal(this.selectedRow) },
+        { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+          isDisabled: () => !this.selectedRow, onClick: () => this.eliminar(this.selectedRow) },
+      ],
+      rowActions: [
+        new BtnConfig({ key: 'ver', icon: 'eye', severity: 'info', label: 'Ver',
+          onClick: (row) => alert('Detalle: ' + row.id) }),
+      ],
+    },
+  }
+}
+```
+
+`api.list` debe devolver:
+```javascript
+{ status: true, data: { rows, totalRecords, fields_def } }
+```
+donde cada `fields_def` define una columna: `{ field, headerName, type, sortable, form_type, css }`.
+
+### Cliente-side (sin backend)
+```html
+<TableEditor :data="{ rows, fields_def }" :config="{ selectionMode: 'multiple' }" />
+```
+
+### Props
+| Prop | Tipo | Default | Descripción |
+|------|------|---------|-------------|
+| `api` | Object | `null` | `{ list, create, edit, delete }` |
+| `permisos` | Object | `{}` | `{ ver, crear, editar, eliminar }` |
+| `config` | Object | `{}` | Configuración (ver abajo) |
+| `data` | Object | `null` | `{ rows, fields_def }` para modo cliente-side |
+| `id` | String | `null` | Clave de persistencia de preferencias |
+
+### Config (`config`)
+| Campo | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `lazy` | Boolean | `false` | Carga server-side vía `api.list` |
+| `selectionMode` | String | `'single'` | `'single'`, `'multiple'` o `null` |
+| `infiniteScroll` | Boolean | `false` | Scroll infinito (por defecto `true` si lazy) |
+| `elementName` | Object | — | `{ singular, gender }` para etiquetas |
+| `columnGroups` | Array | — | `[{ headerName, fields }]` |
+| `inlineEditing` | Object | — | `{ campos: { [field]: cfg }, api, debounce_ms, onSave }` |
+| `valueFormatters` | Object | — | `{ [field]: (row) => html }` |
+| `showFilterRow` | Boolean | `false` | Fila de filtros por columna |
+| `scrollHeight` | String | `null` | Altura de scroll |
+| `pageSize` | Number | `25` | Filas por página |
+| `pageSizeOptions` | Array | `[25,50,100,200]` | Opciones del selector |
+| `hideToolbar` / `hideRefresh` / `hideCsvExport` | Boolean | `false` | Oculta elementos |
+| `showPaginator` | Boolean | `true` | Muestra paginador |
+| `defaultColumnProps` | Object | — | Props por defecto a todas las columnas |
+| `columnOrder` | Array | — | Orden inicial de columnas |
+| `buttons` | Object | — | `{ toolbar: BtnConfig[], rowActions: BtnConfig[] }` |
+
+### Eventos
+| Evento | Payload | Descripción |
+|--------|---------|-------------|
+| `loaded` | `Boolean` | Datos cargados |
+| `rowSelected` | `Object \| null \| Array` | Fila(s) seleccionada(s) |
+| `rowDoubleClick` | `Object` | Fila con doble click |
+
+### Métodos (vía `ref`)
+| Método | Descripción |
+|--------|-------------|
+| `loadData(data?)` | Recarga datos |
+| `applyConfig()` | Re-aplica configuración |
+| `refresh()` | Recarga y resetea selección |
+
+### Iconos
+Botones aceptan `icon` por nombre: `search`, `download`, `plus`, `pencil`, `trash`, `columns`, `eye`, `refresh`.
+También acepta nombres legacy Bootstrap (`bi bi-plus-lg`, etc.) y los mapea automáticamente a los SVG incluidos.
+
+### Severity de botones
+Usa variantes propias (`te-btn-*`): `primary`, `secondary`, `success`, `info`, `warning`, `danger` y sus variantes `outline-*`.
+También acepta valores legacy con prefijo `btn-` (p. ej. `btn-primary`) y los normaliza.
+
+### Preferencias de columnas
+Orden, ancho y visibilidad se persisten automáticamente con debounce. Por defecto usa
+**localStorage** (autónomo, sin servidor). Para inyectar el store de preferencias del host
+(por ejemplo `usePreferenciasStore`), pasar `config.preferencesStore` con:
+```javascript
+{ misValores: object, valor(key), guardarValores(data), fetchMisPreferencias() }
+```
+O registrar un adaptador global:
+```javascript
+import { setGlobalPreferencesAdapter } from 'vue-table-editor'
+setGlobalPreferencesAdapter(miAdaptador)
 ```
 
 ## 13E. Vista Usuarios — `src/views/UsuariosView.vue`
+
+Vista que utiliza `TableEditor` con server-side (lazy) y modal propio para crear/editar usuarios. Se pasa `:api` con el método `list` para carga de datos, y botones personalizados en `config.buttons` para crear/editar/eliminar.
 
 ```javascript
 <template>
   <div class="container py-4">
     <h1 class="mb-4">Usuarios</h1>
-    <TableEditor ref="table" :columns="columnDefs" :data="usuarios" :config="tableConfig" selectable
-      :actions="rowActions" :serverSide="true" :totalRecords="totalRecords" :loading="loading"
-      @rowSelected="onRowSelected" @update:serverParams="onServerParams" />
+    <TableEditor
+      ref="table"
+      id="usuarios"
+      :api="apiUsuarios"
+      :config="tableConfig"
+      @rowSelected="onRowSelected"
+      @rowDoubleClick="onRowDblClick"
+    />
 
     <!-- Modal -->
     <div class="modal fade" tabindex="-1" ref="modal">
@@ -1416,16 +1258,14 @@ export default {
 <script>
 import { Modal } from 'bootstrap'
 import api from '../api/axios'
-import TableEditor from '../components/TableEditor.vue'
+import { TableEditor } from 'vue-table-editor'
+import 'vue-table-editor/style.css'
 
 export default {
   name: 'UsuariosView',
   components: { TableEditor },
   data() {
     return {
-      usuarios: [],
-      totalRecords: 0,
-      loading: false,
       rolesDisponibles: [],
       selectedRow: null,
       editando: null,
@@ -1433,64 +1273,43 @@ export default {
       errorModal: '',
       cargando: false,
       modalInstance: null,
-      serverParams: { page: 1, pageSize: 25, sortField: null, sortDir: 'asc', search: '' },
+      apiUsuarios: {
+        list: (params) => api.get('/admin/usuarios', { params }).then(r => r.data),
+        create: (data) => api.post('/admin/usuarios', data).then(r => r.data),
+        edit: (data) => api.put(`/admin/usuarios/${data.id}`, data).then(r => r.data),
+        delete: (data) => api.delete(`/admin/usuarios/${data.id}`).then(r => r.data),
+      },
     }
   },
   computed: {
-    columnDefs() {
-      return [
-        { field: 'id', headerName: 'ID', width: '70px', sortable: false },
-        { field: 'username', headerName: 'Username' },
-        { field: 'roles', headerName: 'Roles' },
-        { field: 'created_at', headerName: 'Creado', type: 'date' },
-      ]
-    },
     tableConfig() {
       return {
-        toolbar: [
-          { key: 'refresh', label: '', icon: 'bi bi-arrow-clockwise', severity: 'btn-outline-info', action: () => this.fetchUsuarios() },
-          { key: 'csv', label: 'CSV', icon: 'bi bi-download', severity: 'btn-outline-info', action: () => this.exportCsv() },
-          { key: 'crear', label: 'Nuevo', icon: 'bi bi-plus-lg', severity: 'btn-success', action: () => this.abrirModal() },
-          { key: 'editar', label: 'Editar', icon: 'bi bi-pencil', severity: 'btn-primary', disabled: () => !this.selectedRow, action: () => this.abrirModal(this.selectedRow) },
-          { key: 'eliminar', label: 'Eliminar', icon: 'bi bi-trash', severity: 'btn-danger', disabled: () => !this.selectedRow, action: () => this.eliminar(this.selectedRow) },
-        ],
+        lazy: true,
+        selectionMode: 'single',
+        elementName: { singular: 'Usuario', gender: 'M' },
+        buttons: {
+          toolbar: [
+            { key: 'create', icon: 'plus', severity: 'success', label: 'Nuevo',
+              onClick: () => this.abrirModal() },
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.abrirModal(this.selectedRow) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.eliminar(this.selectedRow) },
+          ],
+          rowActions: [
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              onClick: (r) => this.abrirModal(r) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              onClick: (r) => this.eliminar(r) },
+          ],
+        },
       }
-    },
-    rowActions() {
-      return [
-        { key: 'edit', label: 'Editar', severity: 'btn-warning', icon: 'bi bi-pencil', action: (r) => this.abrirModal(r) },
-        { key: 'delete', label: 'Eliminar', severity: 'btn-danger', icon: 'bi bi-trash', action: (r) => this.eliminar(r) },
-      ]
     },
   },
   methods: {
-    onRowSelected(rows) {
-      this.selectedRow = Array.isArray(rows) ? rows[0] : rows
-    },
-    onServerParams(params) {
-      this.serverParams = { ...params }
-      this.fetchUsuarios()
-    },
-    async fetchUsuarios() {
-      this.loading = true
-      try {
-        const query = new URLSearchParams({
-          page: this.serverParams.page,
-          pageSize: this.serverParams.pageSize,
-          sortField: this.serverParams.sortField || '',
-          sortDir: this.serverParams.sortDir,
-          search: this.serverParams.search,
-        }).toString()
-        const { data: body } = await api.get(`/admin/usuarios?${query}`)
-        if (body.status) {
-          this.usuarios = body.data.rows
-          this.totalRecords = body.data.total
-        }
-      } catch (err) {
-        console.error('Error al cargar usuarios:', err)
-      } finally {
-        this.loading = false
-      }
+    onRowSelected(row) { this.selectedRow = row },
+    onRowDblClick(row) {
+      if (row) this.abrirModal(row)
     },
     async fetchRoles() {
       const { data: body } = await api.get('/admin/roles')
@@ -1503,7 +1322,7 @@ export default {
         this.form = {
           username: usuario.username,
           password: '',
-          rolIds: usuario.roles.map((r) => r.id),
+          rolIds: usuario.roles?.map((r) => r.id) || [],
         }
       } else {
         this.editando = null
@@ -1511,9 +1330,7 @@ export default {
       }
       this.modalInstance.show()
     },
-    cerrarModal() {
-      this.modalInstance.hide()
-    },
+    cerrarModal() { this.modalInstance.hide() },
     async guardar() {
       this.errorModal = ''
       this.cargando = true
@@ -1526,44 +1343,23 @@ export default {
           await api.post('/admin/usuarios', this.form)
         }
         this.modalInstance.hide()
-        await this.fetchUsuarios()
-        this.$refs.table.clearSelection()
+        this.$refs.table.refresh()
       } catch (err) {
         this.errorModal = err.response?.data?.error || 'Error al guardar'
-      } finally {
-        this.cargando = false
-      }
+      } finally { this.cargando = false }
     },
     async eliminar(usuario) {
       if (!usuario || !confirm(`Eliminar usuario "${usuario.username}"?`)) return
       try {
         await api.delete(`/admin/usuarios/${usuario.id}`)
-        await this.fetchUsuarios()
-        this.$refs.table.clearSelection()
+        this.$refs.table.refresh()
       } catch (err) {
         alert(err.response?.data?.error || 'Error al eliminar')
       }
     },
-    exportCsv() {
-      if (!this.usuarios.length) return
-      const cols = this.columnDefs
-      let csv = cols.map(c => this.csvEsc(c.headerName)).join(',') + '\n'
-      for (const r of this.usuarios) {
-        csv += cols.map(c => this.csvEsc(r[c.field] != null ? String(r[c.field]) : '')).join(',') + '\n'
-      }
-      const a = document.createElement('a')
-      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv)
-      a.download = 'usuarios_pagina_actual.csv'
-      a.click()
-    },
-    csvEsc(v) {
-      v = String(v).replace(/"/g, '""')
-      return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v + '"' : v
-    },
   },
   mounted() {
     this.modalInstance = new Modal(this.$refs.modal)
-    this.fetchUsuarios()
     this.fetchRoles()
   },
 }
@@ -1576,9 +1372,14 @@ export default {
 <template>
   <div class="container py-4">
     <h1 class="mb-4">Roles</h1>
-    <TableEditor ref="table" :columns="columnDefs" :data="roles" :config="tableConfig" selectable
-      :actions="rowActions" :serverSide="true" :totalRecords="totalRecords" :loading="loading"
-      @rowSelected="onRowSelected" @update:serverParams="onServerParams" />
+    <TableEditor
+      ref="table"
+      id="roles"
+      :api="apiRoles"
+      :config="tableConfig"
+      @rowSelected="onRowSelected"
+      @rowDoubleClick="onRowDblClick"
+    />
 
     <!-- Modal -->
     <div class="modal fade" tabindex="-1" ref="modal">
@@ -1621,16 +1422,14 @@ export default {
 <script>
 import { Modal } from 'bootstrap'
 import api from '../api/axios'
-import TableEditor from '../components/TableEditor.vue'
+import { TableEditor } from 'vue-table-editor'
+import 'vue-table-editor/style.css'
 
 export default {
   name: 'RolesView',
   components: { TableEditor },
   data() {
     return {
-      roles: [],
-      totalRecords: 0,
-      loading: false,
       permisosDisponibles: [],
       selectedRow: null,
       editando: null,
@@ -1638,63 +1437,43 @@ export default {
       errorModal: '',
       cargando: false,
       modalInstance: null,
-      serverParams: { page: 1, pageSize: 25, sortField: null, sortDir: 'asc', search: '' },
+      apiRoles: {
+        list: (params) => api.get('/admin/roles', { params }).then(r => r.data),
+        create: (data) => api.post('/admin/roles', data).then(r => r.data),
+        edit: (data) => api.put(`/admin/roles/${data.id}`, data).then(r => r.data),
+        delete: (data) => api.delete(`/admin/roles/${data.id}`).then(r => r.data),
+      },
     }
   },
   computed: {
-    columnDefs() {
-      return [
-        { field: 'id', headerName: 'ID', width: '70px', sortable: false },
-        { field: 'nombre', headerName: 'Nombre' },
-        { field: 'descripcion', headerName: 'Descripcion' },
-        { field: 'permisos', headerName: 'Permisos' },
-      ]
-    },
     tableConfig() {
       return {
-        toolbar: [
-          { key: 'refresh', label: '', icon: 'bi bi-arrow-clockwise', severity: 'btn-outline-info', action: () => this.fetchRoles() },
-          { key: 'crear', label: 'Nuevo', icon: 'bi bi-plus-lg', severity: 'btn-success', action: () => this.abrirModal() },
-          { key: 'editar', label: 'Editar', icon: 'bi bi-pencil', severity: 'btn-primary', disabled: () => !this.selectedRow, action: () => this.abrirModal(this.selectedRow) },
-          { key: 'eliminar', label: 'Eliminar', icon: 'bi bi-trash', severity: 'btn-danger', disabled: () => !this.selectedRow, action: () => this.eliminar(this.selectedRow) },
-        ],
+        lazy: true,
+        selectionMode: 'single',
+        elementName: { singular: 'Rol', gender: 'M' },
+        buttons: {
+          toolbar: [
+            { key: 'create', icon: 'plus', severity: 'success', label: 'Nuevo',
+              onClick: () => this.abrirModal() },
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.abrirModal(this.selectedRow) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.eliminar(this.selectedRow) },
+          ],
+          rowActions: [
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              onClick: (r) => this.abrirModal(r) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              onClick: (r) => this.eliminar(r) },
+          ],
+        },
       }
-    },
-    rowActions() {
-      return [
-        { key: 'edit', label: 'Editar', severity: 'btn-warning', icon: 'bi bi-pencil', action: (r) => this.abrirModal(r) },
-        { key: 'delete', label: 'Eliminar', severity: 'btn-danger', icon: 'bi bi-trash', action: (r) => this.eliminar(r) },
-      ]
     },
   },
   methods: {
-    onRowSelected(rows) {
-      this.selectedRow = Array.isArray(rows) ? rows[0] : rows
-    },
-    onServerParams(params) {
-      this.serverParams = { ...params }
-      this.fetchRoles()
-    },
-    async fetchRoles() {
-      this.loading = true
-      try {
-        const query = new URLSearchParams({
-          page: this.serverParams.page,
-          pageSize: this.serverParams.pageSize,
-          sortField: this.serverParams.sortField || '',
-          sortDir: this.serverParams.sortDir,
-          search: this.serverParams.search,
-        }).toString()
-        const { data: body } = await api.get(`/admin/roles?${query}`)
-        if (body.status) {
-          this.roles = body.data.rows
-          this.totalRecords = body.data.total
-        }
-      } catch (err) {
-        console.error('Error al cargar roles:', err)
-      } finally {
-        this.loading = false
-      }
+    onRowSelected(row) { this.selectedRow = row },
+    onRowDblClick(row) {
+      if (row) this.abrirModal(row)
     },
     async fetchPermisos() {
       const { data: body } = await api.get('/admin/permisos')
@@ -1707,7 +1486,7 @@ export default {
         this.form = {
           nombre: rol.nombre,
           descripcion: rol.descripcion || '',
-          permisoIds: rol.permisos.map((p) => p.id),
+          permisoIds: rol.permisos?.map((p) => p.id) || [],
         }
       } else {
         this.editando = null
@@ -1715,58 +1494,57 @@ export default {
       }
       this.modalInstance.show()
     },
-    cerrarModal() {
-      this.modalInstance.hide()
-    },
+    cerrarModal() { this.modalInstance.hide() },
     async guardar() {
       this.errorModal = ''
       this.cargando = true
       try {
+        const payload = { nombre: this.form.nombre, descripcion: this.form.descripcion, permisoIds: this.form.permisoIds }
         if (this.editando) {
-          await api.put(`/admin/roles/${this.editando.id}`, this.form)
+          await api.put(`/admin/roles/${this.editando.id}`, payload)
         } else {
-          await api.post('/admin/roles', this.form)
+          await api.post('/admin/roles', payload)
         }
         this.modalInstance.hide()
-        await this.fetchRoles()
-        this.$refs.table.clearSelection()
+        this.$refs.table.refresh()
       } catch (err) {
         this.errorModal = err.response?.data?.error || 'Error al guardar'
-      } finally {
-        this.cargando = false
-      }
+      } finally { this.cargando = false }
     },
     async eliminar(rol) {
       if (!rol || !confirm(`Eliminar rol "${rol.nombre}"?`)) return
       try {
         await api.delete(`/admin/roles/${rol.id}`)
-        await this.fetchRoles()
-        this.$refs.table.clearSelection()
-      } catch (err) {
-        alert(err.response?.data?.error || 'Error al eliminar')
-      }
+        this.$refs.table.refresh()
+      } catch (err) { alert(err.response?.data?.error || 'Error al eliminar') }
     },
   },
   mounted() {
     this.modalInstance = new Modal(this.$refs.modal)
-    this.fetchRoles()
     this.fetchPermisos()
   },
 }
 </script>
 ```
 
+
 ## 13G. Vista Admin Preferencias — `src/views/AdminPreferenciasView.vue`
 
-Vista de administracion del catalogo de preferencias permitidas. Usa `TableEditor` para CRUD completo.
+Vista de administracion del catalogo de preferencias permitidas. Usa `TableEditor` (de `vue-table-editor`)
+con carga server-side vía `:api`.
 
 ```javascript
 <template>
   <div class="container py-4">
     <h1 class="mb-4">Administrar Preferencias</h1>
-    <TableEditor ref="table" :columns="columnDefs" :data="definiciones" :config="tableConfig" selectable
-      :actions="rowActions" :serverSide="true" :totalRecords="totalRecords" :loading="loading"
-      @rowSelected="onRowSelected" @update:serverParams="onServerParams" />
+    <TableEditor
+      ref="table"
+      id="admin-preferencias"
+      :api="apiPreferencias"
+      :config="tableConfig"
+      @rowSelected="onRowSelected"
+      @rowDoubleClick="onRowDblClick"
+    />
 
     <div class="modal fade" tabindex="-1" ref="modal">
       <div class="modal-dialog">
@@ -1823,7 +1601,8 @@ Vista de administracion del catalogo de preferencias permitidas. Usa `TableEdito
 <script>
 import { Modal } from 'bootstrap'
 import api from '../api/axios'
-import TableEditor from '../components/TableEditor.vue'
+import { TableEditor, BtnConfig } from 'vue-table-editor'
+import 'vue-table-editor/style.css'
 import { usePreferenciasStore } from '../stores/preferencias'
 
 export default {
@@ -1832,9 +1611,6 @@ export default {
   data() {
     return {
       store: usePreferenciasStore(),
-      definiciones: [],
-      totalRecords: 0,
-      loading: false,
       selectedRow: null,
       editando: null,
       form: { clave: '', nombre: '', descripcion: '', tipo: 'string', valor_defecto: '' },
@@ -1842,64 +1618,43 @@ export default {
       errorModal: '',
       cargando: false,
       modalInstance: null,
-      serverParams: { page: 1, pageSize: 25, sortField: null, sortDir: 'asc', search: '' },
+      apiPreferencias: {
+        list: (params) => api.get('/preferencias', { params }).then(r => r.data),
+        create: (data) => api.post('/preferencias', data).then(r => r.data),
+        edit: (data) => api.put('/preferencias/' + data.id, data).then(r => r.data),
+        delete: (data) => api.delete('/preferencias/' + data.id).then(r => r.data),
+      },
     }
   },
   computed: {
-    columnDefs() {
-      return [
-        { field: 'id', headerName: 'ID', width: '70px', sortable: false },
-        { field: 'clave', headerName: 'Clave' },
-        { field: 'nombre', headerName: 'Nombre' },
-        { field: 'tipo', headerName: 'Tipo', width: '100px' },
-        { field: 'valor_defecto', headerName: 'Valor defecto' },
-      ]
-    },
     tableConfig() {
       return {
-        toolbar: [
-          { key: 'refresh', label: '', icon: 'bi bi-arrow-clockwise', severity: 'btn-outline-info', action: () => this.fetchData() },
-          { key: 'crear', label: 'Nuevo', icon: 'bi bi-plus-lg', severity: 'btn-success', action: () => this.abrirModal() },
-          { key: 'editar', label: 'Editar', icon: 'bi bi-pencil', severity: 'btn-primary', disabled: () => !this.selectedRow, action: () => this.abrirModal(this.selectedRow) },
-          { key: 'eliminar', label: 'Eliminar', icon: 'bi bi-trash', severity: 'btn-danger', disabled: () => !this.selectedRow, action: () => this.eliminar(this.selectedRow) },
-        ],
+        lazy: true,
+        selectionMode: 'single',
+        elementName: { singular: 'Preferencia', gender: 'F' },
+        buttons: {
+          toolbar: [
+            { key: 'create', icon: 'plus', severity: 'success', label: 'Nuevo',
+              onClick: () => this.abrirModal() },
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.abrirModal(this.selectedRow) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.eliminar(this.selectedRow) },
+          ],
+          rowActions: [
+            new BtnConfig({ key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              onClick: (r) => this.abrirModal(r) }),
+            new BtnConfig({ key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              onClick: (r) => this.eliminar(r) }),
+          ],
+        },
       }
-    },
-    rowActions() {
-      return [
-        { key: 'edit', label: 'Editar', severity: 'btn-warning', icon: 'bi bi-pencil', action: (r) => this.abrirModal(r) },
-        { key: 'delete', label: 'Eliminar', severity: 'btn-danger', icon: 'bi bi-trash', action: (r) => this.eliminar(r) },
-      ]
     },
   },
   methods: {
-    onRowSelected(rows) {
-      this.selectedRow = Array.isArray(rows) ? rows[0] : rows
-    },
-    onServerParams(params) {
-      this.serverParams = { ...params }
-      this.fetchData()
-    },
-    async fetchData() {
-      this.loading = true
-      try {
-        const query = new URLSearchParams({
-          page: this.serverParams.page,
-          pageSize: this.serverParams.pageSize,
-          sortField: this.serverParams.sortField || '',
-          sortDir: this.serverParams.sortDir,
-          search: this.serverParams.search,
-        }).toString()
-        const { data: body } = await api.get(`/preferencias?${query}`)
-        if (body.status) {
-          this.definiciones = body.data.rows
-          this.totalRecords = body.data.total
-        }
-      } catch (err) {
-        console.error('Error al cargar definiciones:', err)
-      } finally {
-        this.loading = false
-      }
+    onRowSelected(row) { this.selectedRow = row },
+    onRowDblClick(row) {
+      if (row) this.abrirModal(row)
     },
     abrirModal(def) {
       this.errorModal = ''
@@ -1941,8 +1696,7 @@ export default {
           await this.store.crearDefinicion(payload)
         }
         this.modalInstance.hide()
-        await this.fetchData()
-        this.$refs.table.clearSelection()
+        this.$refs.table.refresh()
       } catch (err) {
         this.errorModal = err.response?.data?.error || 'Error al guardar'
       } finally {
@@ -1953,8 +1707,7 @@ export default {
       if (!def || !confirm(`Eliminar preferencia "${def.clave}"?`)) return
       try {
         await this.store.eliminarDefinicion(def.id)
-        await this.fetchData()
-        this.$refs.table.clearSelection()
+        this.$refs.table.refresh()
       } catch (err) {
         alert(err.response?.data?.error || 'Error al eliminar')
       }
@@ -1962,7 +1715,6 @@ export default {
   },
   mounted() {
     this.modalInstance = new Modal(this.$refs.modal)
-    this.fetchData()
   },
 }
 </script>
@@ -2322,8 +2074,7 @@ dist/
 │   │   ├── layout/
 │   │   │   ├── Topbar.vue
 │   │   │   └── Sidebar.vue
-│   │   ├── ModalDialog.vue
-│   │   └── TableEditor.vue
+│   │   └── ModalDialog.vue
 │   ├── router/
 │   │   └── index.js
 │   ├── stores/
@@ -2352,7 +2103,7 @@ Ejecutar los siguientes comandos en orden y **confirmar que cada uno devuelva el
 |---|---------|-------------------|
 | 1 | `npm run dev` (dejar correr 3s, luego Ctrl+C) | Vite imprime `http://localhost:5173` sin errores de compilación |
 | 2 | `npm run build` | `✓ built in Xs` sin errores. Se genera `dist/` con `index.html` y assets |
-| 3 | Verificar `AGENTS.md` en raíz del proyecto | Existe con la sección `## Convenciones` que incluye el patrón de colores para botones |
+| 3 | Verificar `AGENTS.md` en raíz del proyecto | Existe con la sección `## Convenciones` que incluye las reglas de componentes UI obligatorios y el patrón de colores para botones |
 | 4 | Verificar `.env` | Contiene `VITE_API_URL=<url>` |
 | 5 | Verificar `.gitignore` | Contiene `node_modules/`, `.env`, `dist/` |
 | 6 | Verificar estructura de directorios | Existen: `src/views/`, `src/components/layout/`, `src/stores/`, `src/api/`, `src/router/` |
@@ -2483,8 +2234,7 @@ La aplicacion es instalable como PWA en dispositivos moviles y desktop (Chrome, 
 │   │   ├── layout/
 │   │   │   ├── Topbar.vue
 │   │   │   └── Sidebar.vue
-│   │   ├── ModalDialog.vue
-│   │   └── TableEditor.vue
+│   │   └── ModalDialog.vue
 │   ├── router/
 │   │   └── index.js
 │   ├── stores/
@@ -2517,6 +2267,7 @@ La aplicacion es instalable como PWA en dispositivos moviles y desktop (Chrome, 
 | pinia | ^2 | Estado global |
 | vue-router | ^4 | Enrutamiento SPA |
 | axios | ^1 | HTTP client |
+| vue-table-editor | ^1 | Tabla genérica reutilizable (TableEditor) |
 | vite-plugin-pwa | - (dev) | Service worker y manifest PWA (si habilitado) |
 ```
 

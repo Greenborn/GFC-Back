@@ -1,6 +1,6 @@
 ---
 name: crear-crud
-description: Crear un módulo CRUD completo con TableEditor server-side, permisos, menú, preferencias de columnas y endpoints paginados
+description: Crear un módulo CRUD completo con TableEditor server-side (redimensionable, reordenable, preferencias de columnas), permisos, menú y endpoints paginados
 requires: [init-backend-nodejs, init-frontend-vuejs]
 ---
 
@@ -8,7 +8,7 @@ requires: [init-backend-nodejs, init-frontend-vuejs]
 
 Usar cuando el usuario pida **agregar un CRUD genérico** para una entidad nueva. Este skill genera un módulo auto-registrable con backend (controlador paginado, rutas con permisos, migración, seed) y frontend (tab en panel + menú lateral opcional, TableEditor con filtrado/ordenamiento/paginación vía API, preferencias de columnas guardadas por usuario).
 
-**Requisitos previos:** El proyecto debe tener `init-backend-nodejs` e `init-frontend-vuejs` aplicados (middleware de auth, knex, stores, TableEditor, etc.).
+**Requisitos previos:** El proyecto debe tener `init-backend-nodejs` e `init-frontend-vuejs` aplicados (middleware de auth, knex, stores, y la librería `vue-table-editor` instalada).
 
 ---
 
@@ -53,6 +53,23 @@ Header: Titulo de vista
 ```
 
 > Los valores ingresados reemplazan `<entidad>`, `<entidades>`, `<Entidad>`, `<Entidades>`, `<tabla_bd>` y `<titulo_vista>` respectivamente en el resto del skill.
+
+---
+
+## 0.5. Preguntar si la tabla ya existe
+
+Usar la herramienta `question` para determinar si la tabla ya existe en la base de datos:
+
+```
+<question>
+Pregunta: ¿La tabla <tabla_bd> ya existe en la base de datos?
+Header: Tabla existente
+Options:
+  - No, crear tabla nueva (Recommended)
+  - Si, ya existe
+```
+
+> Guardar la respuesta como `<tabla_existe>`. Si es "Si, ya existe", la tabla ya tiene datos y se debe tratar como tabla existente (ver secciones 7 y 9).
 
 ---
 
@@ -240,6 +257,17 @@ Header: Campo <i> - max
 
 > Guardar todos los campos en un array `<campos>` donde cada elemento tiene: `{nombre, label, tipo, opciones_enum, editable, visible_tabla, ancho, sorteable, buscable, validacion: {requerido, unico, min, max, maxLength}}`
 
+### Determinar el campo de identificador primario (PK)
+
+Después de recolectar todos los campos, el agente debe determinar qué campo actúa como identificador primario (PK) de la entidad.
+
+Reglas de detección automática:
+1. Si existe un campo llamado `slug` y **no** hay un campo `id` en la definición → `<pk_field>` = `slug`, `<pk_type>` = `string`
+2. Si existe un campo de tipo `uuid` que el usuario indica como identificador (preguntar si es el ID) → `<pk_field>` = `uuid`, `<pk_type>` = `string`
+3. En cualquier otro caso → `<pk_field>` = `id`, `<pk_type>` = `increments`
+
+> Guardar los valores como `<pk_field>` y `<pk_type>`. Estos valores se usan en el resto del skill para generar migraciones, controladores, rutas y vistas correctamente.
+
 ---
 
 ## 4. Preguntar configuración de menú lateral
@@ -304,164 +332,61 @@ Header: Tab - priority
 
 ---
 
-## 6. Verificar/Agregar soporte server-side en TableEditor.vue
+## 6. TableEditor — librería `vue-table-editor` (soporte server-side nativo)
 
-El TableEditor generado por `init-frontend-vuejs` ya incluye soporte server-side (props `serverSide`, `totalRecords`, `loading`, evento `@update:serverParams`). Si el proyecto fue creado antes de esa actualización, modificar `frontend/src/components/TableEditor.vue` para agregar las siguientes props, eventos, métodos y estilos:
+El componente `TableEditor` se consume de la librería `vue-table-editor` (instalada por
+`init-frontend-vuejs`). **No se crea ni se copia `TableEditor.vue` en el proyecto.**
 
-**Props nuevas después de `scrollHeight`:**
-
+Importar en cada vista/tab que use la tabla:
 ```javascript
-    serverSide: { type: Boolean, default: false },
-    totalRecords: { type: Number, default: 0 },
-    loading: { type: Boolean, default: false },
+import { TableEditor, BtnConfig } from 'vue-table-editor'
+import 'vue-table-editor/style.css'
 ```
 
-Modificar `emits` para agregar `'update:serverParams'`:
+Soporte server-side nativo:
+- `config.lazy = true` activa la carga server-side
+- El componente recibe `:api="{ list, create, edit, delete }"`
+- Ordenamiento, búsqueda global, paginación y filtros emiten llamadas a `api.list()` automáticamente
+- Preferencias de columnas (visibilidad, orden, ancho) se persisten automáticamente (por defecto vía localStorage; opcionalmente inyectar `config.preferencesStore` con el store de preferencias del host)
+- Columnas redimensionables y reordenables por drag & drop
+- Edición inline configurable vía `config.inlineEditing`
 
-```javascript
-  emits: ['rowSelected', 'rowDoubleClick', 'columnsChange', 'update:serverParams'],
-```
-
-Agregar watch para emitir serverParams cuando cambie `pageSize`:
-
-Agregar en `data()`:
-
-```javascript
-      currentPage: 1,
-```
-
-Modificar el bloque de `computed`:
-
-Reemplazar `totalRows()`:
-
-```javascript
-    totalRows() {
-      return this.serverSide ? this.totalRecords : this.filtered.length
-    },
-```
-
-Reemplazar `displayRows()`:
-
-```javascript
-    displayRows() {
-      if (this.serverSide) return this.data
-      const s = (this.page - 1) * this.pageSize
-      return this.filtered.slice(s, s + this.pageSize)
-    },
-```
-
-Modificar el método `toggleSort` para emitir server params:
-
-```javascript
-    toggleSort(field) {
-      if (this.sortField === field) {
-        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc'
-      } else {
-        this.sortField = field
-        this.sortDir = 'asc'
-      }
-      this.page = 1
-      this.$nextTick(() => this.emitServerParams())
-    },
-```
-
-Modificar `debouncedSearch`:
-
-```javascript
-    debouncedSearch() {
-      if (this.filterTimer) clearTimeout(this.filterTimer)
-      this.filterTimer = setTimeout(() => {
-        this.page = 1
-        this.emitServerParams()
-      }, 300)
-    },
-```
-
-Modificar `goPage`:
-
-```javascript
-    goPage(p) {
-      this.page = Math.max(1, Math.min(p, this.totalPages))
-      this.emitServerParams()
-    },
-```
-
-Agregar nuevo método `emitServerParams`:
-
-```javascript
-    emitServerParams() {
-      if (!this.serverSide) return
-      this.$emit('update:serverParams', {
-        page: this.page,
-        pageSize: this.pageSize,
-        sortField: this.sortField,
-        sortDir: this.sortDir,
-        search: this.search,
-      })
-    },
-```
-
-Agregar watch en `pageSize`:
-
-```javascript
-  watch: {
-    pageSize() {
-      this.page = 1
-      this.emitServerParams()
-    },
-  },
-```
-
-Agregar indicador de carga en el template, justo antes del `<table>` tag:
-
-```html
-    <div v-if="loading" class="te-loading-overlay">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Cargando...</span>
-      </div>
-    </div>
-```
-
-Agregar estilos para el overlay de carga:
-
-```css
-.te-loading-overlay {
-  position: absolute; inset: 0; background: rgba(255,255,255,0.7);
-  display: flex; align-items: center; justify-content: center; z-index: 5;
-}
-```
-
-Y en el wrapper padre `.te-scroll` necesita `position: relative`:
-
-```css
-.te-scroll { overflow: auto; border: 1px solid #dee2e6; border-top: 0; border-bottom: 0; background: #fff; position: relative; }
-```
+No es necesario modificar ningún archivo de la librería — todas las funcionalidades vienen incluidas.
 
 ---
 
 ## 7. Generar migración de base de datos
+
+### Si la tabla NO existe (`<tabla_existe>` = "No, crear tabla nueva")
 
 Crear archivo `backend/src/modules/<entidad>/<timestamp>_create_<entidades>.js`:
 
 ```javascript
 export function up(knex) {
   return knex.schema.createTable('<tabla_bd>', (table) => {
-    table.increments('id').primary();
-    // <CAMPO_ID> - autogenerado
+    // <PK_MIGRATION>
+    // Generar la columna PK según <pk_field> y <pk_type>:
+    // - Si <pk_field> es "id" y <pk_type> es "increments":
+    //     table.increments('id').primary();
+    // - Si <pk_field> es "slug" (string PK):
+    //     table.string('slug', 255).primary();
+    // - Si <pk_field> es otro campo string (ej: uuid):
+    //     table.string('<pk_field>', 255).primary();
+    // </PK_MIGRATION>
 
     // <CAMPOS_MIGRATION>
     // Cada campo se genera según su tipo:
-    // string: table.string('<nombre>', <maxLength>).nullable()
-    // text: table.text('<nombre>').nullable()
-    // integer: table.integer('<nombre>').nullable()
-    // decimal: table.decimal('<nombre>', <precision>).nullable()
-    // boolean: table.boolean('<nombre>').defaultTo(false)
-    // date: table.date('<nombre>').nullable()
-    // datetime: table.datetime('<nombre>').nullable()
-    // enum: table.enu('<nombre>', [<opciones>]).nullable()
+    // string: table.string('<nombre>', <maxLength>).notNullable()
+    // text: table.text('<nombre>').notNullable()
+    // integer: table.integer('<nombre>').notNullable()
+    // decimal: table.decimal('<nombre>', <precision>).notNullable()
+    // boolean: table.boolean('<nombre>').defaultTo(false).notNullable()
+    // date: table.date('<nombre>').notNullable()
+    // datetime: table.datetime('<nombre>').notNullable()
+    // enum: table.enu('<nombre>', [<opciones>]).notNullable()
     //
-    // Si requerido: .notNullable()
-    // Si unico: .unique() (en string)
+    // Si no requerido: .nullable() en vez de .notNullable()
+    // Si unico en string: agregar .unique()
     // </CAMPOS_MIGRATION>
 
     // <VALIDACION_MIGRATION>
@@ -478,7 +403,44 @@ export function down(knex) {
 }
 ```
 
-> Nota: El agente debe reemplazar `<CAMPOS_MIGRATION>` con las definiciones reales de cada campo según los tipos seleccionados.
+> Nota: Como la tabla es nueva, se pueden usar `.notNullable()` y `.unique()` sin problemas ya que no hay datos existentes.
+
+### Si la tabla ya existe (`<tabla_existe>` = "Si, ya existe")
+
+**No generar migración de creación de tabla.** La tabla ya está en la BD. En su lugar, generar solo una migración de ALTER TABLE **si hay campos nuevos que agregar** (el agente debe preguntar al usuario qué campos agregar, si es necesario).
+
+Si se necesita agregar campos, crear `backend/src/modules/<entidad>/<timestamp>_alter_<entidades>.js`:
+
+```javascript
+export function up(knex) {
+  return knex.schema.alterTable('<tabla_bd>', (table) => {
+    // <CAMPOS_ALTER>
+    // Para cada campo nuevo usar SIEMPRE .nullable()
+    // string: table.string('<nombre>', <maxLength>).nullable()
+    // text: table.text('<nombre>').nullable()
+    // integer: table.integer('<nombre>').nullable()
+    // decimal: table.decimal('<nombre>', <precision>).nullable()
+    // boolean: table.boolean('<nombre>').defaultTo(false)
+    // date: table.date('<nombre>').nullable()
+    // datetime: table.datetime('<nombre>').nullable()
+    // enum: table.enu('<nombre>', [<opciones>]).nullable()
+    //
+    // NUNCA usar .notNullable() ni .unique() en ALTER TABLE
+    // ya que la tabla puede tener registros existentes.
+    // </CAMPOS_ALTER>
+  });
+}
+
+export function down(knex) {
+  return knex.schema.alterTable('<tabla_bd>', (table) => {
+    // <CAMPOS_ALTER_DROP>
+    // table.dropColumn('<nombre>');
+    // </CAMPOS_ALTER_DROP>
+  });
+}
+```
+
+> **Regla importante en ALTER TABLE:** Siempre usar `.nullable()`. Nunca usar `.notNullable()` ni `.unique()` en migraciones que modifican tablas existentes. Las validaciones de requerido y único deben hacerse exclusivamente en el controlador backend.
 
 ---
 
@@ -532,9 +494,25 @@ export async function seed(knex) {
 Crear archivo `backend/src/modules/<entidad>/<entidad>.controller.js`:
 
 ```javascript
+import crypto from 'crypto';
 import db from '../../config/db.js';
 
 const TABLE = '<tabla_bd>';
+
+// <PK_TYPE>
+// El campo PK se define como <pk_field> (valor: "<pk_field>").
+// Si <pk_field> NO es "id", reemplazar "id" por "<pk_field>" en todo el controlador:
+// - const { id } = req.params; → const { <pk_field> } = req.params;
+// - db(TABLE).where({ id }) → db(TABLE).where({ <pk_field> })
+// - db(TABLE).whereNot({ id }) → db(TABLE).whereNot({ <pk_field> })
+// - data: { id, ... } → data: { [<pk_field>]: <pk_field>, ... }
+// (el agente debe hacer este reemplazo al generar el código real)
+//
+// Determinar según la tabla:
+// - Si la tabla es NUEVA (<tabla_existe> = "No, crear tabla nueva") → PK es auto-increment (increments)
+// - Si la tabla YA EXISTE (<tabla_existe> = "Si, ya existe") → verificar si la PK es string o increments
+//   inspeccionando la migración existente o la estructura de la tabla.
+// </PK_TYPE>
 
 // Listar con paginacion, ordenamiento, busqueda
 export async function listar(req, res) {
@@ -586,9 +564,16 @@ export async function listar(req, res) {
   }
 }
 
-// Obtener por ID
+// Obtener por ID (usar <pk_field> como campo PK)
 export async function obtener(req, res) {
   try {
+    // <PK_OBTENER>
+    // NOTA: <pk_field> define el campo PK. Si <pk_field> != "id",
+    // reemplazar "id" por "<pk_field>" en todo el controlador.
+    // Ejemplo con pk_field="slug":
+    //   const { slug } = req.params;
+    //   const row = await db(TABLE).where({ slug }).first();
+    // </PK_OBTENER>
     const { id } = req.params;
     const row = await db(TABLE).where({ id }).first();
     if (!row) {
@@ -613,6 +598,25 @@ export async function crear(req, res) {
     <VALIDAR_UNICIDAD>
 
     const payload = { <CAMPOS_PAYLOAD> };
+
+    // <PK_ID_GENERATION>
+    // El campo PK es <pk_field> (tipo: <pk_type>).
+    // Generar segun el tipo:
+    //
+    // Opcion A — <pk_type> es "increments" (auto-increment, ej: tabla con increments('id')):
+    //   // <pk_field> se genera automaticamente
+    //   const [id] = await db(TABLE).insert(payload);
+    //   res.status(200).json({ status: true, data: { id, ... } });
+    //
+    // Opcion B — <pk_type> es "string" (PK string, ej: slug o uuid):
+    //   const id = crypto.randomUUID();
+    //   payload.id = id;
+    //   await db(TABLE).insert(payload);
+    //   // Si <pk_field> es "slug", el slug debe venir del input, no generarse con randomUUID
+    //   res.status(200).json({ status: true, data: { [<pk_field>]: <pk_field>, ... } });
+    //
+    // Si <pk_field> NO es "id", reemplazar "id" por "<pk_field>" en todo el codigo generado.
+    // </PK_ID_GENERATION>
     const [id] = await db(TABLE).insert(payload);
 
     res.status(200).json({ status: true, data: { id, message: '<Entidad> creado correctamente' } });
@@ -625,6 +629,12 @@ export async function crear(req, res) {
 // Actualizar
 export async function actualizar(req, res) {
   try {
+    // <PK_ACTUALIZAR>
+    // NOTA: Usar <pk_field> como campo PK. Si <pk_field> != "id",
+    // reemplazar "id" por "<pk_field>" en todo el codigo generado:
+    //   const { slug } = req.params;
+    //   const existente = await db(TABLE).where({ slug }).first();
+    // </PK_ACTUALIZAR>
     const { id } = req.params;
     const existente = await db(TABLE).where({ id }).first();
     if (!existente) {
@@ -633,8 +643,19 @@ export async function actualizar(req, res) {
 
     const <CAMPOS_EDITAR_VALIDACION> = req.body;
 
-    // Validar unicidad (excluyendo el registro actual)
-    <VALIDAR_UNICIDAD_EDITAR>
+    // <VALIDAR_UNICIDAD_EDITAR>
+    // Para cada campo único, validar que no exista otro registro con el mismo valor,
+    // excluyendo el registro actual con .whereNot({ id }):
+    //
+    // NOTA: Si <pk_field> != "id", usar .whereNot({ <pk_field> }) en vez de .whereNot({ id })
+    //
+    // if (slug && slug !== existente.slug) {
+    //   const slugExistente = await db(TABLE).where({ slug }).whereNot({ id }).first();
+    //   if (slugExistente) return res.status(200).json({ status: false, error: 'El slug ya existe' });
+    // }
+    //
+    // Repetir para cada campo único.
+    // </VALIDAR_UNICIDAD_EDITAR>
 
     const payload = {};
     <CAMPOS_PAYLOAD_ACTUALIZAR>
@@ -642,6 +663,9 @@ export async function actualizar(req, res) {
       return res.status(200).json({ status: false, error: 'No hay campos para actualizar' });
     }
 
+    // <PK_UPDATE_WHERE>
+    // Si <pk_field> != "id": await db(TABLE).where({ <pk_field> }).update(payload);
+    // </PK_UPDATE_WHERE>
     await db(TABLE).where({ id }).update(payload);
 
     res.status(200).json({ status: true, data: { message: '<Entidad> actualizado correctamente' } });
@@ -654,6 +678,13 @@ export async function actualizar(req, res) {
 // Eliminar
 export async function eliminar(req, res) {
   try {
+    // <PK_ELIMINAR>
+    // NOTA: Usar <pk_field> como campo PK. Si <pk_field> != "id",
+    // reemplazar "id" por "<pk_field>":
+    //   const { slug } = req.params;
+    //   const existente = await db(TABLE).where({ slug }).first();
+    //   await db(TABLE).where({ slug }).del();
+    // </PK_ELIMINAR>
     const { id } = req.params;
     const existente = await db(TABLE).where({ id }).first();
     if (!existente) {
@@ -667,7 +698,6 @@ export async function eliminar(req, res) {
     res.status(200).json({ status: false, error: 'Error al eliminar <entidad>' });
   }
 }
-```
 
 > El agente debe reemplazar los placeholders `<CAMPOS_*>` y `<VALIDAR_*>` con el código real generado según los campos definidos por el usuario.
 
@@ -691,6 +721,14 @@ import {
 const router = Router();
 
 router.get('/list', authMiddleware('<prefijo>.ver'), listar);
+// <PK_ROUTE>
+// Usar <pk_field> como parametro de ruta. Si <pk_field> != "id":
+//   router.get('/:slug', authMiddleware(...), obtener);
+//   router.put('/:slug', authMiddleware(...), actualizar);
+//   router.delete('/:slug', authMiddleware(...), eliminar);
+// Si <pk_field> es "id":
+//   router.get('/:id', ...);
+// </PK_ROUTE>
 router.get('/:id', authMiddleware('<prefijo>.ver'), obtener);
 router.post('/', authMiddleware('<prefijo>.crear'), crear);
 router.put('/:id', authMiddleware('<prefijo>.editar'), actualizar);
@@ -755,17 +793,11 @@ Crear archivo `frontend/src/modules/<entidad>/components/<Entidad>View.vue`:
 
     <TableEditor
       ref="table"
-      :columns="columnDefs"
-      :data="rows"
+      id="<entidad>"
+      :api="apiEntidad"
       :config="tableConfig"
-      :actions="rowActions"
-      :serverSide="true"
-      :totalRecords="totalRecords"
-      :loading="loading"
-      selectable
       @rowSelected="onRowSelected"
-      @update:serverParams="onServerParams"
-      @columnsChange="onColumnsChange"
+      @rowDoubleClick="onRowDblClick"
     />
 
     <!-- Modal Formulario -->
@@ -795,131 +827,65 @@ Crear archivo `frontend/src/modules/<entidad>/components/<Entidad>View.vue`:
 <script>
 import { Modal } from 'bootstrap'
 import api from '../../api/axios'
-import TableEditor from '../../components/TableEditor.vue'
-import { usePreferenciasStore } from '../../stores/preferencias'
+import { TableEditor, BtnConfig } from 'vue-table-editor'
+import 'vue-table-editor/style.css'
 
 export default {
   name: '<Entidad>View',
   components: { TableEditor },
+  // <PK_FRONTEND>
+  // NOTA: El campo PK de la entidad es <pk_field>.
+  // Si <pk_field> NO es "id", reemplazar todas las referencias a ".id"
+  // por ".<pk_field>" en los metodos guardar, eliminar, etc.
+  // Ejemplo:
+  //   this.editando.id → this.editando.<pk_field>
+  //   row.id → row[<pk_field>]
+  // </PK_FRONTEND>
   data() {
     return {
-      rows: [],
-      totalRecords: 0,
-      loading: false,
       selectedRow: null,
       editando: null,
       form: { <CAMPOS_FORM_DATA> },
       errorModal: '',
       cargando: false,
       modalInstance: null,
-
-      // Server-side params
-      serverParams: {
-        page: 1,
-        pageSize: 25,
-        sortField: null,
-        sortDir: 'asc',
-        search: '',
+      apiEntidad: {
+        list: (params) => api.get(`/<entidades>/list`, { params }).then(r => r.data),
+        create: (data) => api.post(`/<entidades>`, data).then(r => r.data),
+        edit: (data) => api.put(`/<entidades>/${data.id}`, data).then(r => r.data),
+        delete: (data) => api.delete(`/<entidades>/${data.id}`).then(r => r.data),
       },
-
-      // Preferencias de columnas
-      prefStore: usePreferenciasStore(),
-      columnPrefs: null,
     }
   },
   computed: {
-    columnDefs() {
-      const baseCols = [
-        { field: 'id', headerName: 'ID', width: '70px', sortable: false },
-        <COLUMNAS_TABLA>
-        { field: 'created_at', headerName: 'Creado', type: 'date', sortable: true },
-      ]
-
-      // Aplicar preferencias de columnas si existen
-      if (this.columnPrefs) {
-        if (this.columnPrefs.columnWidths) {
-          for (const col of baseCols) {
-            if (this.columnPrefs.columnWidths[col.field]) {
-              col.width = this.columnPrefs.columnWidths[col.field]
-            }
-          }
-        }
-        if (this.columnPrefs.visibleFields) {
-          return baseCols.filter(col => this.columnPrefs.visibleFields.includes(col.field))
-        }
-      }
-
-      return baseCols
-    },
     tableConfig() {
       return {
-        toolbar: [
-          { key: 'refresh', label: '', icon: 'bi bi-arrow-clockwise', severity: 'btn-outline-info', action: () => this.fetchData() },
-          { key: 'csv', label: 'CSV', icon: 'bi bi-download', severity: 'btn-outline-info', action: () => this.exportCsv() },
-          { key: 'crear', label: 'Nuevo', icon: 'bi bi-plus-lg', severity: 'btn-success', action: () => this.abrirModal() },
-          { key: 'editar', label: 'Editar', icon: 'bi bi-pencil', severity: 'btn-primary', disabled: () => !this.selectedRow, action: () => this.abrirModal(this.selectedRow) },
-          { key: 'eliminar', label: 'Eliminar', icon: 'bi bi-trash', severity: 'btn-danger', disabled: () => !this.selectedRow, action: () => this.eliminar(this.selectedRow) },
-        ],
+        lazy: true,
+        selectionMode: 'single',
+        elementName: { singular: '<Entidad>', gender: '<GENERO>' },
+        buttons: {
+          toolbar: [
+            { key: 'create', icon: 'plus', severity: 'success', label: '<LABEL_CREAR>',
+              onClick: () => this.abrirModal() },
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.abrirModal(this.selectedRow) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.eliminar(this.selectedRow) },
+          ],
+          rowActions: [
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              onClick: (r) => this.abrirModal(r) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              onClick: (r) => this.eliminar(r) },
+          ],
+        },
       }
-    },
-    rowActions() {
-      return [
-        { key: 'edit', label: 'Editar', severity: 'btn-warning', icon: 'bi bi-pencil', action: (r) => this.abrirModal(r) },
-        { key: 'delete', label: 'Eliminar', severity: 'btn-danger', icon: 'bi bi-trash', action: (r) => this.eliminar(r) },
-      ]
     },
   },
   methods: {
-    onRowSelected(rows) {
-      this.selectedRow = Array.isArray(rows) ? rows[0] : rows
-    },
-    onServerParams(params) {
-      this.serverParams = { ...params }
-      this.fetchData()
-    },
-    onColumnsChange(visibleCols) {
-      this.guardarPreferenciasColumnas({
-        visibleFields: visibleCols.map(c => c.field),
-        columnWidths: this.columnPrefs?.columnWidths || {},
-      })
-    },
-    async fetchData() {
-      this.loading = true
-      try {
-        const query = new URLSearchParams({
-          page: this.serverParams.page,
-          pageSize: this.serverParams.pageSize,
-          sortField: this.serverParams.sortField || '',
-          sortDir: this.serverParams.sortDir,
-          search: this.serverParams.search,
-        }).toString()
-        const { data: body } = await api.get(`/api/<entidades>/list?${query}`)
-        if (body.status) {
-          this.rows = body.data.rows
-          this.totalRecords = body.data.total
-        }
-      } catch (err) {
-        console.error('Error al cargar datos:', err)
-      } finally {
-        this.loading = false
-      }
-    },
-    async cargarPreferenciasColumnas() {
-      if (!this.prefStore.misValores) {
-        await this.prefStore.fetchMisPreferencias()
-      }
-      const prefs = this.prefStore.valor('<entidad>_table_cols')
-      if (prefs) {
-        try {
-          this.columnPrefs = typeof prefs === 'string' ? JSON.parse(prefs) : prefs
-        } catch { this.columnPrefs = null }
-      }
-    },
-    async guardarPreferenciasColumnas(cols) {
-      const payload = {}
-      payload['<entidad>_table_cols'] = typeof cols === 'string' ? cols : JSON.stringify(cols)
-      await this.prefStore.guardarMisPreferencias(payload)
-      this.columnPrefs = cols
+    onRowSelected(row) { this.selectedRow = row },
+    onRowDblClick(row) {
+      if (row) this.abrirModal(row)
     },
     abrirModal(row) {
       this.errorModal = ''
@@ -932,65 +898,50 @@ export default {
       }
       this.modalInstance.show()
     },
-    cerrarModal() {
-      this.modalInstance.hide()
-    },
+    cerrarModal() { this.modalInstance.hide() },
     async guardar() {
       this.errorModal = ''
       this.cargando = true
       try {
         const payload = { <CAMPOS_FORM_PAYLOAD> }
         if (this.editando) {
-          await api.put(`/api/<entidades>/${this.editando.id}`, payload)
+          await api.put(`/<entidades>/${this.editando.id}`, payload)
         } else {
-          await api.post(`/api/<entidades>`, payload)
+          await api.post(`/<entidades>`, payload)
         }
         this.modalInstance.hide()
-        await this.fetchData()
-        this.$refs.table.clearSelection()
+        this.$refs.table.refresh()
       } catch (err) {
         this.errorModal = err.response?.data?.error || 'Error al guardar'
-      } finally {
-        this.cargando = false
-      }
+      } finally { this.cargando = false }
     },
     async eliminar(row) {
       if (!row || !confirm(`Eliminar <entidad> "${row.<CAMPO_IDENTIFICADOR>}"?`)) return
       try {
-        await api.delete(`/api/<entidades>/${row.id}`)
-        await this.fetchData()
-        this.$refs.table.clearSelection()
-      } catch (err) {
-        alert(err.response?.data?.error || 'Error al eliminar')
-      }
-    },
-    exportCsv() {
-      if (!this.rows.length) return
-      const cols = this.columnDefs
-      let csv = cols.map(c => this.csvEsc(c.headerName)).join(',') + '\n'
-      for (const r of this.rows) {
-        csv += cols.map(c => this.csvEsc(r[c.field] != null ? String(r[c.field]) : '')).join(',') + '\n'
-      }
-      const a = document.createElement('a')
-      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv)
-      a.download = '<entidades>.csv'
-      a.click()
-    },
-    csvEsc(v) {
-      v = String(v).replace(/"/g, '""')
-      return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v + '"' : v
+        await api.delete(`/<entidades>/${row.id}`)
+        this.$refs.table.refresh()
+      } catch (err) { alert(err.response?.data?.error || 'Error al eliminar') }
     },
   },
-  async mounted() {
+  mounted() {
     this.modalInstance = new Modal(this.$refs.modal)
-    await this.cargarPreferenciasColumnas()
-    await this.fetchData()
   },
 }
 </script>
 ```
 
-> El agente debe reemplazar `<COLUMNAS_TABLA>`, `<CAMPOS_FORMULARIO>`, `<CAMPOS_FORM_DATA>`, `<CAMPOS_FORM_EDITAR>`, `<CAMPOS_FORM_VACIO>`, `<CAMPOS_FORM_PAYLOAD>`, `<CAMPOS_BUSCABLES>`, `<CAMPOS_SORTEABLES>`, `<CAMPO_IDENTIFICADOR>` con el código real según los campos definidos.
+> El agente debe reemplazar los placeholders:
+> - `<COLUMNAS_TABLA>` — array de definiciones de columnas `{ field, headerName, type, sortable }`
+> - `<CAMPOS_FORMULARIO>` — campos del formulario HTML
+> - `<CAMPOS_FORM_DATA>` — valores iniciales del form en data()
+> - `<CAMPOS_FORM_EDITAR>` — relleno del form al editar
+> - `<CAMPOS_FORM_VACIO>` — valores vacíos del form
+> - `<CAMPOS_FORM_PAYLOAD>` — payload del PUT/POST
+> - `<CAMPO_IDENTIFICADOR>` — campo usado para mostrar identidad al eliminar (primer campo visible, o `slug` si existe)
+> - `<GENERO>` — 'M' o 'F' según el género de `<Entidad>`
+> - `<LABEL_CREAR>` — 'Nuevo' (M) o 'Nueva' (F)
+>
+> Las preferencias de columnas (orden, ancho, visibilidad) se persisten automáticamente por el TableEditor mediante el `:id` prop. No es necesario código adicional en la vista.
 
 ---
 
@@ -1005,17 +956,11 @@ Si el usuario eligió agregar un tab en un panel, crear `frontend/src/modules/<e
 
     <TableEditor
       ref="table"
-      :columns="columnDefs"
-      :data="rows"
+      id="<entidad>"
+      :api="apiEntidad"
       :config="tabConfig"
-      :actions="rowActions"
-      :serverSide="true"
-      :totalRecords="totalRecords"
-      :loading="loading"
-      selectable
       @rowSelected="onRowSelected"
-      @update:serverParams="onServerParams"
-      @columnsChange="onColumnsChange"
+      @rowDoubleClick="onRowDblClick"
     />
 
     <!-- Modal Formulario -->
@@ -1045,110 +990,63 @@ Si el usuario eligió agregar un tab en un panel, crear `frontend/src/modules/<e
 <script>
 import { Modal } from 'bootstrap'
 import api from '../../api/axios'
-import TableEditor from '../../components/TableEditor.vue'
-import { usePreferenciasStore } from '../../stores/preferencias'
+import { TableEditor, BtnConfig } from 'vue-table-editor'
+import 'vue-table-editor/style.css'
 
 export default {
   name: '<Entidad>Tab',
   components: { TableEditor },
+  // <PK_FRONTEND>
+  // NOTA: El campo PK de la entidad es <pk_field>.
+  // Si <pk_field> NO es "id", reemplazar ".id" por ".<pk_field>"
+  // en los metodos guardar, eliminar, etc.
+  // Ejemplo: row.id → row.<pk_field>
+  // </PK_FRONTEND>
   data() {
     return {
-      rows: [],
-      totalRecords: 0,
-      loading: false,
       selectedRow: null,
       editando: null,
       form: { <CAMPOS_FORM_DATA> },
       errorModal: '',
       cargando: false,
       modalInstance: null,
-      serverParams: { page: 1, pageSize: 25, sortField: null, sortDir: 'asc', search: '' },
-      prefStore: usePreferenciasStore(),
-      columnPrefs: null,
+      apiEntidad: {
+        list: (params) => api.get(`/<entidades>/list`, { params }).then(r => r.data),
+        create: (data) => api.post(`/<entidades>`, data).then(r => r.data),
+        edit: (data) => api.put(`/<entidades>/${data.id}`, data).then(r => r.data),
+        delete: (data) => api.delete(`/<entidades>/${data.id}`).then(r => r.data),
+      },
     }
   },
   computed: {
-    columnDefs() {
-      const baseCols = [
-        { field: 'id', headerName: 'ID', width: '60px', sortable: false },
-        <COLUMNAS_TABLA>
-      ]
-      if (this.columnPrefs?.columnWidths) {
-        for (const col of baseCols) {
-          if (this.columnPrefs.columnWidths[col.field]) col.width = this.columnPrefs.columnWidths[col.field]
-        }
-      }
-      if (this.columnPrefs?.visibleFields) {
-        return baseCols.filter(col => this.columnPrefs.visibleFields.includes(col.field))
-      }
-      return baseCols
-    },
     tabConfig() {
       return {
-        toolbar: [
-          { key: 'refresh', label: '', icon: 'bi bi-arrow-clockwise', severity: 'btn-outline-info', action: () => this.fetchData() },
-          { key: 'crear', label: '', icon: 'bi bi-plus-lg', severity: 'btn-success', action: () => this.abrirModal() },
-          { key: 'editar', label: '', icon: 'bi bi-pencil', severity: 'btn-primary', disabled: () => !this.selectedRow, action: () => this.abrirModal(this.selectedRow) },
-          { key: 'eliminar', label: '', icon: 'bi bi-trash', severity: 'btn-danger', disabled: () => !this.selectedRow, action: () => this.eliminar(this.selectedRow) },
-        ],
+        lazy: true,
+        selectionMode: 'single',
+        elementName: { singular: '<Entidad>', gender: '<GENERO>' },
+        buttons: {
+          toolbar: [
+            { key: 'create', icon: 'plus', severity: 'success', label: '<LABEL_CREAR>',
+              onClick: () => this.abrirModal() },
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.abrirModal(this.selectedRow) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              isDisabled: () => !this.selectedRow, onClick: () => this.eliminar(this.selectedRow) },
+          ],
+          rowActions: [
+            { key: 'edit', icon: 'pencil', severity: 'warning', label: 'Editar',
+              onClick: (r) => this.abrirModal(r) },
+            { key: 'delete', icon: 'trash', severity: 'danger', label: 'Eliminar',
+              onClick: (r) => this.eliminar(r) },
+          ],
+        },
       }
-    },
-    rowActions() {
-      return [
-        { key: 'edit', label: 'Editar', severity: 'btn-warning', icon: 'bi bi-pencil', action: (r) => this.abrirModal(r) },
-        { key: 'delete', label: 'Eliminar', severity: 'btn-danger', icon: 'bi bi-trash', action: (r) => this.eliminar(r) },
-      ]
     },
   },
   methods: {
-    onRowSelected(rows) {
-      this.selectedRow = Array.isArray(rows) ? rows[0] : rows
-    },
-    onServerParams(params) {
-      this.serverParams = { ...params }
-      this.fetchData()
-    },
-    onColumnsChange(visibleCols) {
-      this.guardarPreferenciasColumnas({
-        visibleFields: visibleCols.map(c => c.field),
-        columnWidths: this.columnPrefs?.columnWidths || {},
-      })
-    },
-    async fetchData() {
-      this.loading = true
-      try {
-        const query = new URLSearchParams({
-          page: this.serverParams.page,
-          pageSize: this.serverParams.pageSize,
-          sortField: this.serverParams.sortField || '',
-          sortDir: this.serverParams.sortDir,
-          search: this.serverParams.search,
-        }).toString()
-        const { data: body } = await api.get(`/api/<entidades>/list?${query}`)
-        if (body.status) {
-          this.rows = body.data.rows
-          this.totalRecords = body.data.total
-        }
-      } catch (err) {
-        console.error('Error al cargar datos:', err)
-      } finally {
-        this.loading = false
-      }
-    },
-    async cargarPreferenciasColumnas() {
-      if (!this.prefStore.misValores) {
-        await this.prefStore.fetchMisPreferencias()
-      }
-      const prefs = this.prefStore.valor('<entidad>_table_cols')
-      if (prefs) {
-        try { this.columnPrefs = typeof prefs === 'string' ? JSON.parse(prefs) : prefs } catch { this.columnPrefs = null }
-      }
-    },
-    async guardarPreferenciasColumnas(cols) {
-      const payload = {}
-      payload['<entidad>_table_cols'] = typeof cols === 'string' ? cols : JSON.stringify(cols)
-      await this.prefStore.guardarMisPreferencias(payload)
-      this.columnPrefs = cols
+    onRowSelected(row) { this.selectedRow = row },
+    onRowDblClick(row) {
+      if (row) this.abrirModal(row)
     },
     abrirModal(row) {
       this.errorModal = ''
@@ -1168,13 +1066,12 @@ export default {
       try {
         const payload = { <CAMPOS_FORM_PAYLOAD> }
         if (this.editando) {
-          await api.put(`/api/<entidades>/${this.editando.id}`, payload)
+          await api.put(`/<entidades>/${this.editando.id}`, payload)
         } else {
-          await api.post(`/api/<entidades>`, payload)
+          await api.post(`/<entidades>`, payload)
         }
         this.modalInstance.hide()
-        await this.fetchData()
-        this.$refs.table.clearSelection()
+        this.$refs.table.refresh()
       } catch (err) {
         this.errorModal = err.response?.data?.error || 'Error al guardar'
       } finally { this.cargando = false }
@@ -1182,16 +1079,13 @@ export default {
     async eliminar(row) {
       if (!row || !confirm(`Eliminar <entidad> "${row.<CAMPO_IDENTIFICADOR>}"?`)) return
       try {
-        await api.delete(`/api/<entidades>/${row.id}`)
-        await this.fetchData()
-        this.$refs.table.clearSelection()
+        await api.delete(`/<entidades>/${row.id}`)
+        this.$refs.table.refresh()
       } catch (err) { alert(err.response?.data?.error || 'Error al eliminar') }
     },
   },
-  async mounted() {
+  mounted() {
     this.modalInstance = new Modal(this.$refs.modal)
-    await this.cargarPreferenciasColumnas()
-    await this.fetchData()
   },
 }
 </script>
@@ -1223,18 +1117,19 @@ export default {
 
 ---
 
-## 16. Registrar preferencia de columnas en backend
+## 16. Preferencias de columnas (auto-gestionadas por TableEditor)
 
-Agregar la definición de preferencia para las columnas de la tabla en el seed de preferencias o mediante el API.
+El TableEditor (de `vue-table-editor`) gestiona las preferencias de columnas automáticamente mediante el `:id` prop:
+- **Persistencia por defecto:** localStorage (autónomo, sin servidor)
+- **Datos guardados:** `{ columnOrder: string[], columnWidths: { [field]: string } }`
+- **Cuándo se guarda:** Auto-save debounced (500ms) después de redimensionar, reordenar o cambiar visibilidad
+- **Cuándo se carga:** Al montar el componente
 
-La preferencia debe tener:
-- **clave:** `<entidad>_table_cols`
-- **nombre:** `Columnas de <entidades>`
-- **descripcion:** `Configuracion de columnas visibles, orden y ancho para la tabla de <entidades>`
-- **tipo:** `json`
-- **valor_defecto:** `{"visibleFields":["id",<CAMPOS_DEFAULT_VISIBLES>],"columnWidths":{}}`
+Opcionalmente, para persistir en el backend vía el store de preferencias del host, pasar
+`config.preferencesStore` (o registrar un adaptador global con `setGlobalPreferencesAdapter`),
+exponiendo: `{ misValores, valor(key), guardarValores(data), fetchMisPreferencias() }`.
 
-> El agente debe insertar esta preferencia usando el endpoint POST `/api/preferencias` (requiere `preferencias.editar`) o agregarla al seed de preferencias.
+No es necesario registrar la preferencia en backend ni agregar código en la vista.
 
 ---
 
@@ -1253,19 +1148,27 @@ Después de generar el módulo CRUD, verificar:
 | 7 | Verificar que el tab aparece en el panel correspondiente | Tab visible |
 | 8 | Probar filtrado, ordenamiento y paginación en la tabla | Datos se cargan vía API |
 | 9 | Verificar que cambiar visibilidad de columnas se guarda al recargar | Preferencia persistida |
-| 10 | Probar crear, editar y eliminar registros | CRUD funcional |
+| 10 | Redimensionar columna arrastrando el borde del header | Ancho cambia visualmente |
+| 11 | Reordenar columna arrastrando el header | Columna cambia de posición |
+| 12 | Verificar que ancho y orden se restauran al recargar | Preferencias persistentes funcionales |
+| 13 | Probar crear, editar y eliminar registros | CRUD funcional |
 
 ---
 
 ## 18. Reglas obligatorias
 
-1. **Seguir patrón de módulos:** Todos los archivos del CRUD deben ir dentro de `frontend/src/modules/<entidad>/` y `backend/src/modules/<entidad>/`. No modificar `main.js`, `backend/src/index.js` ni otros archivos de orquestación (excepto Sidebar.vue y router/index.js para el enlace de menú, y TableEditor.vue para server-side).
+1. **Seguir patrón de módulos:** Todos los archivos del CRUD deben ir dentro de `frontend/src/modules/<entidad>/` y `backend/src/modules/<entidad>/`. No modificar `main.js`, `backend/src/index.js` ni otros archivos de orquestación (excepto Sidebar.vue y router/index.js para el enlace de menú).
 2. **Permisos obligatorios:** Cada operación CRUD debe tener su propio permiso con `authMiddleware`.
 3. **Endpoints paginados:** El endpoint `GET /api/<entidades>/list` **siempre** debe aceptar y procesar `page`, `pageSize`, `sortField`, `sortDir`, `search`.
-4. **TableEditor siempre server-side:** Toda tabla CRUD debe usar `serverSide={true}` y cargar datos vía API.
-5. **Preferencias de columnas:** Toda vista CRUD debe cargar y guardar preferencias de columnas visibles y anchos usando la store `usePreferenciasStore`.
-6. **Validación en backend:** Todos los campos requeridos y únicos deben validarse en el controlador antes de insertar/actualizar.
-7. **Respuesta consistente:** Todos los endpoints deben responder con `{status: true, data: ...}` en éxito y `{status: false, error: "..."}` en error, ambos con HTTP 200.
-8. **No usar alert():** Usar `confirm()` solo para confirmación de eliminación. Para errores usar `errorModal` en el template.
-9. **console.log para errores:** Todo `catch` debe registrar el error con `console.log` (backend) o `console.error` (frontend). Prohibido `catch {}` vacío.
-10. **Manejo de errores de preferencias:** Si no se pueden cargar las preferencias de columnas, la tabla debe funcionar con valores por defecto sin mostrar error al usuario.
+4. **TableEditor siempre lazy (server-side):** Toda tabla CRUD debe usar `config.lazy = true` y proporcionar `api.list` para carga de datos vía API.
+5. **Preferencias de columnas automáticas:** El TableEditor persiste visibilidad, orden y ancho de columnas automáticamente mediante `:id`. No agregar código manual de preferencias en la vista.
+6. **Columnas redimensionables y reordenables:** El TableEditor habilita por defecto `resizableColumns` y `reorderableColumns`. No desactivarlos a menos que el usuario lo solicite explícitamente.
+7. **Validación en backend:** Todos los campos requeridos y únicos deben validarse en el controlador antes de insertar/actualizar.
+8. **Respuesta consistente:** Todos los endpoints deben responder con `{status: true, data: ...}` en éxito y `{status: false, error: "..."}` en error, ambos con HTTP 200.
+9. **No usar alert():** Usar `confirm()` solo para confirmación de eliminación. Para errores usar `errorModal` en el template.
+10. **console.log para errores:** Todo `catch` debe registrar el error con `console.log` (backend) o `console.error` (frontend). Prohibido `catch {}` vacío.
+11. **Rutas frontend sin prefijo /api:** En todas las llamadas `api.get()`, `api.post()`, `api.put()`, `api.delete()` de las vistas frontend, usar paths sin el prefijo `/api` (ej: `/<entidades>/list` en vez de `/api/<entidades>/list`). El `baseURL` de axios ya incluye `/api` (por Nginx o `VITE_API_URL`).
+12. **Migraciones ALTER TABLE siempre .nullable():** Si la tabla ya existe, toda migración que agregue columnas debe usar `.nullable()`. Nunca usar `.notNullable()` ni `.unique()` en columnas nuevas sobre tablas existentes con datos.
+13. **Detección de tipo de PK y slug como identificador:** Antes de generar el controlador, determinar `<pk_field>` según las reglas de la sección 3. Si existe un campo llamado `slug` y no hay campo `id`, el slug es el PK (string). Si hay campo tipo `uuid` indicado como ID, ese es el PK. El controlador, rutas y vistas deben usar `<pk_field>` en vez de `id` en todas las operaciones CRUD.
+14. **Validar unicidad en actualización con .whereNot({ id }):** Al validar unicidad de un campo en el método `actualizar`, excluir el registro que se está editando usando `.whereNot({ id })`.
+15. **api.list debe devolver `{ status, data: { rows, fields_def, totalRecords/total } }`:** El método `api.list` debe devolver las columnas en `fields_def` para que TableEditor pueda renderizar los headers y celdas correctamente. Cada field_def debe tener `{ field, headerName, type, sortable, form_type, css }`.

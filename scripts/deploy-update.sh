@@ -70,9 +70,9 @@ REMOTE_CMDS=$(cat <<SCRIPT
   cd "$DEPLOY_PATH"
 
   echo "[2/5] Actualizando código (rama: $BRANCH)..."
-  git stash --allow-empty 2>/dev/null || true
-  git checkout "$BRANCH"
-  git pull origin "$BRANCH"
+  git fetch origin "$BRANCH"
+  git checkout -f "$BRANCH"
+  git reset --hard "origin/$BRANCH"
 
   echo "[3/5] Instalando dependencias..."
   cd node_api
