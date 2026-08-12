@@ -11,6 +11,7 @@ const SessionFileStore = require('session-file-store')(Session)
 const bodyParser = require("body-parser")
 require('./knexfile.js'); // Esto inicializa global.knex
 const LogOperacion = require('./controllers/log_operaciones.js');
+const sso = require('./sso.js');
 
 // Configuración de CORS
 const cors_origin = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(' ')
@@ -81,7 +82,7 @@ app_admin.get('/health', async (req, res) => {
 
 // Rutas de la API
 app_admin.use('/api/auth', require('./routes/auth.js'));
-app_admin.use('/api/user', require('./sso.js').router);
+app_admin.use('/api/user', sso.router);
 app_admin.use('/api/category', require('./routes/category.js'));
 app_admin.use('/api/fotoclub', require('./routes/fotoclub.js'));
 app_admin.use('/api/role', require('./routes/role.js'));
@@ -107,6 +108,23 @@ app_admin.use('/api/results', require('./routes/results.js'));
 app_admin.use('/api/ranking', require('./routes/ranking.js'));
 app_admin.use('/api/foto-del-anio', require('./routes/foto_del_anio.js'));
 app_admin.use('/api/footer', require('./routes/footer.js'));
+
+// WebSocket complementario (socket.io) autenticado vía SSO
+const cors_origins = cors_origin;
+const socket = sso.attachSocket(server_admin, {
+    path: process.env.SOCKET_PATH || '/socket.io',
+    corsOrigin: cors_origins
+});
+
+// Handler por función: el cliente invoca emit('echo', payload, ack)
+socket.onFunction('echo', ({ payload, ack, user }) => {
+    ack({ success: true, echo: payload, user: user?.id });
+});
+
+// Ejemplo: broadcast periódico de ping (comentado)
+// setInterval(() => socket.broadcast('ping', { ts: Date.now() }), 30000);
+
+global.socket = socket;
 
 // Manejo de errores global
 app_admin.use((err, req, res, next) => {
