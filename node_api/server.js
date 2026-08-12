@@ -126,6 +126,9 @@ socket.onFunction('echo', ({ payload, ack, user }) => {
 
 global.socket = socket;
 
+// Presencia de jueces en tiempo real vía WebSockets (contest:join/heartbeat/leave)
+require('./utils/judge-socket').init(socket);
+
 // Manejo de errores global
 app_admin.use((err, req, res, next) => {
     console.error('Error no manejado:', err);

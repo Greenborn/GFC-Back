@@ -32,6 +32,10 @@ function markActive(contestId, userId) {
   activeJudges.set(`${contestId}:${userId}`, Date.now());
 }
 
+function removeActive(contestId, userId) {
+  activeJudges.delete(`${contestId}:${userId}`);
+}
+
 function getActiveJudgeIds(contestId, now = Date.now()) {
   const threshold = now - ACTIVE_WINDOW_MS;
   const result = [];
@@ -52,5 +56,6 @@ module.exports = {
   invalidateContestJudges,
   isJudge,
   markActive,
+  removeActive,
   getActiveJudgeIds
 };

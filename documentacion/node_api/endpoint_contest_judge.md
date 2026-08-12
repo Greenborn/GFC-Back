@@ -198,90 +198,13 @@ Authorization: Bearer <token_admin>
 
 ---
 
-## 4. Reportar Juez Activo (Heartbeat)
+## 4. Juez Activo (Heartbeat) — Reemplazado por WebSocket
 
-### Endpoint
-**POST** `/api/contest-judge/heartbeat`
+> **Deprecado**: La presencia/actividad de jueces ahora se maneja por **WebSocket (socket.io)**. El endpoint HTTP `/api/contest-judge/heartbeat` fue reemplazado y responde `410 Gone`.
 
-### Descripción
-Permite que un juez notifique que está activo trabajando en el concurso (pooling / heartbeat). Cada llamada actualiza el timestamp de actividad del juez en memoria. Un juez se considera "activo" si envió su último heartbeat hace 1 minuto o menos. El frontend debería llamar a este endpoint periódicamente (p. ej. cada 20-30 segundos) mientras el juez está en la pantalla de juzgamiento.
+El heartbeat ahora se envía por el canal de socket.io emitiendo el evento `contest:heartbeat`. Consultar [Presencia de jueces por WebSocket](#6-presencia-de-jueces-por-websocket) para el contrato completo.
 
-### Seguridad
-- **Autenticación**: Requiere token Bearer
-- **Permisos**: Solo jueces del concurso (o administrador)
-- **Protección escritura**: Respeta `MODO_ESCRITURA` (`READ_ONLY`/`READ_WRITE`)
-
-### Headers
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
-
-### Body de Request
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `contest_id` | integer | Sí | ID del concurso que se está juzgando |
-
-```json
-{
-  "contest_id": 5
-}
-```
-
-### Ejemplo de Solicitud
-```bash
-curl -X POST "http://localhost:3000/api/contest-judge/heartbeat" \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"contest_id": 5}'
-```
-
-### Respuesta Exitosa (200)
-```json
-{
-  "success": true,
-  "data": {
-    "contest_id": 5,
-    "is_judging": true,
-    "last_active": 1720000000000
-  }
-}
-```
-
-### Respuesta de Error (400) - Falta contest_id
-```json
-{
-  "success": false,
-  "message": "El campo contest_id es obligatorio"
-}
-```
-
-### Respuesta de Error (403) - No es juez del concurso
-```json
-{
-  "success": false,
-  "message": "Acceso denegado: el usuario no es juez de este concurso"
-}
-```
-
-### Respuesta de Error (404) - Concurso no existe
-```json
-{
-  "success": false,
-  "message": "El concurso especificado no existe"
-}
-```
-
-### Respuesta de Error (409) - Concurso no está en juzgamiento
-```json
-{
-  "success": false,
-  "message": "El concurso no está en fase de juzgamiento"
-}
-```
-
-### Notas
-- **Condición obligatoria**: El concurso debe estar en juzgamiento (`is_judging = true`), de lo contrario se rechaza con 409.
+- **Condición obligatoria**: El concurso debe estar en juzgamiento (`is_judging = true`), de lo contrario se rechaza con error.
 - **Validación con cache**: Para no consultar la DB en cada heartbeat, la pertenencia del juez al concurso se valida contra una cache en memoria de la tabla `contest_judge` (TTL de 1 hora).
 - **Almacenamiento**: La actividad se guarda en un objeto en memoria (`Map`). No persiste en DB.
 - **Ventana de actividad**: Un juez se considera activo si su último heartbeat es ≤ 1 minuto.
@@ -359,7 +282,98 @@ curl -X GET "http://localhost:3000/api/contest-judge/active?contest_id=5" \
 
 ---
 
-## 6. Validación en Inscripción
+## 6. Presencia de Jueces por WebSocket
+
+La presencia de jueces (jueces presentes/online) se maneja en tiempo real por **socket.io** (mismo servidor HTTP, autenticado vía SSO). El servidor expone la sala `contest:{contest_id}` y tres funciones (`onFunction`). Reemplaza al antiguo endpoint HTTP de heartbeat.
+
+### Conexión
+
+El cliente se conecta a socket.io con el token SSO/local en el handshake de autenticación:
+
+```js
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3000', {
+  path: '/socket.io',
+  auth: { token: '<access_token>', unique_id: '<unique_id si es SSO>' }
+});
+```
+
+### Funciones (Cliente → Servidor)
+
+Todas usan el patrón con callback ACK.
+
+#### `contest:join` — Unirse a la sala de un concurso
+
+```js
+socket.emit('contest:join', { contest_id: 5 }, (res) => {
+  console.log(res.success, res.items, res.is_judging);
+});
+```
+
+- **Validación**: concurso existe, usuario es administrador (`role_id == '1'`) o juez del concurso.
+- **Acción**: une el socket a la sala `contest:5`. Si el usuario es juez del concurso **y** el concurso está en juzgamiento (`is_judging`), lo marca como presente (`markActive`).
+- **ACK**: `{ success, items, is_judging }` con la lista actual de presentes.
+- **Admite watch**: un administrador que no es juez se une a la sala y recibe las actualizaciones sin contarse como juez presente.
+
+#### `contest:heartbeat` — Mantener viva la presencia (en lugar del HTTP)
+
+```js
+socket.emit('contest:heartbeat', { contest_id: 5 }, (res) => {
+  console.log(res.success, res.last_active);
+});
+```
+
+- **Validación**: concurso existe, `is_judging === true`, y el usuario es juez del concurso.
+- **Acción**: renueva el timestamp de actividad del juez (ventana de 1 minuto). No emite broadcast (solo keep-alive).
+- **ACK**: `{ success, contest_id, is_judging, last_active }`.
+- El frontend debe emitirlo periódicamente (p. ej. cada 20-30 s) mientras el juez está en la pantalla de juzgamiento.
+
+#### `contest:leave` — Salir de la sala
+
+```js
+socket.emit('contest:leave', { contest_id: 5 }, (res) => console.log(res.success));
+```
+
+- **Acción**: deja la sala y difunde la presencia actualizada.
+- **ACK**: `{ success }`.
+
+### Evento (Servidor → Cliente)
+
+#### `contest:judges:update` — Cambios en la presencia
+
+Se emite a la sala `contest:{contest_id}` cuando cambia la presencia (un juez entra, sale o se desconecta).
+
+```js
+socket.on('contest:judges:update', (payload) => {
+  console.log(payload.contest_id, payload.items, payload.is_judging);
+});
+```
+
+**Payload**:
+```json
+{
+  "contest_id": 5,
+  "items": [
+    {
+      "user_id": 5,
+      "last_active": 1720000000000,
+      "user": { "id": 5, "username": "juez1", "email": "juez1@example.com", "profile_id": 10 }
+    }
+  ],
+  "is_judging": true
+}
+```
+
+### Notas
+- **Presencia efímera**: se guarda en memoria (`Map`). Al desconectarse el socket de un juez, se remueve de inmediato de la presencia.
+- **Ventana de actividad**: un juez se considera presente si su último heartbeat es ≤ 1 minuto.
+- **Sala por concurso**: `contest:{contest_id}`. Solo administradores y jueces del concurso pueden unirse.
+- Para carga inicial / REST, sigue disponible `GET /api/contest-judge/active` (mismo formato de respuesta).
+
+---
+
+## 7. Validación en Inscripción
 
 Al inscribir un perfil en un concurso (`POST /api/profile-contest`), el sistema valida automáticamente que el usuario asociado al perfil **no sea un juez** del concurso. Si lo es, la inscripción es rechazada.
 

@@ -6,10 +6,8 @@ const { logAction } = require('../utils/log.js');
 const { insertAndGet } = require('../utils/db.js');
 const { canJudge } = require('../utils/judging-access');
 const {
-  isJudge,
-  markActive,
-  getActiveJudgeIds,
-  invalidateContestJudges
+  invalidateContestJudges,
+  getActiveJudgeIds
 } = require('../utils/judge-activity');
 
 router.get('/', authMiddleware, async (req, res) => {
@@ -132,42 +130,11 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
   }
 });
 
-router.post('/heartbeat', authMiddleware, writeProtection, async (req, res) => {
-  try {
-    const { contest_id } = req.body;
-
-    if (!contest_id) {
-      return res.status(400).json({ success: false, message: 'El campo contest_id es obligatorio' });
-    }
-
-    const contestId = parseInt(contest_id, 10);
-    if (isNaN(contestId)) {
-      return res.status(400).json({ success: false, message: 'contest_id debe ser un número' });
-    }
-
-    const contest = await global.knex('contest').where('id', contestId).first();
-    if (!contest) {
-      return res.status(404).json({ success: false, message: 'El concurso especificado no existe' });
-    }
-
-    if (!contest.is_judging) {
-      return res.status(409).json({ success: false, message: 'El concurso no está en fase de juzgamiento' });
-    }
-
-    if (!await isJudge(contestId, req.user.id)) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: el usuario no es juez de este concurso' });
-    }
-
-    markActive(contestId, req.user.id);
-    const lastActive = Date.now();
-
-    await logAction(req, `Heartbeat de juez activo - ${req.user.username}`, { contest_id: contestId });
-
-    res.json({ success: true, data: { contest_id: contestId, is_judging: true, last_active: lastActive } });
-  } catch (error) {
-    console.error('Error en POST /contest-judge/heartbeat:', error);
-    return res.status(500).json({ success: false, message: 'Error al registrar actividad del juez', error: error.message });
-  }
+router.post('/heartbeat', authMiddleware, writeProtection, (req, res) => {
+  res.status(410).json({
+    success: false,
+    message: 'El heartbeat de jueces se maneja ahora por WebSocket. Emití el evento "contest:heartbeat" por socket.io en lugar de este endpoint.'
+  });
 });
 
 router.get('/active', authMiddleware, async (req, res) => {
