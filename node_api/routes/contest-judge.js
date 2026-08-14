@@ -4,7 +4,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 const { logAction } = require('../utils/log.js');
 const { insertAndGet } = require('../utils/db.js');
-const { canJudge } = require('../utils/judging-access');
+const { canViewJudging } = require('../utils/judging-access');
 const {
   invalidateContestJudges,
   getActiveJudgeIds
@@ -145,8 +145,8 @@ router.get('/active', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'El parámetro contest_id es obligatorio' });
     }
 
-    if (!await canJudge(req, contestId)) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden ver jueces activos' });
+    if (!await canViewJudging(req, contestId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: no tienes permiso para ver el juzgamiento de este concurso' });
     }
 
     const contest = await global.knex('contest').where('id', contestId).first();

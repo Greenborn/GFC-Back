@@ -47,13 +47,15 @@ function broadcastPresence(socket, contestId) {
     .catch(err => console.error(`[Socket] Error al difundir presencia: ${err.message}`));
 }
 
-async function canJudgeContest(contestId, userId) {
-  const u = await global.knex('user').where('id', userId).first();
-  if (u && String(u.role_id) === '1') return true;
-  const juez = await global.knex('contest_judge')
-    .where({ contest_id: contestId, user_id: userId })
-    .first();
-  return !!juez;
+async function canViewContest(contest, user) {
+  if (!contest || contest.deleted_at) return false;
+  const isTestContest = contest.is_test === 1 || contest.is_test === true || String(contest.is_test) === '1';
+  if (isTestContest) {
+    const u = await global.knex('user').where('id', user.id).first();
+    const canSeeTest = u && (u.is_test_enabled === 1 || u.is_test_enabled === true || String(u.is_test_enabled) === '1');
+    if (!canSeeTest) return false;
+  }
+  return true;
 }
 
 function init(socket) {
@@ -90,9 +92,8 @@ function init(socket) {
         return ack({ success: false, error: 'El concurso especificado no existe' });
       }
 
-      const canJoin = await canJudgeContest(contestId, user.id);
-      if (!canJoin) {
-        return ack({ success: false, error: 'Acceso denegado: solo administradores o jueces del concurso' });
+      if (!await canViewContest(contest, user)) {
+        return ack({ success: false, error: 'Acceso denegado: no tienes permiso para ver el juzgamiento de este concurso' });
       }
 
       client.join(roomName(contestId));

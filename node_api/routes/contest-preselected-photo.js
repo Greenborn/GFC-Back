@@ -3,7 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 const { logAction } = require('../utils/log.js');
-const { canJudge } = require('../utils/judging-access');
+const { canJudge, canViewJudging } = require('../utils/judging-access');
 
 // votes se guarda como mapa JSON: { [user_id]: 'aceptar' | 'rechazar' }.
 // Este es el source of truth de cada voto por juez.
@@ -26,7 +26,7 @@ function parseVotes(raw) {
   return {};
 }
 
-function buildItem(item, includeImage) {
+function buildItem(item, includeImage, showVotes = true) {
   const votesMap = parseVotes(item.votes);
 
   let acceptCount = 0;
@@ -43,12 +43,15 @@ function buildItem(item, includeImage) {
     contest_id: item.contest_id,
     image_id: item.image_id,
     preselected: acceptCount > 0,
-    votes: accepters,
     vote_count: acceptCount + rejectCount,
     accept_count: acceptCount,
-    reject_count: rejectCount,
-    my_vote: votesMap[String(item.__userId)] || null
+    reject_count: rejectCount
   };
+
+  if (showVotes) {
+    result.votes = accepters;
+    result.my_vote = votesMap[String(item.__userId)] || null;
+  }
 
   if (includeImage) {
     result.image = item.image_id != null ? {
@@ -70,9 +73,11 @@ router.get('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'El parámetro contest_id es obligatorio' });
     }
 
-    if (!await canJudge(req, contestId)) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden ver las fotos preseleccionadas' });
+    if (!await canViewJudging(req, contestId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: no tienes permiso para ver el juzgamiento de este concurso' });
     }
+
+    const isJudge = await canJudge(req, contestId);
 
     const expand = String(req.query.expand || '')
       .split(',')
@@ -94,7 +99,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const items = await query;
 
-    const resultItems = items.map(item => buildItem({ ...item, __userId: req.user.id }, includeImage));
+    const resultItems = items.map(item => buildItem({ ...item, __userId: req.user.id }, includeImage, isJudge));
 
     await logAction(req, `Consulta de fotos preseleccionadas - ${req.user.username}`, { contest_id: contestId });
 
@@ -126,9 +131,11 @@ router.get('/current', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'El endpoint de foto actual solo está disponible en la fase de preselección' });
     }
 
-    if (!await canJudge(req, contestId)) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden consultar la foto actual' });
+    if (!await canViewJudging(req, contestId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: no tienes permiso para ver el juzgamiento de este concurso' });
     }
+
+    const isJudge = await canJudge(req, contestId);
 
     const images = await global.knex('contest_result as cr')
       .join('image as i', 'cr.image_id', 'i.id')
@@ -145,7 +152,11 @@ router.get('/current', authMiddleware, async (req, res) => {
     const judgedImageIds = new Set();
     for (const row of preselected) {
       const votesMap = parseVotes(row.votes);
-      if (Object.prototype.hasOwnProperty.call(votesMap, String(req.user.id))) {
+      if (isJudge) {
+        if (Object.prototype.hasOwnProperty.call(votesMap, String(req.user.id))) {
+          judgedImageIds.add(Number(row.image_id));
+        }
+      } else if (Object.keys(votesMap).length > 0) {
         judgedImageIds.add(Number(row.image_id));
       }
     }
