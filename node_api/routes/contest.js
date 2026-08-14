@@ -691,6 +691,19 @@ router.put('/:id/judging-stage', authMiddleware, async (req, res) => {
             return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso' });
         }
 
+        // Al avanzar de preselección a puntuación se exige el visto bueno unánime de todos los jueces.
+        const esPreseleccion = contest.judging_stage === 'preseleccion';
+        if (esPreseleccion && judging_stage === 'puntuacion') {
+            const { getApprovalStatus } = require('../utils/preseleccion-status');
+            const status = await getApprovalStatus(contestId);
+            if (!status.all_approved) {
+                return res.status(409).json({
+                    success: false,
+                    message: `No se puede pasar a puntuación: requiere el visto bueno de todos los jueces (${status.approved_count}/${status.judges_count})`
+                });
+            }
+        }
+
         await global.knex('contest')
             .where({ id: contestId })
             .update({ judging_stage });
