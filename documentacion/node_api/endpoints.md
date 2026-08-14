@@ -11,6 +11,7 @@ Esta documentación describe todos los endpoints disponibles en la API Node.js d
 - [User Preferences](endpoint_user_preferences.md) - Preferencias clave-valor por usuario
 - [Contest Judge](endpoint_contest_judge.md) - Gestión de jueces de concurso
 - [Contest Preselected Photo](endpoint_contest_preselected_photo.md) - Preselección de fotos por jurado
+- [Foto Actual de Juzgamiento](endpoint_contest_preselected_photo_current.md) - Obtiene la fotografía actual a juzgar en fase de preselección
 - [Set/Disable Judging](endpoint_contest_set_judging.md) - Activar y desactivar el modo de juzgamiento de un concurso
 
 ## Información General

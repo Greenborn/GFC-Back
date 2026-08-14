@@ -105,6 +105,78 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/current', authMiddleware, async (req, res) => {
+  try {
+    const contestId = req.query.contest_id;
+
+    if (!contestId) {
+      return res.status(400).json({ success: false, message: 'El parámetro contest_id es obligatorio' });
+    }
+
+    const contest = await global.knex('contest').where({ id: contestId }).first();
+    if (!contest || contest.deleted_at) {
+      return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+    }
+
+    const isJudging = contest.is_judging === 1 || contest.is_judging === true || String(contest.is_judging) === '1';
+    if (!isJudging) {
+      return res.status(400).json({ success: false, message: 'El concurso no está en etapa de juzgamiento' });
+    }
+    if (contest.judging_stage !== 'preseleccion') {
+      return res.status(400).json({ success: false, message: 'El endpoint de foto actual solo está disponible en la fase de preselección' });
+    }
+
+    if (!await canJudge(req, contestId)) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden consultar la foto actual' });
+    }
+
+    const images = await global.knex('contest_result as cr')
+      .join('image as i', 'cr.image_id', 'i.id')
+      .select('i.id as image_id', 'i.code', 'i.title', 'i.url', 'cr.section_id')
+      .where('cr.contest_id', contestId)
+      .orderBy('i.code', 'asc');
+
+    const totalCount = images.length;
+
+    const preselected = await global.knex('contest_preselected_photo')
+      .select('image_id', 'votes')
+      .where('contest_id', contestId);
+
+    const judgedImageIds = new Set();
+    for (const row of preselected) {
+      const votesMap = parseVotes(row.votes);
+      if (Object.prototype.hasOwnProperty.call(votesMap, String(req.user.id))) {
+        judgedImageIds.add(Number(row.image_id));
+      }
+    }
+
+    const current = images.find(img => !judgedImageIds.has(Number(img.image_id)));
+
+    const judgedCount = judgedImageIds.size;
+
+    await logAction(req, `Consulta de foto actual de juzgamiento - ${req.user.username}`, { contest_id: contestId });
+
+    return res.json({
+      success: true,
+      contest_id: Number(contestId),
+      current_photo: current ? {
+        image_id: current.image_id,
+        code: current.code,
+        title: current.title,
+        url: `${process.env.IMG_BASE_PATH || ''}${current.url}`,
+        section_id: current.section_id
+      } : null,
+      judged_count: judgedCount,
+      total_count: totalCount,
+      remaining_count: totalCount - judgedCount,
+      all_judged: totalCount > 0 && judgedCount >= totalCount
+    });
+  } catch (error) {
+    console.error('Error en GET /contest-preselected-photo/current:', error);
+    return res.status(500).json({ success: false, message: 'Error al obtener la foto actual de juzgamiento', error: error.message });
+  }
+});
+
 router.post('/', authMiddleware, writeProtection, async (req, res) => {
   try {
     const { contest_id, image_id, preselected } = req.body;
