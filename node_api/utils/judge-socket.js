@@ -37,7 +37,7 @@ async function buildPresence(contest, active) {
     }
   }
 
-  return { items, is_judging: contest ? !!contest.is_judging : false };
+  return { contest_id: contest?.id, items, is_judging: contest ? !!contest.is_judging : false };
 }
 
 function broadcastPresence(socket, contestId) {
@@ -137,6 +137,7 @@ function init(socket) {
       }
 
       markActive(contestId, user.id);
+      broadcastPresence(socket, contestId);
       ack({ success: true, contest_id: contestId, is_judging: true, last_active: Date.now() });
     } catch (error) {
       console.error(`[Socket] Error en contest:heartbeat: ${error.message}`);
