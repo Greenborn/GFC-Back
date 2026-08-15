@@ -333,6 +333,24 @@ async function guardarImagenPerfil(profileId, img_perfil_b64) {
   }
 }
 
+async function usernameEnUso(username, excludeUserId = null) {
+  if (!username) return false;
+  let query = global.knex('user').whereRaw('LOWER(username) = ?', [String(username).toLowerCase()]);
+  if (excludeUserId !== null) query = query.andWhereNot({ id: excludeUserId });
+  const row = await query.first();
+  return !!row;
+}
+
+async function asegurarUsernameUnico(base, excludeUserId = null) {
+  const candidato = (base || 'usuario').slice(0, 20);
+  if (!(await usernameEnUso(candidato, excludeUserId))) return candidato;
+  for (let i = 2; i <= 99; i++) {
+    const next = `${candidato}${i}`.slice(0, 20);
+    if (!(await usernameEnUso(next, excludeUserId))) return next;
+  }
+  return `${candidato}${Date.now() % 1000}`;
+}
+
 router.post('/register', writeProtection, async (req, res) => {
   const { email, username, password, name, last_name, dni, fotoclub_id, sso, unique_id, img_perfil_b64, profile_completed } = req.body;
 
@@ -363,7 +381,12 @@ router.post('/register', writeProtection, async (req, res) => {
         await guardarImagenPerfil(existing.profile_id, img_perfil_b64);
 
         const userUpdate = { profile_completed: true };
-        if (username) userUpdate.username = username;
+        if (username) {
+          if (await usernameEnUso(username, existing.id)) {
+            return res.status(409).json({ success: false, message: 'El nombre de usuario ya está en uso' });
+          }
+          userUpdate.username = username;
+        }
         if (password) {
           const saltRounds = 13;
           let hashedPassword = bcrypt.hashSync(password, saltRounds);
@@ -380,7 +403,7 @@ router.post('/register', writeProtection, async (req, res) => {
       return res.status(409).json({ success: false, message: 'El email ya está registrado' });
     }
 
-    const finalUsername = username || (name ? String(name).trim() : email.split('@')[0]);
+    const finalUsername = await asegurarUsernameUnico(username || (name ? String(name).trim() : email.split('@')[0]));
     const profileId = await insertAndGetId(global.knex, 'profile', {
       name: name || finalUsername,
       last_name: last_name || '',
@@ -455,6 +478,20 @@ router.get('/profile-completion', async (req, res) => {
     return res.json({ success: true, exists: true, completed: !!localUser.profile_completed });
   } catch (error) {
     console.error('[Profile-completion] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+router.get('/check-username', async (req, res) => {
+  const username = req.query?.username;
+  if (!username) {
+    return res.status(400).json({ success: false, message: 'username es requerido' });
+  }
+  try {
+    const exists = await usernameEnUso(username);
+    return res.json({ success: true, exists });
+  } catch (error) {
+    console.error('[Check-username] Error:', error);
     return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
