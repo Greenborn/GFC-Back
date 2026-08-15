@@ -297,66 +297,105 @@ router.get('/session', async (req, res) => {
   }
 });
 
-router.post('/register', writeProtection, async (req, res) => {
-  const { email, username, password, name, sso, unique_id, img_perfil_b64 } = req.body;
+async function verificarTokenSSO(req, unique_id) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { error: 'Token SSO requerido' };
+  }
+  if (!unique_id) {
+    return { error: 'unique_id requerido para registro SSO' };
+  }
 
-  if (!email || !username) {
-    return res.status(400).json({ success: false, message: 'Email y username son requeridos' });
+  const token = authHeader.replace('Bearer ', '');
+  try {
+    const verifyRes = await ssoService.verifySsoToken(token, unique_id);
+    if (!verifyRes.data?.success || !verifyRes.data?.data?.valid) {
+      return { error: 'Token SSO inválido' };
+    }
+    return { token, user: verifyRes.data.data.user };
+  } catch (ssoErr) {
+    const ssoBody = ssoErr.response?.data;
+    console.error(`[Register] Error SSO: ${JSON.stringify(ssoBody) || ssoErr.message}`);
+    return { error: 'Token SSO inválido' };
+  }
+}
+
+async function guardarImagenPerfil(profileId, img_perfil_b64) {
+  if (img_perfil_b64 && typeof img_perfil_b64 === 'string') {
+    try {
+      const result = await saveImageFromBase64(img_perfil_b64);
+      if (result) {
+        await global.knex('profile').where({ id: profileId }).update({ img_url: result.url });
+      }
+    } catch (imgErr) {
+      console.error('[Register] Error al procesar img_perfil_b64:', imgErr.message);
+    }
+  }
+}
+
+router.post('/register', writeProtection, async (req, res) => {
+  const { email, username, password, name, last_name, dni, fotoclub_id, sso, unique_id, img_perfil_b64, profile_completed } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ success: false, message: 'Email es requerido' });
   }
 
   try {
     const existing = await global.knex('user').where({ email }).first();
+
+    if (sso) {
+      const verif = await verificarTokenSSO(req, unique_id);
+      if (verif.error) {
+        return res.status(401).json({ success: false, message: verif.error });
+      }
+    }
+
+    // Si la cuenta ya existe pero no completó el perfil, se actualizan sus datos.
     if (existing) {
+      if (!existing.profile_completed) {
+        const updateData = {
+          name,
+          last_name: last_name || '',
+          dni,
+          fotoclub_id: fotoclub_id || null
+        };
+        await global.knex('profile').where({ id: existing.profile_id }).update(updateData);
+        await guardarImagenPerfil(existing.profile_id, img_perfil_b64);
+
+        const userUpdate = { profile_completed: true };
+        if (username) userUpdate.username = username;
+        if (password) {
+          const saltRounds = 13;
+          let hashedPassword = bcrypt.hashSync(password, saltRounds);
+          hashedPassword = hashedPassword.replace(/^\$2[abxy]\$/, '$2y$');
+          userUpdate.password_hash = hashedPassword;
+        }
+        await global.knex('user').where({ id: existing.id }).update(userUpdate);
+
+        const updatedUser = await global.knex('user').where({ id: existing.id }).first();
+        await logAction({ user: { id: existing.id } }, 'registro - actualización perfil', JSON.stringify({ email, username }));
+        const { password_hash, access_token, password_reset_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = updatedUser;
+        return res.status(200).json({ success: true, message: 'Perfil actualizado exitosamente', user: safeUser });
+      }
       return res.status(409).json({ success: false, message: 'El email ya está registrado' });
     }
 
-    if (sso) {
-      const authHeader = req.headers['authorization'];
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, message: 'Token SSO requerido' });
-      }
-      if (!unique_id) {
-        return res.status(400).json({ success: false, message: 'unique_id requerido para registro SSO' });
-      }
-
-      const token = authHeader.replace('Bearer ', '');
-      try {
-        const verifyRes = await ssoService.verifySsoToken(token, unique_id);
-        if (!verifyRes.data?.success || !verifyRes.data?.data?.valid) {
-          return res.status(401).json({ success: false, message: 'Token SSO inválido' });
-        }
-      } catch (ssoErr) {
-        const ssoBody = ssoErr.response?.data;
-        console.error(`[Register] Error SSO: ${JSON.stringify(ssoBody) || ssoErr.message}`);
-        return res.status(401).json({ success: false, message: 'Token SSO inválido' });
-      }
-    }
-
-    const displayName = name || username;
+    const finalUsername = username || (name ? String(name).trim() : email.split('@')[0]);
     const profileId = await insertAndGetId(global.knex, 'profile', {
-      name: displayName,
-      last_name: '',
-      fotoclub_id: null
+      name: name || finalUsername,
+      last_name: last_name || '',
+      dni: dni || null,
+      fotoclub_id: fotoclub_id || null
     });
 
-    if (img_perfil_b64 && typeof img_perfil_b64 === 'string') {
-      try {
-        const result = await saveImageFromBase64(img_perfil_b64);
-        if (result) {
-          await global.knex('profile').where({ id: profileId }).update({
-            img_url: result.url
-          });
-        }
-      } catch (imgErr) {
-        console.error('[Register] Error al procesar img_perfil_b64:', imgErr.message);
-      }
-    }
+    await guardarImagenPerfil(profileId, img_perfil_b64);
 
     let userData = {
-      username,
+      username: finalUsername,
       email,
       role_id: 3,
       profile_id: profileId,
+      profile_completed: !!profile_completed,
       created_at: new Date().toISOString()
     };
 
@@ -378,7 +417,7 @@ router.post('/register', writeProtection, async (req, res) => {
     const userId = await insertAndGetId(global.knex, 'user', userData);
     const newUser = await global.knex('user').where({ id: userId }).first();
 
-    await logAction({ user: { id: userId } }, `registro - ${sso ? 'SSO' : 'email'}`, JSON.stringify({ email, username }));
+    await logAction({ user: { id: userId } }, `registro - ${sso ? 'SSO' : 'email'}`, JSON.stringify({ email, username: finalUsername }));
 
     const { password_hash, access_token, password_reset_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = newUser;
 
@@ -392,6 +431,30 @@ router.post('/register', writeProtection, async (req, res) => {
 
   } catch (error) {
     console.error('[Register] Error:', error);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+router.get('/profile-completion', async (req, res) => {
+  const unique_id = req.query?.unique_id;
+  const verif = await verificarTokenSSO(req, unique_id);
+  if (verif.error) {
+    return res.status(401).json({ success: false, message: verif.error });
+  }
+
+  const ssoEmail = verif.user?.email;
+  if (!ssoEmail) {
+    return res.status(400).json({ success: false, message: 'Email de sesión no disponible' });
+  }
+
+  try {
+    const localUser = await global.knex('user').where({ email: ssoEmail }).first();
+    if (!localUser) {
+      return res.json({ success: true, exists: false, completed: false });
+    }
+    return res.json({ success: true, exists: true, completed: !!localUser.profile_completed });
+  } catch (error) {
+    console.error('[Profile-completion] Error:', error);
     return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 });
