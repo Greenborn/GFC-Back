@@ -320,12 +320,12 @@ async function verificarTokenSSO(req, unique_id) {
   }
 }
 
-async function guardarImagenPerfil(profileId, img_perfil_b64) {
+async function guardarImagenPerfil(profileId, img_perfil_b64, knexClient = global.knex) {
   if (img_perfil_b64 && typeof img_perfil_b64 === 'string') {
     try {
       const result = await saveImageFromBase64(img_perfil_b64);
       if (result) {
-        await global.knex('profile').where({ id: profileId }).update({ img_url: result.url });
+        await knexClient('profile').where({ id: profileId }).update({ img_url: result.url });
       }
     } catch (imgErr) {
       console.error('[Register] Error al procesar img_perfil_b64:', imgErr.message);
@@ -333,20 +333,20 @@ async function guardarImagenPerfil(profileId, img_perfil_b64) {
   }
 }
 
-async function usernameEnUso(username, excludeUserId = null) {
+async function usernameEnUso(username, excludeUserId = null, knexClient = global.knex) {
   if (!username) return false;
-  let query = global.knex('user').whereRaw('LOWER(username) = ?', [String(username).toLowerCase()]);
+  let query = knexClient('user').whereRaw('LOWER(username) = ?', [String(username).toLowerCase()]);
   if (excludeUserId !== null) query = query.andWhereNot({ id: excludeUserId });
   const row = await query.first();
   return !!row;
 }
 
-async function asegurarUsernameUnico(base, excludeUserId = null) {
+async function asegurarUsernameUnico(base, excludeUserId = null, knexClient = global.knex) {
   const candidato = (base || 'usuario').slice(0, 20);
-  if (!(await usernameEnUso(candidato, excludeUserId))) return candidato;
+  if (!(await usernameEnUso(candidato, excludeUserId, knexClient))) return candidato;
   for (let i = 2; i <= 99; i++) {
     const next = `${candidato}${i}`.slice(0, 20);
-    if (!(await usernameEnUso(next, excludeUserId))) return next;
+    if (!(await usernameEnUso(next, excludeUserId, knexClient))) return next;
   }
   return `${candidato}${Date.now() % 1000}`;
 }
@@ -359,8 +359,6 @@ router.post('/register', writeProtection, async (req, res) => {
   }
 
   try {
-    const existing = await global.knex('user').where({ email }).first();
-
     if (sso) {
       const verif = await verificarTokenSSO(req, unique_id);
       if (verif.error) {
@@ -368,90 +366,98 @@ router.post('/register', writeProtection, async (req, res) => {
       }
     }
 
-    // Si la cuenta ya existe pero no completó el perfil, se actualizan sus datos.
-    if (existing) {
-      if (!existing.profile_completed) {
-        const updateData = {
-          name,
-          last_name: last_name || '',
-          dni,
-          fotoclub_id: fotoclub_id || null
-        };
-        await global.knex('profile').where({ id: existing.profile_id }).update(updateData);
-        await guardarImagenPerfil(existing.profile_id, img_perfil_b64);
+    const resultado = await global.knex.transaction(async (trx) => {
+      const existing = await trx('user').whereRaw('LOWER(email) = ?', [String(email).toLowerCase()]).first();
 
-        const userUpdate = { profile_completed: true };
-        if (username) {
-          if (await usernameEnUso(username, existing.id)) {
-            return res.status(409).json({ success: false, message: 'El nombre de usuario ya está en uso' });
+      // Si la cuenta ya existe pero no completó el perfil, se actualizan sus datos.
+      if (existing) {
+        if (!existing.profile_completed) {
+          const updateData = {
+            name,
+            last_name: last_name || '',
+            dni,
+            fotoclub_id: fotoclub_id || null
+          };
+          await trx('profile').where({ id: existing.profile_id }).update(updateData);
+          await guardarImagenPerfil(existing.profile_id, img_perfil_b64, trx);
+
+          const userUpdate = { profile_completed: true };
+          if (username) {
+            if (await usernameEnUso(username, existing.id, trx)) {
+              return { status: 409, body: { success: false, message: 'El nombre de usuario ya está en uso' } };
+            }
+            userUpdate.username = username;
           }
-          userUpdate.username = username;
-        }
-        if (password) {
-          const saltRounds = 13;
-          let hashedPassword = bcrypt.hashSync(password, saltRounds);
-          hashedPassword = hashedPassword.replace(/^\$2[abxy]\$/, '$2y$');
-          userUpdate.password_hash = hashedPassword;
-        }
-        await global.knex('user').where({ id: existing.id }).update(userUpdate);
+          if (password) {
+            const saltRounds = 13;
+            let hashedPassword = bcrypt.hashSync(password, saltRounds);
+            hashedPassword = hashedPassword.replace(/^\$2[abxy]\$/, '$2y$');
+            userUpdate.password_hash = hashedPassword;
+          }
+          await trx('user').where({ id: existing.id }).update(userUpdate);
 
-        const updatedUser = await global.knex('user').where({ id: existing.id }).first();
-        await logAction({ user: { id: existing.id } }, 'registro - actualización perfil', JSON.stringify({ email, username }));
-        const { password_hash, access_token, password_reset_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = updatedUser;
-        return res.status(200).json({ success: true, message: 'Perfil actualizado exitosamente', user: safeUser });
+          const updatedUser = await trx('user').where({ id: existing.id }).first();
+          await logAction({ user: { id: existing.id } }, 'registro - actualización perfil', JSON.stringify({ email, username }));
+          const { password_hash, access_token, password_reset_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = updatedUser;
+          return { status: 200, body: { success: true, message: 'Perfil actualizado exitosamente', user: safeUser } };
+        }
+        return { status: 409, body: { success: false, message: 'El email ya está registrado' } };
       }
-      return res.status(409).json({ success: false, message: 'El email ya está registrado' });
-    }
 
-    const finalUsername = await asegurarUsernameUnico(username || (name ? String(name).trim() : email.split('@')[0]));
-    const profileId = await insertAndGetId(global.knex, 'profile', {
-      name: name || finalUsername,
-      last_name: last_name || '',
-      dni: dni || null,
-      fotoclub_id: fotoclub_id || null
+      const finalUsername = await asegurarUsernameUnico(username || (name ? String(name).trim() : email.split('@')[0]), null, trx);
+      const profileId = await insertAndGetId(trx, 'profile', {
+        name: name || finalUsername,
+        last_name: last_name || '',
+        dni: dni || null,
+        fotoclub_id: fotoclub_id || null
+      });
+
+      await guardarImagenPerfil(profileId, img_perfil_b64, trx);
+
+      let userData = {
+        username: finalUsername,
+        email,
+        role_id: 3,
+        profile_id: profileId,
+        profile_completed: !!profile_completed,
+        created_at: new Date().toISOString()
+      };
+
+      if (sso) {
+        userData.status = 1;
+      } else {
+        if (!password) {
+          return { status: 400, body: { success: false, message: 'Contraseña requerida para registro regular' } };
+        }
+        const saltRounds = 13;
+        let hashedPassword = bcrypt.hashSync(password, saltRounds);
+        hashedPassword = hashedPassword.replace(/^\$2[abxy]\$/, '$2y$');
+        userData.password_hash = hashedPassword;
+        userData.sign_up_verif_code = crypto.randomBytes(32).toString('hex').slice(0, 6);
+        userData.sign_up_verif_token = crypto.randomBytes(32).toString('hex');
+        userData.status = 0;
+      }
+
+      const userId = await insertAndGetId(trx, 'user', userData);
+      const newUser = await trx('user').where({ id: userId }).first();
+
+      await logAction({ user: { id: userId } }, `registro - ${sso ? 'SSO' : 'email'}`, JSON.stringify({ email, username: finalUsername }));
+
+      const { password_hash, access_token, password_reset_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = newUser;
+
+      return {
+        status: 201,
+        body: {
+          success: true,
+          message: sso
+            ? 'Usuario registrado exitosamente'
+            : 'Usuario registrado. Verifica tu email para activar la cuenta.',
+          user: safeUser
+        }
+      };
     });
 
-    await guardarImagenPerfil(profileId, img_perfil_b64);
-
-    let userData = {
-      username: finalUsername,
-      email,
-      role_id: 3,
-      profile_id: profileId,
-      profile_completed: !!profile_completed,
-      created_at: new Date().toISOString()
-    };
-
-    if (sso) {
-      userData.status = 1;
-    } else {
-      if (!password) {
-        return res.status(400).json({ success: false, message: 'Contraseña requerida para registro regular' });
-      }
-      const saltRounds = 13;
-      let hashedPassword = bcrypt.hashSync(password, saltRounds);
-      hashedPassword = hashedPassword.replace(/^\$2[abxy]\$/, '$2y$');
-      userData.password_hash = hashedPassword;
-      userData.sign_up_verif_code = crypto.randomBytes(32).toString('hex').slice(0, 6);
-      userData.sign_up_verif_token = crypto.randomBytes(32).toString('hex');
-      userData.status = 0;
-    }
-
-    const userId = await insertAndGetId(global.knex, 'user', userData);
-    const newUser = await global.knex('user').where({ id: userId }).first();
-
-    await logAction({ user: { id: userId } }, `registro - ${sso ? 'SSO' : 'email'}`, JSON.stringify({ email, username: finalUsername }));
-
-    const { password_hash, access_token, password_reset_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = newUser;
-
-    return res.status(201).json({
-      success: true,
-      message: sso
-        ? 'Usuario registrado exitosamente'
-        : 'Usuario registrado. Verifica tu email para activar la cuenta.',
-      user: safeUser
-    });
-
+    return res.status(resultado.status).json(resultado.body);
   } catch (error) {
     console.error('[Register] Error:', error);
     return res.status(500).json({ success: false, message: 'Error interno del servidor' });
