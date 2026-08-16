@@ -22,7 +22,7 @@ var corsOptions = {
 app_admin.use(cors(corsOptions))
 
 // Configuración de body parser
-app_admin.use(bodyParser.json({ limit: '5mb', extended: true }))
+app_admin.use(bodyParser.json({ limit: '100mb', extended: true }))
 
 // Configuración de sesiones
 app_admin.use(Session({
