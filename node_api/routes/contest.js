@@ -735,6 +735,144 @@ router.put('/:id/judging-stage', authMiddleware, async (req, res) => {
     }
 });
 
+// Endpoint para finalizar el juzgamiento de un concurso.
+// Valida que todas las fotos estén votadas y con unanimidad, asienta el puntaje
+// (metric.prize / metric.score), marca el concurso como juzgado y, si es interno,
+// recalcula el ranking. Solo administradores o jueces del concurso pueden finalizar.
+router.put('/:id/finalizar-judging', authMiddleware, async (req, res) => {
+    try {
+        const contestId = parseInt(req.params.id, 10);
+        if (isNaN(contestId) || contestId <= 0) {
+            return res.status(400).json({ success: false, message: 'ID de concurso inválido' });
+        }
+
+        const contest = await global.knex('contest').where({ id: contestId }).first();
+        if (!contest || contest.deleted_at) {
+            return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+        }
+
+        if (!await canJudge(req, contestId)) {
+            return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden finalizar el juzgamiento' });
+        }
+
+        const esJuzgado = contest.is_judging === 1 || contest.is_judging === true || String(contest.is_judging) === '1';
+        if (!esJuzgado || contest.judging_stage !== 'puntuacion') {
+            return res.status(400).json({ success: false, message: 'El concurso debe estar en fase de puntuación para finalizar el juzgamiento' });
+        }
+
+        const { getPuntuacionStatus } = require('../utils/puntuacion-status');
+        const { actualizarRanking } = require('../controllers/ranking');
+
+        const status = await getPuntuacionStatus(contestId, null);
+
+        if (!status.all_judged) {
+            return res.status(409).json({
+                success: false,
+                message: `No se puede finalizar: hay fotos sin votar (${status.judged_count}/${status.total_count})`
+            });
+        }
+
+        // Unanimidad: cada foto debe tener exactamente una métrica distinta votada.
+        const sinUnanimidad = [];
+        for (const item of status.items) {
+            const distinct = (item.votes || []).filter(v => (v.count ?? 0) > 0).length;
+            if (distinct !== 1) {
+                sinUnanimidad.push(item.image_id);
+            }
+        }
+        if (sinUnanimidad.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `No se puede finalizar: ${sinUnanimidad.length} fotografía(s) sin unanimidad entre los jueces`
+            });
+        }
+
+        // Métricas ganadoras y su metadato
+        const winnerIds = new Set();
+        for (const item of status.items) {
+            const vote = (item.votes || []).find(v => (v.count ?? 0) > 0);
+            if (vote) winnerIds.add(Number(vote.metric_abm_id));
+        }
+        const metricAbms = await global.knex('metric_abm').whereIn('id', [...winnerIds]);
+        const metricAbmById = new Map(metricAbms.map(m => [m.id, m]));
+
+        // Asentar puntaje por foto y marcar concurso juzgado (transacción)
+        const actualizadas = [];
+        await global.knex.transaction(async (trx) => {
+            for (const item of status.items) {
+                const vote = (item.votes || []).find(v => (v.count ?? 0) > 0);
+                if (!vote) continue;
+                const metricAbm = metricAbmById.get(Number(vote.metric_abm_id));
+                if (!metricAbm) continue;
+
+                const cr = await trx('contest_result')
+                    .where({ contest_id: contestId, image_id: item.image_id })
+                    .first();
+                if (!cr || !cr.metric_id) continue;
+
+                const scoreInt = Math.round(Number(metricAbm.score) || 0);
+                await trx('metric').where({ id: cr.metric_id }).update({ prize: metricAbm.prize, score: scoreInt });
+
+                const image = await trx('image').where({ id: item.image_id }).first();
+                if (image) {
+                    const metadata = {
+                        contest_id: contestId,
+                        contest_name: contest.name,
+                        prize: metricAbm.prize,
+                        score: scoreInt,
+                        judged_at: new Date().toISOString()
+                    };
+                    const merged = { ...(image.image_metadata || {}), ...metadata };
+                    await trx('image').where({ id: item.image_id }).update({ image_metadata: merged });
+                }
+
+                actualizadas.push({
+                    image_id: item.image_id,
+                    metric_abm_id: metricAbm.id,
+                    metric_id: cr.metric_id,
+                    prize: metricAbm.prize,
+                    score: scoreInt
+                });
+            }
+
+            await trx('contest').where({ id: contestId }).update({ judged: true, is_judging: false, judging_stage: null });
+        });
+
+        invalidateContestResultCache();
+
+        // Ranking sólo para concursos internos
+        let rankingResult = null;
+        if (contest.organization_type === 'INTERNO') {
+            rankingResult = await actualizarRanking();
+        }
+
+        await logAction(req, `Finalización de juzgamiento - ${req.user.username}`, {
+            contest_id: contestId,
+            contest_name: contest.name,
+            fotos_actualizadas: actualizadas.length
+        });
+
+        const updated = await global.knex('contest').where({ id: contestId }).first();
+
+        return res.json({
+            success: true,
+            data: {
+                id: updated.id,
+                name: updated.name,
+                judged: updated.judged === 1 || updated.judged === true || String(updated.judged) === '1',
+                is_judging: updated.is_judging === 1 || updated.is_judging === true || String(updated.is_judging) === '1',
+                judging_stage: updated.judging_stage
+            },
+            photos_actualizadas: actualizadas,
+            ranking: rankingResult,
+            message: `El juzgamiento del concurso "${contest.name}" ha sido finalizado correctamente`
+        });
+    } catch (error) {
+        console.error('Error al finalizar juzgamiento:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al finalizar el juzgamiento', error: error.message });
+    }
+});
+
 router.get('/compressed-photos', authMiddleware, async (req, res) => {
     // Recibe el id del concurso por req.query.id
     const contestId = parseInt(req.query.id);
