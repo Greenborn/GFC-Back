@@ -26,16 +26,48 @@ function parseVotes(raw) {
   return {};
 }
 
-function buildItem(item, includeImage, showVotes = true) {
+// Carga en memoria los nombres de los jueces del concurso para mostrarlos junto
+// a sus votos, replicando el formato { user: { profile: { name, last_name } } }.
+async function loadJudgeUsers(contestId) {
+  const map = new Map();
+  try {
+    const rows = await global.knex('contest_judge as cj')
+      .select('cj.user_id', 'u.username', 'p.name', 'p.last_name')
+      .leftJoin('user as u', 'cj.user_id', 'u.id')
+      .leftJoin('profile as p', 'u.profile_id', 'p.id')
+      .where('cj.contest_id', contestId);
+    for (const r of rows) {
+      map.set(Number(r.user_id), {
+        username: r.username,
+        name: r.name,
+        last_name: r.last_name
+      });
+    }
+  } catch (e) {
+    console.error('Error al cargar jueces para preselección', e);
+  }
+  return map;
+}
+
+function buildItem(item, includeImage, showVotes = true, judgeUsers = new Map()) {
   const votesMap = parseVotes(item.votes);
 
   let acceptCount = 0;
   let rejectCount = 0;
   const accepters = [];
+  const judgeVotes = [];
 
   for (const [userId, vote] of Object.entries(votesMap)) {
     if (vote === 'aceptar') { acceptCount++; accepters.push(Number(userId)); }
     else if (vote === 'rechazar') { rejectCount++; }
+    const info = judgeUsers.get(Number(userId)) || {};
+    judgeVotes.push({
+      user_id: Number(userId),
+      username: info.username ?? null,
+      name: info.name ?? null,
+      last_name: info.last_name ?? null,
+      vote
+    });
   }
 
   const result = {
@@ -45,7 +77,8 @@ function buildItem(item, includeImage, showVotes = true) {
     preselected: acceptCount > 0,
     vote_count: acceptCount + rejectCount,
     accept_count: acceptCount,
-    reject_count: rejectCount
+    reject_count: rejectCount,
+    judge_votes: judgeVotes
   };
 
   if (showVotes) {
@@ -99,7 +132,9 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const items = await query;
 
-    const resultItems = items.map(item => buildItem({ ...item, __userId: req.user.id }, includeImage, isJudge));
+    const judgeUsers = await loadJudgeUsers(contestId);
+
+    const resultItems = items.map(item => buildItem({ ...item, __userId: req.user.id }, includeImage, isJudge, judgeUsers));
 
     await logAction(req, `Consulta de fotos preseleccionadas - ${req.user.username}`, { contest_id: contestId });
 
@@ -207,6 +242,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden definir preselección' });
     }
 
+    const judgeUsers = await loadJudgeUsers(contestId);
+
     const preselectedBool = preselected === true || preselected === 'true' || preselected === 1 || preselected === '1';
     const voteValue = preselectedBool ? 'aceptar' : 'rechazar';
 
@@ -237,7 +274,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
         votes: votesMap
       }));
 
-      return res.json({ success: true, data: buildItem({ ...updated, __userId: req.user.id }, false) });
+      return res.json({ success: true, data: buildItem({ ...updated, __userId: req.user.id }, false, true, judgeUsers) });
     } else {
       const [newId] = await global.knex('contest_preselected_photo')
         .insert({
@@ -257,7 +294,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
         votes: votesMap
       }));
 
-      return res.status(201).json({ success: true, data: buildItem({ ...created, __userId: req.user.id }, false) });
+      return res.status(201).json({ success: true, data: buildItem({ ...created, __userId: req.user.id }, false, true, judgeUsers) });
     }
   } catch (error) {
     if (error.code === '23505' || error.code === 'ER_DUP_ENTRY') {
