@@ -11,6 +11,18 @@ function roomName(contestId) {
   return `contest:${contestId}`;
 }
 
+// Emite un evento push a todos los clientes conectados a la sala de un concurso.
+// Usado para notificar votos de preselección, visto bueno y puntuación en tiempo real.
+function emitContestEvent(contestId, event, payload = {}) {
+  const socket = global.socket;
+  if (!socket || !socket.emitToRoom) return;
+  try {
+    socket.emitToRoom(roomName(contestId), event, { contest_id: contestId, ...payload });
+  } catch (err) {
+    console.error(`[Socket] Error al emitir ${event}: ${err.message}`);
+  }
+}
+
 function joinedContests(client) {
   let set = socketContests.get(client);
   if (!set) {
@@ -164,4 +176,4 @@ function init(socket) {
   });
 }
 
-module.exports = { init };
+module.exports = { init, emitContestEvent };

@@ -100,6 +100,13 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
 
     const status = await getApprovalStatus(contestId);
 
+    require('../utils/judge-socket').emitContestEvent(contestId, 'contest:approve', {
+      user_id: req.user.id,
+      approved_count: status.approved_count,
+      judges_count: status.judges_count,
+      all_approved: status.all_approved
+    });
+
     return res.json({
       success: true,
       contest_id: contestId,
@@ -112,6 +119,12 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
   } catch (error) {
     if (error.code === '23505' || error.code === 'ER_DUP_ENTRY') {
       const status = await getApprovalStatus(parseInt(req.body.contest_id, 10));
+      require('../utils/judge-socket').emitContestEvent(parseInt(req.body.contest_id, 10), 'contest:approve', {
+        user_id: req.user.id,
+        approved_count: status.approved_count,
+        judges_count: status.judges_count,
+        all_approved: status.all_approved
+      });
       return res.json({
         success: true,
         contest_id: parseInt(req.body.contest_id, 10),

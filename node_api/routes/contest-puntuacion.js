@@ -104,6 +104,12 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     const status = await getPuntuacionStatus(contestId, req.user.id);
     const item = status.items.find(i => i.image_id === imageId) || null;
 
+    require('../utils/judge-socket').emitContestEvent(contestId, 'contest:puntuacion', {
+      image_id: imageId,
+      user_id: req.user.id,
+      metric_abm_id: metricAbmId
+    });
+
     return res.json({
       success: true,
       contest_id: contestId,

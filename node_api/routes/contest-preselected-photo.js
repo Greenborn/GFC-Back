@@ -274,6 +274,12 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
         votes: votesMap
       }));
 
+      require('../utils/judge-socket').emitContestEvent(contestId, 'contest:preselect', {
+        image_id: imageId,
+        vote: voteValue,
+        user_id: req.user.id
+      });
+
       return res.json({ success: true, data: buildItem({ ...updated, __userId: req.user.id }, false, true, judgeUsers) });
     } else {
       const [newId] = await global.knex('contest_preselected_photo')
@@ -293,6 +299,12 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
         vote: voteValue,
         votes: votesMap
       }));
+
+      require('../utils/judge-socket').emitContestEvent(contestId, 'contest:preselect', {
+        image_id: imageId,
+        vote: voteValue,
+        user_id: req.user.id
+      });
 
       return res.status(201).json({ success: true, data: buildItem({ ...created, __userId: req.user.id }, false, true, judgeUsers) });
     }
