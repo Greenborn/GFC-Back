@@ -432,7 +432,7 @@ function applyContestResultFilters(query, filters, joins) {
     query = query.whereIn('metric.prize', filterPrizes);
   }
   if (filterCode) {
-    query = query.whereRaw(baseUnaccent('image.code') + ' LIKE ? ESCAPE \'\\\\\'', [`%${filterCode}%`]);
+    query = query.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
   }
   if (filterAuthor && joins.profile) {
     query = query.whereRaw(
