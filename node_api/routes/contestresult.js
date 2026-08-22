@@ -452,7 +452,7 @@ function applyContestResultFilters(query, filters, joins) {
   if (search) {
     query = query.andWhere(function () {
       this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
-        .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${search}%`])
+        .orWhereRaw(baseUnaccent('image.code') + ' = ?', [search])
         .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
       if (joins.profile) {
         this.orWhereRaw(
