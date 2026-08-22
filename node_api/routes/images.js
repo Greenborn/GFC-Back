@@ -58,7 +58,7 @@ function extractFilterString(query, key) {
 }
 
 function applyImageSearchFilters(query, filters, joins) {
-  const { filterProfileId, filterContestId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search } = filters;
+  const { filterProfileId, filterContestId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search, searchCode } = filters;
   if (filterProfileId) {
     query = query.where('image.profile_id', filterProfileId);
   }
@@ -92,7 +92,7 @@ function applyImageSearchFilters(query, filters, joins) {
   if (search) {
     query = query.andWhere(function () {
       this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
-        .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${search}%`])
+        .orWhereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${searchCode}%`])
         .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
       if (joins.profile) {
         this.orWhereRaw(
@@ -153,6 +153,7 @@ router.get('/search', authMiddleware, async (req, res) => {
         if (q && !rawSearch) {
             search = sanitizeSearchTerm(q);
         }
+        const searchCode = sanitizeSearchCode(rawSearch || q);
         const needsSearchOrQ = !!(q || rawSearch);
 
         // ── Determine conditional joins needed for filtering ──
@@ -183,7 +184,7 @@ router.get('/search', authMiddleware, async (req, res) => {
         // ── Apply filters ──
         baseQuery = applyImageSearchFilters(baseQuery, {
             filterProfileId, filterContestId, filterSectionIds, filterPrizes, filterCode,
-            filterAuthor, filterCategoryIds, search
+            filterAuthor, filterCategoryIds, search, searchCode
         }, joins);
 
         // ── Total count (unique images) ──

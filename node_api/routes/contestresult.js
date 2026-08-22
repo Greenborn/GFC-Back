@@ -3,7 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
 const { logAction } = require('../utils/log.js');
-const { sanitizarNombreSeccion, sanitizeSearchTerm, baseUnaccent, sanitizeSearchCode } = require('../utils/strings.js');
+const { sanitizarNombreSeccion, sanitizeSearchTerm, baseUnaccent, sanitizeSearchCode, removeAccents } = require('../utils/strings.js');
 const { insertAndGetId } = require('../utils/db.js');
 const { buildPaginationResponse } = require('../utils/pagination.js');
 const { createCache } = require('../utils/cache');
@@ -77,6 +77,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const filterAuthor = sanitizeSearchTerm(extractFilterString(req.query, 'author'));
     const filterCode = sanitizeSearchCode(extractFilterString(req.query, 'code'));
     const search = sanitizeSearchTerm(rawSearch);
+    const searchCode = removeAccents(rawSearch);
 
     const crCacheKey = contest.judged ? 'cr:' + cacheKeyFromQuery(req.query) : null;
     if (crCacheKey) {
@@ -107,7 +108,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     const filterJoins = { profile: needsProfile, section: needsSection, fotoclub: needsFotoclub };
     filterQuery = applyContestResultFilters(filterQuery, {
-      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search
+      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search, searchCode
     }, filterJoins);
 
     // ── Total count (unique images matching filters) ──
@@ -237,7 +238,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     }
 
     dataQuery = applyContestResultFilters(dataQuery, {
-      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search
+      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search, searchCode
     }, { profile: dataJoins.profile, section: dataJoins.section, fotoclub: dataJoins.fotoclub });
 
     const itemsRaw = await dataQuery.select(selectColumns);
@@ -421,7 +422,7 @@ function extractFilterString(query, key) {
 // ── Apply contest result filters (shared between count + data queries) ──
 
 function applyContestResultFilters(query, filters, joins) {
-  const { filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search } = filters;
+  const { filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search, searchCode } = filters;
   if (filterProfileId) {
     query = query.where('image.profile_id', filterProfileId);
   }
@@ -452,7 +453,7 @@ function applyContestResultFilters(query, filters, joins) {
   if (search) {
     query = query.andWhere(function () {
       this.whereRaw(baseUnaccent('image.title') + ' LIKE ?', [`%${search}%`])
-        .orWhereRaw(baseUnaccent('image.code') + ' = ?', [search])
+        .orWhereRaw(baseUnaccent('image.code') + ' = ?', [searchCode])
         .orWhereRaw(baseUnaccent('metric.prize') + ' LIKE ?', [`%${search}%`]);
       if (joins.profile) {
         this.orWhereRaw(
