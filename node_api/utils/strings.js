@@ -36,4 +36,19 @@ function removeAccents(str) {
   return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
-module.exports = { sanitizarNombreSeccion, escapeLikePattern, baseUnaccent, sanitizeSearchTerm, removeAccents };
+// Sanitiza un término de búsqueda de código de imagen.
+// A diferencia de sanitizeSearchTerm, conserva los guiones bajos (parte legítima
+// del código) y escapa los comodines de LIKE (% y _) para que se matcheen literalmente.
+function sanitizeSearchCode(term) {
+  if (!term) return '';
+  const clean = String(term)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .trim()
+    .toLowerCase()
+    .substring(0, 200);
+  return escapeLikePattern(clean);
+}
+
+module.exports = { sanitizarNombreSeccion, escapeLikePattern, baseUnaccent, sanitizeSearchTerm, removeAccents, sanitizeSearchCode };

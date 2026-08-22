@@ -9,7 +9,7 @@ const { insertAndGetId } = require('../utils/db.js');
 const { extractBase64, getUploadsBasePath, ensureDir, processImageBuffer, saveImageFromBase64, getMimeType, getThumbnailGuard } = require('../utils/images.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
-const { baseUnaccent, sanitizeSearchTerm } = require('../utils/strings.js');
+const { baseUnaccent, sanitizeSearchTerm, sanitizeSearchCode } = require('../utils/strings.js');
 const { buildPaginationResponse } = require('../utils/pagination.js');
 
 function extractFilterArray(query, key) {
@@ -72,7 +72,7 @@ function applyImageSearchFilters(query, filters, joins) {
     query = query.whereIn('metric.prize', filterPrizes);
   }
   if (filterCode) {
-    query = query.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
+    query = query.whereRaw(baseUnaccent('image.code') + ' LIKE ? ESCAPE \'\\\\\'', [`%${filterCode}%`]);
   }
   if (filterAuthor && joins.profile) {
     query = query.whereRaw(
@@ -144,7 +144,7 @@ router.get('/search', authMiddleware, async (req, res) => {
         const filterCategoryIds = extractFilterArray(req.query, 'category_id');
         const filterPrizes = extractFilterStringArray(req.query, 'prize');
         const filterAuthor = sanitizeSearchTerm(extractFilterString(req.query, 'author'));
-        const filterCode = sanitizeSearchTerm(extractFilterString(req.query, 'code'));
+        const filterCode = sanitizeSearchCode(extractFilterString(req.query, 'code'));
 
         // ── Búsqueda: q (retrocompat, código/título) y/o search (multicampo) ──
         const q = (req.query.q || '').trim();

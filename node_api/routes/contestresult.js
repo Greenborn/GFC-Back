@@ -3,7 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
 const { logAction } = require('../utils/log.js');
-const { sanitizarNombreSeccion, sanitizeSearchTerm, baseUnaccent } = require('../utils/strings.js');
+const { sanitizarNombreSeccion, sanitizeSearchTerm, baseUnaccent, sanitizeSearchCode } = require('../utils/strings.js');
 const { insertAndGetId } = require('../utils/db.js');
 const { buildPaginationResponse } = require('../utils/pagination.js');
 const { createCache } = require('../utils/cache');
@@ -75,7 +75,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const filterPrizes = extractFilterStringArray(req.query, 'prize');
     const rawSearch = (req.query.search || '').trim();
     const filterAuthor = sanitizeSearchTerm(extractFilterString(req.query, 'author'));
-    const filterCode = sanitizeSearchTerm(extractFilterString(req.query, 'code'));
+    const filterCode = sanitizeSearchCode(extractFilterString(req.query, 'code'));
     const search = sanitizeSearchTerm(rawSearch);
 
     const crCacheKey = contest.judged ? 'cr:' + cacheKeyFromQuery(req.query) : null;
@@ -432,7 +432,7 @@ function applyContestResultFilters(query, filters, joins) {
     query = query.whereIn('metric.prize', filterPrizes);
   }
   if (filterCode) {
-    query = query.whereRaw(baseUnaccent('image.code') + ' LIKE ?', [`%${filterCode}%`]);
+    query = query.whereRaw(baseUnaccent('image.code') + ' LIKE ? ESCAPE \'\\\\\'', [`%${filterCode}%`]);
   }
   if (filterAuthor && joins.profile) {
     query = query.whereRaw(
