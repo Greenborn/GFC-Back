@@ -352,7 +352,8 @@ async function asegurarUsernameUnico(base, excludeUserId = null, knexClient = gl
 }
 
 router.post('/register', writeProtection, async (req, res) => {
-  const { email, username, password, name, last_name, dni, fotoclub_id, sso, unique_id, img_perfil_b64, profile_completed } = req.body;
+  const { email, username, password, name, last_name, fotoclub_id, sso, unique_id, img_perfil_b64, profile_completed } = req.body;
+  const dni = req.body.dni ? String(req.body.dni).replace(/\D/g, '') : req.body.dni;
 
   if (!email) {
     return res.status(400).json({ success: false, message: 'Email es requerido' });

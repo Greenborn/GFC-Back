@@ -688,7 +688,7 @@ router.put('/:id/judging-stage', authMiddleware, async (req, res) => {
         }
 
         if (!await canJudge(req, contestId)) {
-            return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso' });
+            return res.status(403).json({ success: false, message: 'Acceso denegado: solo jueces del concurso pueden cambiar de fase' });
         }
 
         // Al avanzar de preselección a puntuación se exige el visto bueno unánime de todos los jueces.
@@ -709,6 +709,8 @@ router.put('/:id/judging-stage', authMiddleware, async (req, res) => {
             .update({ judging_stage });
 
         invalidateContestResultCache();
+
+        require('../utils/judge-socket').emitContestEvent(contestId, 'contest:stage', { judging_stage });
 
         await logAction(req, `Cambio de fase de juzgamiento - ${req.user.username}`, {
             contest_id: contestId,
@@ -752,7 +754,7 @@ router.put('/:id/finalizar-judging', authMiddleware, async (req, res) => {
         }
 
         if (!await canJudge(req, contestId)) {
-            return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden finalizar el juzgamiento' });
+            return res.status(403).json({ success: false, message: 'Acceso denegado: solo jueces del concurso pueden finalizar el juzgamiento' });
         }
 
         const esJuzgado = contest.is_judging === 1 || contest.is_judging === true || String(contest.is_judging) === '1';
@@ -839,6 +841,8 @@ router.put('/:id/finalizar-judging', authMiddleware, async (req, res) => {
         });
 
         invalidateContestResultCache();
+
+        require('../utils/judge-socket').emitContestEvent(contestId, 'contest:stage', { judged: true, is_judging: false, judging_stage: null });
 
         // Ranking sólo para concursos internos
         let rankingResult = null;

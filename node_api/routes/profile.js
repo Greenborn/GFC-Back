@@ -94,6 +94,8 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
           if (Number.isFinite(val)) {
             updateData[field] = val;
           }
+        } else if (field === 'dni') {
+          updateData[field] = typeof requestBody[field] === 'string' ? requestBody[field].replace(/\D/g, '') : requestBody[field];
         } else {
           updateData[field] = requestBody[field];
         }

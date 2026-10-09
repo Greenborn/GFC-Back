@@ -61,7 +61,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     }
 
     if (!await canJudge(req, contestId)) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden votar métricas' });
+      return res.status(403).json({ success: false, message: 'Acceso denegado: solo jueces del concurso pueden votar métricas' });
     }
 
     const belongs = await global.knex('contest_result')

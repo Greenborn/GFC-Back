@@ -229,7 +229,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
           return res.status(400).json({ success: false, message: `El campo '${field}' no puede ser vacío` });
         }
 
-        updateData[field] = value;
+        updateData[field] = field === 'dni' && typeof value === 'string' ? value.replace(/\D/g, '') : value;
       }
     }
 

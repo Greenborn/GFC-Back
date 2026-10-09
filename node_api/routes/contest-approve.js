@@ -77,7 +77,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     }
 
     if (!await canJudge(req, contestId)) {
-      return res.status(403).json({ success: false, message: 'Acceso denegado: solo administradores o jueces del concurso pueden dar el visto bueno' });
+      return res.status(403).json({ success: false, message: 'Acceso denegado: solo jueces del concurso pueden dar el visto bueno' });
     }
 
     if (!await preseleccionCompleta(contestId)) {
