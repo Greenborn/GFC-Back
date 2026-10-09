@@ -6,6 +6,8 @@ const { escapeLikePattern, baseUnaccent, sanitizeSearchTerm } = require('../util
 const { parseFilterParams, applyFilterObject } = require('../utils/filters.js')
 const { buildPaginationResponse } = require('../utils/pagination.js')
 const authMiddleware = require('../middleware/authMiddleware');
+const writeProtection = require('../middleware/writeProtection.js');
+const { insertAndGet } = require('../utils/db.js');
 
 router.get('/get_all', authMiddleware, async (req, res) => {
     try {
@@ -113,6 +115,113 @@ router.get('/get_all', authMiddleware, async (req, res) => {
       return res.status(500).json({ message: 'Error al obtener registros' });
     }
 })
+
+// POST /user
+// Crea un usuario asociado a un perfil existente. Solo admin y delegado.
+router.post('/', authMiddleware, writeProtection, async (req, res) => {
+  const payload = req.body || {};
+
+  try {
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+
+    if (!isAdmin && !isDelegate) {
+      return res.status(403).json({ success: false, message: 'Acceso denegado. Solo admin o delegado pueden crear usuarios.' });
+    }
+
+    const username = typeof payload.username === 'string' ? payload.username.trim() : '';
+    const email = typeof payload.email === 'string' ? payload.email.trim() : '';
+    const password = payload.password;
+    const roleId = payload.role_id;
+    const profileId = payload.profile_id;
+    const dni = payload.dni != null && payload.dni !== '' && typeof payload.dni === 'string' ? payload.dni.replace(/\D/g, '') : payload.dni;
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ success: false, message: 'username, email y password son requeridos' });
+    }
+
+    if (!/^[a-zA-Z0-9]{1,20}$/.test(username)) {
+      return res.status(400).json({ success: false, message: 'El nombre de usuario debe ser alfanumérico (máx. 20 caracteres)' });
+    }
+
+    if (!Number.isFinite(Number(roleId))) {
+      return res.status(400).json({ success: false, message: 'role_id es requerido' });
+    }
+
+    if (profileId == null || !Number.isFinite(Number(profileId)) || Number(profileId) <= 0) {
+      return res.status(400).json({ success: false, message: 'profile_id es requerido' });
+    }
+
+    const profile = await global.knex('profile').where({ id: profileId }).first();
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Perfil no encontrado' });
+    }
+
+    const profileInUse = await global.knex('user').where({ profile_id: profileId }).first();
+    if (profileInUse) {
+      return res.status(409).json({ success: false, message: 'El perfil ya está asociado a otro usuario' });
+    }
+
+    if (isDelegate) {
+      if (Number(roleId) !== 3) {
+        return res.status(403).json({ success: false, message: 'Solo puede crear usuarios concursantes' });
+      }
+      const currentProfile = await global.knex('profile').where({ id: currentUser.profile_id }).first();
+      const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
+      if (!fotoclubId || Number(profile.fotoclub_id) !== Number(fotoclubId)) {
+        return res.status(403).json({ success: false, message: 'No puede crear usuarios fuera de su fotoclub' });
+      }
+    }
+
+    const duplicate = await global.knex('user')
+      .whereRaw('LOWER(username) = ?', [username.toLowerCase()])
+      .orWhereRaw('LOWER(email) = ?', [email.toLowerCase()])
+      .first();
+    if (duplicate) {
+      const isSameUsername = String(duplicate.username).toLowerCase() === username.toLowerCase();
+      return res.status(409).json({ success: false, message: isSameUsername ? 'El nombre de usuario ya está en uso' : 'El correo electrónico ya está registrado' });
+    }
+
+    if (dni) {
+      const dniExists = await global.knex('user').where({ dni }).first();
+      if (dniExists) {
+        return res.status(409).json({ success: false, message: 'El DNI ya está registrado' });
+      }
+    }
+
+    const saltRounds = 13;
+    let hashedPassword = bcrypt.hashSync(password, saltRounds);
+    hashedPassword = hashedPassword.replace(/^\$2[abxy]\$/, '$2y$');
+
+    const insertData = {
+      username,
+      email,
+      password_hash: hashedPassword,
+      role_id: Number(roleId),
+      profile_id: Number(profileId),
+      profile_completed: true,
+      status: 1,
+      is_test_enabled: !!payload.is_test_enabled,
+      created_at: new Date().toISOString()
+    };
+
+    if (dni) {
+      insertData.dni = dni;
+    } else {
+      insertData.dni = profile.dni ?? null;
+    }
+
+    const createdUser = await insertAndGet(global.knex, 'user', insertData);
+    const { password_hash, password_reset_token, access_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = createdUser;
+
+    await logAction(req, `Creación de usuario ${createdUser.id} - ${currentUser.username}`, JSON.stringify({ targetUserId: createdUser.id, profileId: Number(profileId), roleId: Number(roleId) }));
+    return res.status(201).json({ success: true, id: createdUser.id, user: safeUser });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Error al crear usuario' });
+  }
+});
 
 // PUT /user/:id/password
 // Admins y delegados pueden actualizar la contraseña de cualquier usuario.

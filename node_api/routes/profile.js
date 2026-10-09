@@ -9,6 +9,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { authMiddlewareOptional } = require('../middleware/authMiddleware');
 const { logAction } = require('../utils/log.js');
 const { normalizeFilterValue, applyFilterObject } = require('../utils/filters.js');
+const { insertAndGet } = require('../utils/db.js');
 const { escapeLikePattern } = require('../utils/strings.js');
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -149,6 +150,86 @@ router.put('/:id', authMiddleware, upload.single('image_file'), async (req, res)
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Error al actualizar perfil' });
+  }
+});
+
+router.post('/', authMiddleware, upload.single('image_file'), async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const isAdmin = String(currentUser.role_id) === '1';
+    const isDelegate = String(currentUser.role_id) === '2';
+
+    if (!isAdmin && !isDelegate) {
+      return res.status(403).json({ message: 'No tiene permisos para crear perfiles' });
+    }
+
+    const requestBody = req.body || {};
+
+    if (!requestBody.name || !requestBody.last_name) {
+      return res.status(400).json({ message: 'name y last_name son requeridos' });
+    }
+
+    const rawExecutive = requestBody.executive;
+    const normalizedExecutive = rawExecutive === true || rawExecutive === 1 || String(rawExecutive).toLowerCase() === 'true' || String(rawExecutive) === '1';
+
+    const insertData = {
+      name: requestBody.name,
+      last_name: requestBody.last_name,
+      executive: normalizedExecutive,
+      executive_rol: requestBody.executive_rol || ''
+    };
+
+    if (requestBody.fotoclub_id != null && requestBody.fotoclub_id !== '') {
+      const fotoclubIdValue = Number(requestBody.fotoclub_id);
+      if (Number.isFinite(fotoclubIdValue)) {
+        insertData.fotoclub_id = fotoclubIdValue;
+      }
+    }
+
+    if (requestBody.dni != null && requestBody.dni !== '') {
+      insertData.dni = typeof requestBody.dni === 'string' ? requestBody.dni.replace(/\D/g, '') : requestBody.dni;
+    }
+
+    if (isDelegate) {
+      const currentProfile = await global.knex('profile').where({ id: currentUser.profile_id }).first();
+      const fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
+      if (!fotoclubId) {
+        return res.status(403).json({ message: 'No tiene un fotoclub asignado' });
+      }
+      if (insertData.fotoclub_id != null && Number(insertData.fotoclub_id) !== Number(fotoclubId)) {
+        return res.status(403).json({ message: 'No puede crear perfiles fuera de su fotoclub' });
+      }
+      insertData.fotoclub_id = fotoclubId;
+    }
+
+    if (req.file && req.file.fieldname === 'image_file') {
+      const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || process.env.UPLOADS_BASE_PATH || './uploads';
+      const imagesDir = path.join(uploadsBasePath, 'images');
+      if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true });
+      }
+
+      const uniqueSuffix = crypto.randomBytes(8).toString('hex');
+      const filename = `profile_${Date.now()}_${uniqueSuffix}.jpg`;
+      const filepath = path.join(imagesDir, filename);
+      const outputBuffer = await sharp(req.file.buffer)
+        .rotate()
+        .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 100, mozjpeg: true })
+        .toBuffer();
+
+      fs.writeFileSync(filepath, outputBuffer);
+      insertData.img_url = path.posix.join('images', filename);
+    }
+
+    const createdProfile = await insertAndGet(global.knex, 'profile', insertData);
+    const insertedId = createdProfile.id;
+
+    await logAction(req, `Creación de perfil ${insertedId} - ${currentUser.username}`, JSON.stringify({ insertData }));
+    return res.status(201).json({ success: true, id: insertedId, profile: createdProfile });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error al crear perfil' });
   }
 });
 
