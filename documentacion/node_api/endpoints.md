@@ -724,6 +724,10 @@ Content-Type: application/json
 
 Genera y obtiene un archivo ZIP con todas las fotografías de un concurso, organizadas por categoría, sección y premio. El endpoint crea una estructura de carpetas completa con las fotos y subdirectorios vacíos para cada premio disponible. Si el concurso ya está finalizado y el ZIP existe, solo devuelve la URL de descarga sin regenerar el archivo.
 
+El modo de calificación del concurso (`scoring_mode`) modifica la estructura generada:
+- `TRADICIONAL` (por defecto): se crean las carpetas de premios obtenidas de `metric_abm`.
+- `ORDEN_MERITO`: no se usan métricas, por lo que **no** se crean carpetas de premios. En su lugar, por cada categoría y sección se crean carpetas numeradas `1..N`, donde `N` es la cantidad de imágenes de esa categoría y sección. Las imágenes también se conservan en la raíz de la carpeta categoría/sección.
+
 #### Headers
 ```
 Authorization: Bearer <token>
@@ -825,17 +829,26 @@ Authorization: Bearer <token>
 #### Características del Endpoint
 - **Autenticación**: Requerida (Bearer Token)
 - **Permisos**: Usuarios autenticados
-- **Estructura de Carpetas**: 
+- **Modo de Calificación**: Según `contest.scoring_mode`:
+  - `TRADICIONAL`: estructura con carpetas de premios (métricas).
+  - `ORDEN_MERITO`: sin carpetas de premios; carpetas numeradas `1..N` por categoría y sección según la cantidad de imágenes.
+- **Estructura de Carpetas (TRADICIONAL)**: 
   - `concurso_{id}/`
     - `{Categoría}/`
       - `{Sección}/`
         - `{Premio}/` (subdirectorios vacíos para cada premio)
         - `{codigo_imagen}.jpg` (fotos)
+- **Estructura de Carpetas (ORDEN_MERITO)**: 
+  - `concurso_{id}/`
+    - `{Categoría}/`
+      - `{Sección}/`
+        - `1/`, `2/`, ..., `N/` (carpetas numeradas vacías)
+        - `{codigo_imagen}.jpg` (fotos conservadas en la raíz)
 - **Optimización**: Si el concurso está finalizado y el ZIP ya existe, solo devuelve la URL
 - **Procesamiento de Imágenes**: Copia las imágenes desde el repositorio principal
 - **Formato de Nombres**: Los archivos se nombran según su código único
 - **Compresión**: Genera un archivo ZIP con nivel 9 de compresión
-- **Premios**: Obtiene los premios desde `metric_abm` con `organization_type = 'INTERNO'`
+- **Premios**: Solo en modo `TRADICIONAL`, obtiene los premios desde `metric_abm` con `organization_type = 'INTERNO'`
 - **Rate Limiting**: Según configuración global
 
 #### Estructura Generada del Directorio
@@ -852,6 +865,26 @@ concurso_1/
 │   └── Blanco y Negro/
 │       ├── Primer Premio/
 │       ├── Segundo Premio/
+│       └── ...
+└── Estimulo/
+    ├── Color/
+    └── Blanco y Negro/
+```
+
+#### Estructura Generada del Directorio (scoring_mode = ORDEN_MERITO)
+```
+concurso_1/
+├── Primera/
+│   ├── Color/
+│   │   ├── 1/
+│   │   ├── 2/
+│   │   ├── ...
+│   │   ├── 50/
+│   │   ├── 3336_2025_38_Color_10047.jpg
+│   │   └── 3337_2025_38_Color_10048.jpg
+│   └── Blanco y Negro/
+│       ├── 1/
+│       ├── 2/
 │       └── ...
 └── Estimulo/
     ├── Color/

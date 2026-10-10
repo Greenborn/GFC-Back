@@ -16,6 +16,7 @@ const { invalidateContestResultCache } = require('./contestresult');
 const { canJudge } = require('../utils/judging-access');
 
 const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
+const ALLOWED_SCORING_MODES = ['TRADICIONAL', 'ORDEN_MERITO'];
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Endpoint para crear concursos (compatible con API PHP)
@@ -36,7 +37,8 @@ router.post('/', authMiddleware, upload.fields([
             start_date,
             end_date,
             organization_type,
-            is_test
+            is_test,
+            scoring_mode
         } = req.body;
 
         if (!name) {
@@ -50,6 +52,14 @@ router.post('/', authMiddleware, upload.fields([
         if (!isValidOrganizationType(organization_type) || !ALLOWED_CONTEST_ORG_TYPES.includes(organization_type)) {
             return res.status(400).json({ success: false, message: 'organization_type inválido. Valores permitidos: INTERNO, EXTERNO_0, EXTERNO_UNICEN.' });
         }
+
+        if (scoring_mode !== undefined && scoring_mode !== null && String(scoring_mode).trim() !== '' && !ALLOWED_SCORING_MODES.includes(String(scoring_mode).trim())) {
+            return res.status(400).json({ success: false, message: 'scoring_mode inválido. Valores permitidos: TRADICIONAL, ORDEN_MERITO.' });
+        }
+
+        const scoringMode = scoring_mode !== undefined && scoring_mode !== null && String(scoring_mode).trim() !== ''
+            ? String(scoring_mode).trim()
+            : 'TRADICIONAL';
 
         const uploadsBasePath = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
         const imagesDir = path.join(uploadsBasePath, 'images');
@@ -78,6 +88,7 @@ router.post('/', authMiddleware, upload.fields([
             img_url,
             rules_url,
             organization_type: organization_type || null,
+            scoring_mode: scoringMode,
             is_test: is_test === true || is_test === 'true' || is_test === 1 || is_test === '1' || false,
             judged: false,
             is_judging: false
@@ -350,6 +361,7 @@ router.get('/:id(\\d+)', authMiddleware, async (req, res) => {
             rules_url: contest.rules_url,
             sub_title: contest.sub_title || '',
             organization_type: contest.organization_type,
+            scoring_mode: contest.scoring_mode || 'TRADICIONAL',
             deleted_at: contest.deleted_at || null,
             is_test: contest.is_test === 1 || contest.is_test === true || String(contest.is_test) === '1',
             judged: contest.judged === 1 || contest.judged === true || String(contest.judged) === '1',
@@ -461,7 +473,8 @@ router.put('/:id', adminMiddleware, upload.fields([
             end_date,
             organization_type,
             judged,
-            is_test
+            is_test,
+            scoring_mode
         } = req.body;
 
         const updateData = {};
@@ -522,6 +535,17 @@ router.put('/:id', adminMiddleware, upload.fields([
         if (Object.prototype.hasOwnProperty.call(req.body, 'is_test')) {
             const isTestValue = String(is_test).toLowerCase();
             updateData.is_test = ['1', 'true', 'yes', 'on'].includes(isTestValue);
+        }
+
+        if (Object.prototype.hasOwnProperty.call(req.body, 'scoring_mode')) {
+            const scoringModeValue = String(scoring_mode).trim();
+            if (scoringModeValue === '') {
+                updateData.scoring_mode = 'TRADICIONAL';
+            } else if (!ALLOWED_SCORING_MODES.includes(scoringModeValue)) {
+                return res.status(400).json({ success: false, message: 'scoring_mode inválido. Valores permitidos: TRADICIONAL, ORDEN_MERITO.' });
+            } else {
+                updateData.scoring_mode = scoringModeValue;
+            }
         }
 
         if (Object.prototype.hasOwnProperty.call(req.body, 'is_judging')) {
@@ -1014,10 +1038,14 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             fs.mkdirSync(contestDir, { recursive: true });
         }
 
+        // Modo de calificación del concurso
+        const isOrdenMerito = String(contest.scoring_mode || 'TRADICIONAL') === 'ORDEN_MERITO';
+
         // Crear subdirectorios para cada categoría dentro del concurso
         if (Array.isArray(contestCategories)) {
             // Obtener los premios (prize) de metric_abm con organization_type = 'INTERNO'
-            const premios = await global.knex('metric_abm')
+            // En modo ORDEN DE MERITO no se usan métricas, por lo que no se crean carpetas de premios
+            const premios = isOrdenMerito ? [] : await global.knex('metric_abm')
                 .select('prize')
                 .where('organization_type', 'INTERNO');
 
@@ -1088,6 +1116,33 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                 }
             }
         });
+
+        // Modo ORDEN DE MERITO: crear carpetas numeradas (1..N) por categoría y sección,
+        // donde N es la cantidad de imágenes de esa categoría y sección.
+        if (isOrdenMerito && Array.isArray(contestCategories) && Array.isArray(contestSections)) {
+            contestCategories.forEach(cat => {
+                const catDir = path.join(contestDir, cat.name);
+                contestSections.forEach(sec => {
+                    const imagesCount = images.filter(img => {
+                        const categoryId = profileCategoryDict[img.profile_id];
+                        return categoryId === cat.id && img.section_id === sec.id;
+                    }).length;
+                    if (imagesCount <= 0) {
+                        return;
+                    }
+                    const secDir = path.join(catDir, sec.name);
+                    if (!fs.existsSync(secDir)) {
+                        fs.mkdirSync(secDir, { recursive: true });
+                    }
+                    for (let order = 1; order <= imagesCount; order++) {
+                        const orderDir = path.join(secDir, String(order));
+                        if (!fs.existsSync(orderDir)) {
+                            fs.mkdirSync(orderDir, { recursive: true });
+                        }
+                    }
+                });
+            });
+        }
 
         // Comprimir el directorio del concurso en un archivo .zip
         const createZip = () => {

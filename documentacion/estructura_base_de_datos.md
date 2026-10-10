@@ -48,6 +48,7 @@ Concursos.
 | `rules_url` | `VARCHAR` | | URL del reglamento |
 | `sub_title` | `VARCHAR(255)` | | Subtítulo |
 | `organization_type` | `VARCHAR(250)` | | Tipo de organización |
+| `scoring_mode` | `VARCHAR` | `NOT NULL`, `DEFAULT 'TRADICIONAL'` | Modo de calificación: `TRADICIONAL` u `ORDEN_MERITO` |
 | `judged` | `BOOLEAN` | | Indica si es evaluado por jurados |
 | `deleted_at` | `TIMESTAMPTZ` | | Soft delete |
 | `is_test` | `BOOLEAN` | `DEFAULT false` | Indica si es un concurso de prueba |
