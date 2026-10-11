@@ -4,8 +4,10 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { actualizarRanking } = require('../controllers/ranking');
 const { invalidateContestResultCache } = require('./contestresult');
 
-// Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile, el contest_result, la metric y la metric_abm
-async function complementaInfoImagen(resultado, knex) {
+// Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile, el contest_result, la metric y la metric_abm.
+// En modo 'ORDEN_MERITO' el nombre de carpeta ("premio") es en realidad el número de posición
+// (1ro, 2do, ...) y no se busca en el catálogo metric_abm.
+async function complementaInfoImagen(resultado, knex, scoringMode) {
   const imagen = await knex('image').where({ code: resultado.code }).first();
   let profile = null;
   let contestResult = null;
@@ -20,11 +22,19 @@ async function complementaInfoImagen(resultado, knex) {
       metric = await knex('metric').where({ id: contestResult.metric_id }).first();
     }
   }
-  // Buscar metric_abm por prize = resultado.premio
-  metricAbm = await knex('metric_abm').where({ prize: resultado.premio }).first();
-  if (!metricAbm) {
-    throw new Error(`No se encontró metric_abm para el premio '${resultado.premio}' (code: ${resultado.code})`);
+
+  if (scoringMode === 'ORDEN_MERITO') {
+    if (!/^\d+$/.test(String(resultado.premio).trim())) {
+      throw new Error(`La carpeta '${resultado.premio}' no es una posición numérica válida para un concurso de orden de mérito (code: ${resultado.code})`);
+    }
+  } else {
+    // Buscar metric_abm por prize = resultado.premio
+    metricAbm = await knex('metric_abm').where({ prize: resultado.premio }).first();
+    if (!metricAbm) {
+      throw new Error(`No se encontró metric_abm para el premio '${resultado.premio}' (code: ${resultado.code})`);
+    }
   }
+
   return {
     ...resultado,
     imagen: imagen || null,
@@ -43,6 +53,16 @@ async function updatePrizeInMetric(obj, trx) {
   const scoreInt = Math.round(Number(obj.metric_abm.score));
   await trx('metric').where({ id: obj.metric.id }).update({ prize: obj.premio, score: scoreInt });
   return { code: obj.code, metric_id: obj.metric.id, nuevo_prize: obj.premio, nuevo_score: scoreInt };
+}
+
+// Función asíncrona para actualizar la posición (orden de mérito) en contest_result
+async function updatePositionInContestResult(obj, trx) {
+  if (!obj.contest_result || !obj.contest_result.id) {
+    throw new Error(`No se puede actualizar contest_result: objeto sin contest_result o sin id (code: ${obj.code})`);
+  }
+  const positionInt = Number(obj.premio);
+  await trx('contest_result').where({ id: obj.contest_result.id }).update({ position: positionInt });
+  return { code: obj.code, contest_result_id: obj.contest_result.id, nueva_posicion: positionInt };
 }
 
 // Endpoint: POST /results/judging
@@ -160,14 +180,25 @@ router.post('/judging', authMiddleware, async (req, res) => {
       }
     }
   }
-  // Complementar la información de cada resultado con datos de la imagen y demás tablas
-  const resultadosCompletos = await Promise.all(resultados.map(r => complementaInfoImagen(r, global.knex)));
+  // Resolver el concurso real y su modalidad de calificación (TRADICIONAL | ORDEN_MERITO)
+  // a partir del id_concurso embebido en el nombre de archivo, antes de validar/actualizar.
+  const idConcursoDetectado = resultados.length > 0 ? Number(resultados[0].id_concurso) : null;
+  let scoringMode = 'TRADICIONAL';
+  if (idConcursoDetectado) {
+    const contestDetectado = await global.knex('contest').where({ id: idConcursoDetectado }).first();
+    scoringMode = (contestDetectado && contestDetectado.scoring_mode) || 'TRADICIONAL';
+  }
 
-  // Iniciar transacción y actualizar metric.prize y metric.score
+  // Complementar la información de cada resultado con datos de la imagen y demás tablas
+  const resultadosCompletos = await Promise.all(resultados.map(r => complementaInfoImagen(r, global.knex, scoringMode)));
+
+  // Iniciar transacción y actualizar metric.prize/metric.score (modo TRADICIONAL) o contest_result.position (modo ORDEN_MERITO)
   let updates = [];
   let contestIds = [];
   await global.knex.transaction(async trx => {
-    updates = await Promise.all(resultadosCompletos.map(obj => updatePrizeInMetric(obj, trx)));
+    updates = await Promise.all(resultadosCompletos.map(obj =>
+      scoringMode === 'ORDEN_MERITO' ? updatePositionInContestResult(obj, trx) : updatePrizeInMetric(obj, trx)
+    ));
     // Obtener los contest_id únicos de los resultados
     contestIds = [...new Set(resultadosCompletos.map(obj => obj.contest_result && obj.contest_result.contest_id).filter(Boolean))];
     if (contestIds.length !== 1) {
@@ -184,15 +215,24 @@ router.post('/judging', authMiddleware, async (req, res) => {
   const judgedAt = new Date().toISOString();
   for (const obj of resultadosCompletos) {
     if (!obj.imagen || !obj.imagen.id) continue;
-    const metadata = {
-      contest_id: Number(contestIds[0]),
-      contest_name: contestName?.name || obj.nombreConcurso,
-      section_name: obj.seccion,
-      category: obj.categoria,
-      prize: obj.premio,
-      score: obj.metric_abm ? Math.round(Number(obj.metric_abm.score)) : null,
-      judged_at: judgedAt
-    };
+    const metadata = scoringMode === 'ORDEN_MERITO'
+      ? {
+        contest_id: Number(contestIds[0]),
+        contest_name: contestName?.name || obj.nombreConcurso,
+        section_name: obj.seccion,
+        category: obj.categoria,
+        position: Number(obj.premio),
+        judged_at: judgedAt
+      }
+      : {
+        contest_id: Number(contestIds[0]),
+        contest_name: contestName?.name || obj.nombreConcurso,
+        section_name: obj.seccion,
+        category: obj.categoria,
+        prize: obj.premio,
+        score: obj.metric_abm ? Math.round(Number(obj.metric_abm.score)) : null,
+        judged_at: judgedAt
+      };
     const existingMetadata = obj.imagen.image_metadata || {};
     const merged = { ...existingMetadata, ...metadata };
     await global.knex('image').where({ id: obj.imagen.id }).update({ image_metadata: merged });

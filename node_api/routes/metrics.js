@@ -92,6 +92,40 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
   }
 });
 
+router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const { prize, score } = req.body;
+
+    if (!prize || score === undefined || score === null) {
+      return res.status(400).json({ success: false, message: 'prize y score son requeridos' });
+    }
+    const scoreNum = Number(score);
+    if (!Number.isFinite(scoreNum) || !Number.isInteger(scoreNum) || scoreNum < 0) {
+      return res.status(400).json({ success: false, message: 'El score debe ser un número entero positivo' });
+    }
+
+    const existing = await global.knex('metric').where({ id }).first();
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Métrica no encontrada' });
+    }
+
+    await global.knex('metric').where({ id }).update({ prize, score: scoreNum });
+    const updated = await global.knex('metric').where({ id }).first();
+
+    await logAction(req, `Modificación de métrica - ${req.user.username}`, JSON.stringify({ id, prize, score: scoreNum }));
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Error en PUT /metric/:id:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar métrica', error: error.message });
+  }
+});
+
 router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);

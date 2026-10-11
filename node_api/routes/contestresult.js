@@ -118,7 +118,8 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     const currentPage = page > pageCount ? pageCount : page;
 
     // ── Paginated unique image IDs with sorting ──
-    const validSorts = { title: 'image.title', prize: 'metric.score', code: 'image.code' };
+    // 'position' es el orden de mérito (1ro, 2do, ...): a menor número, más valiosa.
+    const validSorts = { title: 'image.title', prize: 'metric.score', code: 'image.code', position: 'contest_result.position' };
 
     let imageQuery = filterQuery.clone()
       .select('image.id')
@@ -165,6 +166,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
       'contest_result.image_id',
       'contest_result.metric_id',
       'contest_result.section_id',
+      'contest_result.position as position',
       global.knex.raw('NULL as type'),
       global.knex.raw('NULL as temporada'),
       'image.id as image_id',
@@ -253,6 +255,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
         image_id,
         metric_id,
         section_id,
+        position,
         image_code,
         image_title,
         image_url,
@@ -323,6 +326,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
           image_id,
           metric_id,
           section_id,
+          position: position ?? null,
           type: null,
           temporada: null,
           image,
@@ -775,6 +779,84 @@ router.get('/foto-del-anio', async (req, res) => {
   } catch (error) {
     console.error('Error en GET /foto-del-anio:', error);
     return res.status(500).json({ message: 'Error interno' });
+  }
+});
+
+// PUT /contest-result/:id — Actualiza un resultado de concurso existente.
+// Soporta dos usos independientes (cada uno sólo se aplica si el campo viene presente
+// en el body, con valor no nulo, para no pisar el otro cuando el front envía el objeto completo):
+//  - section_id: reasignar la fotografía a otra sección del concurso.
+//  - position: asentar la posición (orden de mérito). Sólo permitido si el concurso
+//    tiene scoring_mode = 'ORDEN_MERITO'; para concursos 'TRADICIONAL' la asignación
+//    se hace a través de PUT /metric/:id (diálogo "Puntuar").
+router.put('/contest-result/:id', authMiddleware, writeProtection, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: 'ID inválido' });
+    }
+
+    const contestResult = await global.knex('contest_result').where({ id }).first();
+    if (!contestResult) {
+      return res.status(404).json({ success: false, message: 'Resultado de concurso no encontrado' });
+    }
+
+    const tieneSectionId = Object.prototype.hasOwnProperty.call(req.body, 'section_id')
+      && req.body.section_id !== null && req.body.section_id !== undefined;
+    const tienePosition = Object.prototype.hasOwnProperty.call(req.body, 'position')
+      && req.body.position !== null && req.body.position !== undefined && req.body.position !== '';
+
+    if (!tieneSectionId && !tienePosition) {
+      return res.status(400).json({ success: false, message: 'No se enviaron datos para actualizar' });
+    }
+
+    const updateData = {};
+
+    if (tieneSectionId) {
+      const sectionIdNum = Number(req.body.section_id);
+      if (!Number.isFinite(sectionIdNum) || sectionIdNum <= 0) {
+        return res.status(400).json({ success: false, message: 'section_id inválido' });
+      }
+      updateData.section_id = sectionIdNum;
+    }
+
+    if (tienePosition) {
+      const positionNum = Number(req.body.position);
+      if (!Number.isFinite(positionNum) || !Number.isInteger(positionNum) || positionNum <= 0) {
+        return res.status(400).json({ success: false, message: 'La posición debe ser un número entero positivo' });
+      }
+
+      const contest = await global.knex('contest').where({ id: contestResult.contest_id }).first();
+      if (!contest) {
+        return res.status(404).json({ success: false, message: 'Concurso no encontrado' });
+      }
+      if (String(contest.scoring_mode || 'TRADICIONAL') !== 'ORDEN_MERITO') {
+        return res.status(400).json({ success: false, message: 'Este concurso no usa la modalidad de orden de mérito' });
+      }
+
+      const sectionIdParaConflicto = updateData.section_id ?? contestResult.section_id;
+      const conflicto = await global.knex('contest_result')
+        .where({ contest_id: contestResult.contest_id, section_id: sectionIdParaConflicto, position: positionNum })
+        .whereNot({ id })
+        .first();
+      if (conflicto) {
+        return res.status(409).json({ success: false, message: `La posición ${positionNum} ya está asignada a otra fotografía de esta sección` });
+      }
+
+      updateData.position = positionNum;
+    }
+
+    await global.knex('contest_result').where({ id }).update(updateData);
+    const updated = await global.knex('contest_result').where({ id }).first();
+
+    contestResultCache.invalidateAll();
+
+    await logAction(req, `Actualización de resultado de concurso - ${req.user.username}`, JSON.stringify({ contest_result_id: id, ...updateData }));
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Error en PUT /contest-result/:id:', error);
+    return res.status(500).json({ success: false, message: 'Error al actualizar el resultado de concurso', error: error.message });
   }
 });
 
