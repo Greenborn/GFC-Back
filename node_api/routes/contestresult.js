@@ -18,7 +18,7 @@ function cacheKeyFromQuery(query) {
   return JSON.stringify(sorted);
 }
 
-// GET /contest-result?expand=profile,profile.user,profile.fotoclub,image.profile,image.thumbnail&filter[contest_id]=58&page=1&per-page=20&search=paisaje&sort=title&sort_dir=asc&filter[section_id]=1&filter[section_id]=3&filter[category_id]=2&filter[prize]=Oro&filter[author]=García&filter[code]=ABC
+// GET /contest-result?expand=profile,profile.user,profile.fotoclub,image.profile,image.thumbnail&filter[contest_id]=58&page=1&per-page=20&search=paisaje&sort=title&sort_dir=asc&filter[section_id]=1&filter[section_id]=3&filter[category_id]=2&filter[fotoclub_id]=4&filter[prize]=Oro&filter[author]=García&filter[code]=ABC
 router.get('/contest-result', authMiddleware, async (req, res) => {
   try {
     // ── Parse required ──
@@ -72,6 +72,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     // Extract multi-value filters (support both bracket and dot notation)
     const filterSectionIds = extractFilterArray(req.query, 'section_id');
     const filterCategoryIds = extractFilterArray(req.query, 'category_id');
+    const filterFotoclubIds = extractFilterArray(req.query, 'fotoclub_id');
     const filterPrizes = extractFilterStringArray(req.query, 'prize');
     const rawSearch = (req.query.search || '').trim();
     const filterAuthor = sanitizeSearchTerm(extractFilterString(req.query, 'author'));
@@ -86,7 +87,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     }
 
     // ── Determine conditional joins needed for filtering/sorting ──
-    const needsProfile = !!(search || sort === 'author' || filterAuthor || filterCategoryIds.length > 0);
+    const needsProfile = !!(search || sort === 'author' || filterAuthor || filterCategoryIds.length > 0 || filterFotoclubIds.length > 0);
     const needsSection = !!search;
     const needsFotoclub = !!(search && needsProfile);
 
@@ -108,7 +109,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     const filterJoins = { profile: needsProfile, section: needsSection, fotoclub: needsFotoclub };
     filterQuery = applyContestResultFilters(filterQuery, {
-      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search, searchCode
+      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, filterFotoclubIds, search, searchCode
     }, filterJoins);
 
     // ── Total count (unique images matching filters) ──
@@ -213,7 +214,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
 
     // ── Determine which joins are needed for data display ──
     const dataJoins = {
-      profile: expandImageProfile || expandProfileUser || expandProfileFotoclub || (needsProfile && (search || filterAuthor)),
+      profile: expandImageProfile || expandProfileUser || expandProfileFotoclub || (needsProfile && (search || filterAuthor || filterFotoclubIds.length > 0)),
       section: needsSection && search,
       fotoclub: expandProfileFotoclub || (needsFotoclub && search),
       user: expandProfileUser
@@ -240,7 +241,7 @@ router.get('/contest-result', authMiddleware, async (req, res) => {
     }
 
     dataQuery = applyContestResultFilters(dataQuery, {
-      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search, searchCode
+      filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, filterFotoclubIds, search, searchCode
     }, { profile: dataJoins.profile, section: dataJoins.section, fotoclub: dataJoins.fotoclub });
 
     const itemsRaw = await dataQuery.select(selectColumns);
@@ -426,7 +427,7 @@ function extractFilterString(query, key) {
 // ── Apply contest result filters (shared between count + data queries) ──
 
 function applyContestResultFilters(query, filters, joins) {
-  const { filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, search, searchCode } = filters;
+  const { filterProfileId, filterSectionIds, filterPrizes, filterCode, filterAuthor, filterCategoryIds, filterFotoclubIds, search, searchCode } = filters;
   if (filterProfileId) {
     query = query.where('image.profile_id', filterProfileId);
   }
@@ -444,6 +445,9 @@ function applyContestResultFilters(query, filters, joins) {
       baseUnaccent('CONCAT_WS(\' \', profile.name, profile.last_name)') + ' LIKE ?',
       [`%${filterAuthor}%`]
     );
+  }
+  if (filterFotoclubIds.length > 0 && joins.profile) {
+    query = query.whereIn('profile.fotoclub_id', filterFotoclubIds);
   }
   if (filterCategoryIds.length > 0) {
     query = query.whereExists(function () {
