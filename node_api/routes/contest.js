@@ -14,6 +14,16 @@ const { isValidOrganizationType } = require('../utils/organizationType');
 const { insertAndGetId } = require('../utils/db.js');
 const { invalidateContestResultCache } = require('./contestresult');
 const { canJudge } = require('../utils/judging-access');
+const { normalizeDni } = require('../utils/contest-authorized-participant-parser');
+
+function sanitizeFilenameSegment(str) {
+    return (str || '')
+        .toString()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[\/\\:*?"<>|]/g, '')
+        .trim()
+        .replace(/\s+/g, '_');
+}
 
 const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
 const ALLOWED_SCORING_MODES = ['TRADICIONAL', 'ORDEN_MERITO'];
@@ -932,7 +942,11 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                 message: 'Concurso no encontrado'
             });
         }
-        
+
+        // Concurso juzgado: la descarga se arma como Categoria/Seccion (sin subcarpetas
+        // de premio/posición) y cada foto se renombra como posicion_facultad_autor_obra
+        const isJudged = contest.judged === 1 || contest.judged === true || String(contest.judged) === '1';
+
         const now = new Date();
         const endDate = new Date(contest.end_date);
         const isContestClosed = endDate < now;
@@ -999,6 +1013,9 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         // Consulta las imágenes asociadas al concurso
         const images = await global.knex('contest_result as cr')
             .join('image as i', 'cr.image_id', 'i.id')
+            .leftJoin('metric as m', 'cr.metric_id', 'm.id')
+            .leftJoin('profile as p', 'i.profile_id', 'p.id')
+            .leftJoin('fotoclub as fc', 'p.fotoclub_id', 'fc.id')
             .select(
                 'i.id',
                 'i.code',
@@ -1007,7 +1024,13 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                 'i.url',
                 'cr.section_id',
                 'cr.metric_id',
-                'cr.id as contest_result_id'
+                'cr.id as contest_result_id',
+                'cr.position',
+                'm.prize',
+                'p.name as profile_name',
+                'p.last_name as profile_last_name',
+                'p.dni as profile_dni',
+                'fc.name as fotoclub_name'
             )
             .where('cr.contest_id', contestId);
 
@@ -1022,6 +1045,15 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             .join('category as c', 'cc.category_id', '=', 'c.id')
             .select('c.id', 'c.name', 'c.mostrar_en_ranking')
             .where('cc.contest_id', contestId);
+
+        // Padrón de habilitados del concurso, para resolver la facultad por DNI (solo si está juzgado)
+        const authorizedRows = isJudged
+            ? await global.knex('contest_authorized_participant')
+                .where('contest_id', contestId)
+                .select('dni_normalized', 'faculty')
+            : [];
+        const facultyByDni = {};
+        authorizedRows.forEach(row => { facultyByDni[row.dni_normalized] = row.faculty; });
 
         // Crear/vaciar el subdirectorio para el concurso
         const contestDir = path.join(IMG_REPOSITORY_PATH, `concurso_${contestId}`);
@@ -1041,11 +1073,13 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         // Modo de calificación del concurso
         const isOrdenMerito = String(contest.scoring_mode || 'TRADICIONAL') === 'ORDEN_MERITO';
 
-        // Crear subdirectorios para cada categoría dentro del concurso
+        // Crear subdirectorios Categoria/Seccion para cada categoría dentro del concurso.
+        // Las subcarpetas vacías de premio/posición solo se crean si el concurso NO está
+        // juzgado (en concursos juzgados el árbol final es únicamente Categoria/Seccion).
         if (Array.isArray(contestCategories)) {
             // Obtener los premios (prize) de metric_abm con organization_type = 'INTERNO'
             // En modo ORDEN DE MERITO no se usan métricas, por lo que no se crean carpetas de premios
-            const premios = isOrdenMerito ? [] : await global.knex('metric_abm')
+            const premios = (isJudged || isOrdenMerito) ? [] : await global.knex('metric_abm')
                 .select('prize')
                 .where('organization_type', 'INTERNO');
 
@@ -1060,8 +1094,8 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                         if (!fs.existsSync(secDir)) {
                             fs.mkdirSync(secDir, { recursive: true });
                         }
-                        // Crear subdirectorios de premios vacíos junto a las fotos
-                        if (Array.isArray(premios)) {
+                        // Crear subdirectorios de premios vacíos junto a las fotos (solo si no está juzgado)
+                        if (!isJudged && Array.isArray(premios)) {
                             premios.forEach(premio => {
                                 if (premio.prize) {
                                     const premioDir = path.join(secDir, premio.prize);
@@ -1097,7 +1131,9 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             profileCategoryDict[item.profile_id] = item.category_id;
         });
 
-        // Copiar la imagen al directorio correspondiente
+        // Copiar la imagen al directorio correspondiente. En concursos juzgados el nombre
+        // del archivo codifica posicion_facultad_autor_obra; en concursos no juzgados se
+        // mantiene el nombre por código de imagen (comportamiento previo).
         images.forEach(img => {
             const categoryId = profileCategoryDict[img.profile_id];
             const categoryObj = contestCategories.find(cat => cat.id === categoryId);
@@ -1106,7 +1142,25 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
                 const fileDir = path.join(contestDir, categoryObj.name, sectionObj.name);
                 const srcPath = path.join(IMG_REPOSITORY_PATH, img.url);
                 const ext = path.extname(img.url) || '.jpg';
-                const destPath = path.join(fileDir, `${img.code}${ext}`);
+
+                let fileName;
+                if (isJudged) {
+                    const positionSegment = sanitizeFilenameSegment(
+                        isOrdenMerito ? (img.position ?? 'SP') : (img.prize || 'SP')
+                    );
+                    const faculty = facultyByDni[normalizeDni(img.profile_dni)] || img.fotoclub_name || '';
+                    const facultySegment = sanitizeFilenameSegment(faculty);
+                    const autorSegment = sanitizeFilenameSegment(`${img.profile_name || ''} ${img.profile_last_name || ''}`);
+                    const obraSegment = sanitizeFilenameSegment(img.title);
+                    fileName = `${positionSegment}_${facultySegment}_${autorSegment}_${obraSegment}${ext}`;
+                    if (fs.existsSync(path.join(fileDir, fileName))) {
+                        fileName = `${positionSegment}_${facultySegment}_${autorSegment}_${obraSegment}_${img.code}${ext}`;
+                    }
+                } else {
+                    fileName = `${img.code}${ext}`;
+                }
+
+                const destPath = path.join(fileDir, fileName);
                 try {
                     if (fs.existsSync(srcPath)) {
                         fs.copyFileSync(srcPath, destPath);
@@ -1117,9 +1171,9 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             }
         });
 
-        // Modo ORDEN DE MERITO: crear carpetas numeradas (1..N) por categoría y sección,
-        // donde N es la cantidad de imágenes de esa categoría y sección.
-        if (isOrdenMerito && Array.isArray(contestCategories) && Array.isArray(contestSections)) {
+        // Modo ORDEN DE MERITO (concurso no juzgado): crear carpetas numeradas (1..N) por
+        // categoría y sección, donde N es la cantidad de imágenes de esa categoría y sección.
+        if (!isJudged && isOrdenMerito && Array.isArray(contestCategories) && Array.isArray(contestSections)) {
             contestCategories.forEach(cat => {
                 const catDir = path.join(contestDir, cat.name);
                 contestSections.forEach(sec => {

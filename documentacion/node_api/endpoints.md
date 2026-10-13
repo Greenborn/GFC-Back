@@ -722,11 +722,21 @@ Content-Type: application/json
 ### 3.4 Obtener Fotos Comprimidas de un Concurso
 **GET** `/contest/compressed-photos`
 
-Genera y obtiene un archivo ZIP con todas las fotografías de un concurso, organizadas por categoría, sección y premio. El endpoint crea una estructura de carpetas completa con las fotos y subdirectorios vacíos para cada premio disponible. Si el concurso ya está finalizado y el ZIP existe, solo devuelve la URL de descarga sin regenerar el archivo.
+Genera y obtiene un archivo ZIP con todas las fotografías de un concurso, organizadas en un árbol `Categoria/Seccion`. Las fotos originales nunca se modifican: se copian a un directorio temporal dentro de `IMG_REPOSITORY_PATH` (`concurso_<id>/`) que se usa solo para armar el ZIP. Si el concurso ya está finalizado y el ZIP existe, solo devuelve la URL de descarga sin regenerar el archivo.
 
-El modo de calificación del concurso (`scoring_mode`) modifica la estructura generada:
-- `TRADICIONAL` (por defecto): se crean las carpetas de premios obtenidas de `metric_abm`.
-- `ORDEN_MERITO`: no se usan métricas, por lo que **no** se crean carpetas de premios. En su lugar, por cada categoría y sección se crean carpetas numeradas `1..N`, donde `N` es la cantidad de imágenes de esa categoría y sección. Las imágenes también se conservan en la raíz de la carpeta categoría/sección.
+La estructura generada depende de si el concurso ya está **juzgado** (`contest.judged`):
+
+- **Concurso juzgado** (`judged = true`): el árbol final es únicamente `Categoria/Seccion/` (sin subcarpetas de premio ni numeradas). Cada archivo se renombra como:
+  ```
+  [numero_posicion]_[facultad]_[nombre_autor]_[nombre_obra].<ext>
+  ```
+  - `numero_posicion`: en modo `ORDEN_MERITO` es `contest_result.position`; en modo `TRADICIONAL` (no tiene posición numérica) es el nombre del premio (`metric.prize`).
+  - `facultad`: se busca el DNI normalizado del autor en el padrón de habilitados del concurso (`contest_authorized_participant.faculty`). Si no hay padrón cargado o el autor no figura en él, se usa el nombre del fotoclub/institución del autor como alternativa.
+  - `nombre_autor` y `nombre_obra`: nombre y apellido del autor (`profile`), y título de la imagen (`image.title`).
+  - Si dos fotos resuelven el mismo nombre de archivo (empate de posición/premio), se agrega el código de imagen al final para evitar sobreescrituras.
+- **Concurso no juzgado** (`judged = false`): se mantiene el comportamiento previo. El modo de calificación del concurso (`scoring_mode`) modifica la estructura generada dentro de cada `Categoria/Seccion`:
+  - `TRADICIONAL` (por defecto): se crean además carpetas vacías de premios obtenidas de `metric_abm`.
+  - `ORDEN_MERITO`: no se usan métricas, por lo que no se crean carpetas de premios. En su lugar, por cada categoría y sección se crean carpetas numeradas `1..N`, donde `N` es la cantidad de imágenes de esa categoría y sección. Las imágenes se nombran por código de imagen y se conservan en la raíz de la carpeta categoría/sección (las carpetas numeradas quedan vacías, pensadas para el flujo manual de juzgamiento).
 
 #### Headers
 ```
