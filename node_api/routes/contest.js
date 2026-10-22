@@ -16,6 +16,7 @@ const { invalidateContestResultCache } = require('./contestresult');
 const { canJudge } = require('../utils/judging-access');
 const {
     getAssetsPath,
+    getAssetsBaseUrl,
     isContestJudged,
     getContestZipFileName,
     removeContestZipFiles,
