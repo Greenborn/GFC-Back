@@ -722,21 +722,35 @@ Content-Type: application/json
 ### 3.4 Obtener Fotos Comprimidas de un Concurso
 **GET** `/contest/compressed-photos`
 
-Genera y obtiene un archivo ZIP con todas las fotografías de un concurso, organizadas en un árbol `Categoria/Seccion`. Las fotos originales nunca se modifican: se copian a un directorio temporal dentro de `IMG_REPOSITORY_PATH` (`concurso_<id>/`) que se usa solo para armar el ZIP. Si el concurso ya está finalizado y el ZIP existe, solo devuelve la URL de descarga sin regenerar el archivo.
+Obtiene el ZIP con todas las fotografías de un concurso, organizadas en un árbol `Categoria/Seccion`. Las fotos originales nunca se modifican: se copian a un directorio temporal dentro de `IMG_REPOSITORY_PATH` (`concurso_<id>/`) que se elimina al terminar la compresión, tanto si fue exitosa como si falló.
 
-La estructura generada depende de si el concurso ya está **juzgado** (`contest.judged`):
+La generación es asíncrona para poder reportar progreso:
 
-- **Concurso juzgado** (`judged = true`): el árbol final es únicamente `Categoria/Seccion/` (sin subcarpetas de premio ni numeradas). Cada archivo se renombra como:
-  ```
-  [numero_posicion]_[facultad]_[nombre_autor]_[nombre_obra].<ext>
-  ```
-  - `numero_posicion`: en modo `ORDEN_MERITO` es `contest_result.position`; en modo `TRADICIONAL` (no tiene posición numérica) es el nombre del premio (`metric.prize`).
-  - `facultad`: se busca el DNI normalizado del autor en el padrón de habilitados del concurso (`contest_authorized_participant.faculty`). Si no hay padrón cargado o el autor no figura en él, se usa el nombre del fotoclub/institución del autor como alternativa.
-  - `nombre_autor` y `nombre_obra`: nombre y apellido del autor (`profile`), y título de la imagen (`image.title`).
-  - Si dos fotos resuelven el mismo nombre de archivo (empate de posición/premio), se agrega el código de imagen al final para evitar sobreescrituras.
-- **Concurso no juzgado** (`judged = false`): se mantiene el comportamiento previo. El modo de calificación del concurso (`scoring_mode`) modifica la estructura generada dentro de cada `Categoria/Seccion`:
-  - `TRADICIONAL` (por defecto): se crean además carpetas vacías de premios obtenidas de `metric_abm`.
-  - `ORDEN_MERITO`: no se usan métricas, por lo que no se crean carpetas de premios. En su lugar, por cada categoría y sección se crean carpetas numeradas `1..N`, donde `N` es la cantidad de imágenes de esa categoría y sección. Las imágenes se nombran por código de imagen y se conservan en la raíz de la carpeta categoría/sección (las carpetas numeradas quedan vacías, pensadas para el flujo manual de juzgamiento).
+- Si el concurso está **juzgado** y ya existe `concurso_<id>_judged.zip`, responde inmediatamente con `download_url` (sin regenerar).
+- Si el concurso **no está juzgado**, elimina cualquier ZIP anterior del concurso y lo regenera siempre.
+- Si el concurso está juzgado pero falta el ZIP, lo genera y elimina variantes legacy (`concurso_<id>.zip` o `concurso_<id>_<YYYYMD>.zip`).
+- Si hay una generación en curso para el mismo concurso, devuelve el mismo `job_id`.
+
+#### Nombres de archivo
+- Juzgado: `concurso_<id>_judged.zip` (sin fecha).
+- No juzgado y cerrado: `concurso_<id>.zip`.
+- No juzgado y abierto: `concurso_<id>_<YYYYMD>.zip`.
+
+#### Estructura según estado del concurso
+- **Juzgado (`judged = true`)**:
+  - `TRADICIONAL`: `Categoria/Seccion/<premio>/archivo.<ext>`.
+  - `ORDEN_MERITO`: `Categoria/Seccion/<posicion>/archivo.<ext>`.
+  - Las imágenes sin premio o sin posición quedan sueltas en `Categoria/Seccion/`.
+  - Cada archivo se renombra como:
+    ```
+    [posicion_o_premio]_[facultad]_[nombre_autor]_[nombre_obra].<ext>
+    ```
+    - `posicion_o_premio`: `contest_result.position` en `ORDEN_MERITO`; `metric.prize` en `TRADICIONAL`.
+    - `facultad`: `contest_authorized_participant.faculty` según DNI normalizado; si no existe, se usa el fotoclub/institución del autor.
+    - Si dos fotos generan el mismo nombre, se agrega `image.code` al final.
+- **No juzgado (`judged = false`)**:
+  - `TRADICIONAL`: `Categoria/Seccion/` con carpetas vacías de premios obtenidas de `metric_abm` y las fotos nombradas por `image.code`.
+  - `ORDEN_MERITO`: `Categoria/Seccion/` con carpetas numeradas `1..N` (vacías) y las fotos en la raíz de la sección nombradas por `image.code`.
 
 #### Headers
 ```
@@ -746,68 +760,29 @@ Authorization: Bearer <token>
 #### Query Parameters
 - `id` (int, requerido): ID del concurso
 
-#### Respuesta Exitosa (200) - Concurso Finalizado con ZIP Existente
+#### Respuesta Exitosa (200) - ZIP juzgado ya existente
 ```json
 {
   "success": true,
+  "status": "done",
   "contest_id": 1,
-  "download_url": "https://assets.prod-gfc.greenborn.com.ar/concurso_1.zip",
-  "message": "El concurso está finalizado y el archivo comprimido ya existe. Solo se envía el .zip."
+  "is_judged": true,
+  "cached": true,
+  "download_url": "https://assets.prod-gfc.greenborn.com.ar/concurso_1_judged.zip",
+  "message": "El archivo comprimido del concurso juzgado ya existe."
 }
 ```
 
-#### Respuesta Exitosa (200) - Procesamiento Completo
+#### Respuesta Exitosa (202) - Generación iniciada
 ```json
 {
   "success": true,
-  "contest_sections": [
-    {
-      "id": 1,
-      "name": "Color"
-    },
-    {
-      "id": 2,
-      "name": "Blanco y Negro"
-    }
-  ],
-  "contest_categories": [
-    {
-      "id": 1,
-      "name": "Primera",
-      "mostrar_en_ranking": 1
-    },
-    {
-      "id": 2,
-      "name": "Estimulo",
-      "mostrar_en_ranking": 1
-    }
-  ],
-  "inscritos": [
-    {
-      "profile_id": 88,
-      "profile_name": "Juan Pérez",
-      "category_id": 1
-    }
-  ],
+  "status": "processing",
   "contest_id": 1,
-  "contest_dir": "/var/www/GFC-PUBLIC-ASSETS/concurso_1",
-  "total_images": 450,
-  "images": [
-    {
-      "id": 10047,
-      "code": "3336_2025_38_Color_10047",
-      "title": "A LA DERECHA",
-      "profile_id": 88,
-      "url": "/images/2025/Primera/Color/3336_2025_38_Color_10047.jpg",
-      "section_id": 1,
-      "metric_id": 123,
-      "contest_result_id": 456
-    }
-  ],
-  "profile_category_dict": {
-    "88": 1
-  },
-  "download_url": "https://assets.prod-gfc.greenborn.com.ar/concurso_1.zip"
+  "is_judged": false,
+  "job_id": "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b",
+  "filename": "concurso_1_20261022.zip",
+  "message": "Generando archivo comprimido"
 }
 ```
 
@@ -838,69 +813,61 @@ Authorization: Bearer <token>
 
 #### Características del Endpoint
 - **Autenticación**: Requerida (Bearer Token)
-- **Permisos**: Usuarios autenticados
-- **Modo de Calificación**: Según `contest.scoring_mode`:
-  - `TRADICIONAL`: estructura con carpetas de premios (métricas).
-  - `ORDEN_MERITO`: sin carpetas de premios; carpetas numeradas `1..N` por categoría y sección según la cantidad de imágenes.
-- **Estructura de Carpetas (TRADICIONAL)**: 
-  - `concurso_{id}/`
-    - `{Categoría}/`
-      - `{Sección}/`
-        - `{Premio}/` (subdirectorios vacíos para cada premio)
-        - `{codigo_imagen}.jpg` (fotos)
-- **Estructura de Carpetas (ORDEN_MERITO)**: 
-  - `concurso_{id}/`
-    - `{Categoría}/`
-      - `{Sección}/`
-        - `1/`, `2/`, ..., `N/` (carpetas numeradas vacías)
-        - `{codigo_imagen}.jpg` (fotos conservadas en la raíz)
-- **Optimización**: Si el concurso está finalizado y el ZIP ya existe, solo devuelve la URL
-- **Procesamiento de Imágenes**: Copia las imágenes desde el repositorio principal
-- **Formato de Nombres**: Los archivos se nombran según su código único
-- **Compresión**: Genera un archivo ZIP con nivel 9 de compresión
-- **Premios**: Solo en modo `TRADICIONAL`, obtiene los premios desde `metric_abm` con `organization_type = 'INTERNO'`
-- **Rate Limiting**: Según configuración global
+- **Permisos**: Cualquier usuario autenticado.
+- **Caché**: Solo los concursos juzgados reutilizan el ZIP existente.
+- **Invalidación**: Al finalizar un juzgamiento o cargar resultados (`POST /results/judging`) se elimina `concurso_<id>_judged.zip` para que se regenere con los premios/posiciones actualizados.
+- **Limpieza**: El directorio temporal `concurso_<id>/` se elimina al finalizar; el ZIP parcial también se elimina si ocurre un error.
+- **Compresión**: Nivel 9 de `archiver`.
 
-#### Estructura Generada del Directorio
+### 3.4.1 Progreso de generación
+**GET** `/contest/compressed-photos/progress`
+
+Consulta el estado de un trabajo iniciado por `GET /contest/compressed-photos`.
+
+#### Headers
 ```
-concurso_1/
-├── Primera/
-│   ├── Color/
-│   │   ├── Primer Premio/
-│   │   ├── Segundo Premio/
-│   │   ├── Tercer Premio/
-│   │   ├── Mención de Honor/
-│   │   ├── 3336_2025_38_Color_10047.jpg
-│   │   └── 3337_2025_38_Color_10048.jpg
-│   └── Blanco y Negro/
-│       ├── Primer Premio/
-│       ├── Segundo Premio/
-│       └── ...
-└── Estimulo/
-    ├── Color/
-    └── Blanco y Negro/
+Authorization: Bearer <token>
 ```
 
-#### Estructura Generada del Directorio (scoring_mode = ORDEN_MERITO)
-```
-concurso_1/
-├── Primera/
-│   ├── Color/
-│   │   ├── 1/
-│   │   ├── 2/
-│   │   ├── ...
-│   │   ├── 50/
-│   │   ├── 3336_2025_38_Color_10047.jpg
-│   │   └── 3337_2025_38_Color_10048.jpg
-│   └── Blanco y Negro/
-│       ├── 1/
-│       ├── 2/
-│       └── ...
-└── Estimulo/
-    ├── Color/
-    └── Blanco y Negro/
+#### Query Parameters
+- `job_id` (string, requerido): Identificador devuelto al iniciar la generación.
+
+#### Respuesta Exitosa (200)
+```json
+{
+  "success": true,
+  "job_id": "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b",
+  "contest_id": 1,
+  "status": "running",
+  "phase": "copying",
+  "percent": 45,
+  "processed": 120,
+  "total": 300,
+  "message": "Copiando imágenes (120/300)",
+  "download_url": null,
+  "error": null
+}
 ```
 
+- `phase`: `preparing`, `copying`, `compressing`, `done` o `error`.
+- `status`: `running`, `done` o `error`.
+- Al finalizar correctamente incluye `download_url`.
+
+#### Respuesta de Error (400)
+```json
+{
+  "success": false,
+  "message": "Job ID inválido o faltante. Use ?job_id=<job_id>"
+}
+```
+
+#### Respuesta de Error (404)
+```json
+{
+  "success": false,
+  "message": "Generación no encontrada o expirada"
+}
+```
 
 ### 3.5 Descarga de Fotos Premiadas del Año
 **GET** `/contest/compiled-winners`

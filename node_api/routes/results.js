@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const { actualizarRanking } = require('../controllers/ranking');
 const { invalidateContestResultCache } = require('./contestresult');
+const { invalidateJudgedZip } = require('../utils/contest-zip');
 
 // Función asíncrona para complementar la información de cada resultado con datos de la imagen, el profile, el contest_result, la metric y la metric_abm.
 // En modo 'ORDEN_MERITO' el nombre de carpeta ("premio") es en realidad el número de posición
@@ -209,6 +210,7 @@ router.post('/judging', authMiddleware, async (req, res) => {
   });
 
   invalidateContestResultCache();
+  invalidateJudgedZip(contestIds[0]);
 
   // Actualizar image_metadata con los resultados del jurado
   const contestName = await global.knex('contest').where({ id: contestIds[0] }).select('name').first();

@@ -201,6 +201,14 @@ La API incluye un endpoint autenticado para consultar participantes de concursos
 curl -X GET "https://gfc.prod-api.greenborn.com.ar/contest/participants?id=1"
 ```
 
+#### Descarga de Fotos de un Concurso
+La API incluye endpoints autenticados para generar y descargar el ZIP de fotografías de un concurso:
+
+- **GET** `/api/contest/compressed-photos?id=<contest_id>`
+- **GET** `/api/contest/compressed-photos/progress?job_id=<job_id>`
+
+Los concursos juzgados reutilizan `concurso_<id>_judged.zip` y organizan las fotos por premio (o posición en `ORDEN_MERITO`). Los concursos no juzgados se regeneran siempre. Si el ZIP no existe, la primera llamada responde con `job_id` y el progreso se consulta con el segundo endpoint.
+
 #### Descarga de Fotos Premiadas del Año
 La API incluye un endpoint autenticado para compilar y descargar las fotos premiadas del año:
 

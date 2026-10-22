@@ -14,16 +14,19 @@ const { isValidOrganizationType } = require('../utils/organizationType');
 const { insertAndGetId } = require('../utils/db.js');
 const { invalidateContestResultCache } = require('./contestresult');
 const { canJudge } = require('../utils/judging-access');
-const { normalizeDni } = require('../utils/contest-authorized-participant-parser');
-
-function sanitizeFilenameSegment(str) {
-    return (str || '')
-        .toString()
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .replace(/[\/\\:*?"<>|]/g, '')
-        .trim()
-        .replace(/\s+/g, '_');
-}
+const {
+    getAssetsPath,
+    isContestJudged,
+    getContestZipFileName,
+    removeContestZipFiles,
+    invalidateJudgedZip,
+    joinUrl
+} = require('../utils/contest-zip');
+const {
+    startCompressedPhotosJob,
+    getJob,
+    getJobSnapshot
+} = require('../utils/compressed-photos');
 
 const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
 const ALLOWED_SCORING_MODES = ['TRADICIONAL', 'ORDEN_MERITO'];
@@ -875,6 +878,7 @@ router.put('/:id/finalizar-judging', authMiddleware, async (req, res) => {
         });
 
         invalidateContestResultCache();
+        invalidateJudgedZip(contestId);
 
         require('../utils/judge-socket').emitContestEvent(contestId, 'contest:stage', { judged: true, is_judging: false, judging_stage: null });
 
@@ -921,10 +925,6 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         });
     }
 
-    const IMG_REPOSITORY_PATH = process.env.IMG_REPOSITORY_PATH || '/var/www/GFC-PUBLIC-ASSETS';
-    const archiver = require('archiver');
-    const IMG_BASE_PATH = process.env.IMG_BASE_PATH || 'https://assets.prod-gfc.greenborn.com.ar';
-
     try {
         const contest = await global.knex('contest').where('id', contestId).first();
         if (!contest || contest.deleted_at) {
@@ -943,293 +943,37 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             });
         }
 
-        // Concurso juzgado: la descarga se arma como Categoria/Seccion (sin subcarpetas
-        // de premio/posición) y cada foto se renombra como posicion_facultad_autor_obra
-        const isJudged = contest.judged === 1 || contest.judged === true || String(contest.judged) === '1';
+        const judged = isContestJudged(contest);
+        const zipFileName = getContestZipFileName(contest);
+        const zipFilePath = path.join(getAssetsPath(), zipFileName);
 
-        const now = new Date();
-        const endDate = new Date(contest.end_date);
-        const isContestClosed = endDate < now;
-        
-        // Determinar nombre del archivo según estado del concurso
-        let zipFileName;
-        let zipFilePath;
-        
-        if (isContestClosed) {
-            // Concurso cerrado: nombre fijo sin fecha
-            zipFileName = `concurso_${contestId}.zip`;
-            zipFilePath = path.join(IMG_REPOSITORY_PATH, zipFileName);
-            
-            // Si el archivo definitivo ya existe, solo retornarlo
-            if (fs.existsSync(zipFilePath)) {
-                return res.json({
-                    success: true,
-                    contest_id: contestId,
-                    download_url: `${IMG_BASE_PATH}/${zipFileName}`,
-                    message: 'El concurso está finalizado y el archivo comprimido ya existe.'
-                });
-            }
-            
-            // Eliminar archivos temporales antiguos con fecha para este concurso
-            const files = fs.readdirSync(IMG_REPOSITORY_PATH);
-            const oldTempPattern = new RegExp(`^concurso_${contestId}_\\d{8}\\.zip$`);
-            files.forEach(file => {
-                if (oldTempPattern.test(file)) {
-                    try {
-                        fs.unlinkSync(path.join(IMG_REPOSITORY_PATH, file));
-                        console.log(`Archivo temporal antiguo eliminado: ${file}`);
-                    } catch (err) {
-                        console.error(`Error eliminando archivo temporal ${file}:`, err);
-                    }
-                }
-            });
-        } else {
-            // Concurso abierto: nombre con fecha actual
-            const dateNow = new Date();
-            const year = dateNow.getFullYear();
-            const month = dateNow.getMonth() + 1; // getMonth() devuelve 0-11
-            const day = dateNow.getDate();
-            const dateStr = `${year}${month}${day}`;
-            zipFileName = `concurso_${contestId}_${dateStr}.zip`;
-            zipFilePath = path.join(IMG_REPOSITORY_PATH, zipFileName);
-            
-            // Eliminar archivos anteriores de este concurso (tanto con fecha como sin fecha)
-            const files = fs.readdirSync(IMG_REPOSITORY_PATH);
-            const oldPattern = new RegExp(`^concurso_${contestId}(_\\d{8})?\\.zip$`);
-            files.forEach(file => {
-                if (oldPattern.test(file) && file !== zipFileName) {
-                    try {
-                        fs.unlinkSync(path.join(IMG_REPOSITORY_PATH, file));
-                        console.log(`Archivo anterior eliminado: ${file}`);
-                    } catch (err) {
-                        console.error(`Error eliminando archivo ${file}:`, err);
-                    }
-                }
+        // Un concurso juzgado reutiliza siempre el ZIP ya generado.
+        if (judged && fs.existsSync(zipFilePath)) {
+            return res.json({
+                success: true,
+                status: 'done',
+                contest_id: contestId,
+                is_judged: true,
+                cached: true,
+                download_url: joinUrl(getAssetsBaseUrl(), zipFileName),
+                message: 'El archivo comprimido del concurso juzgado ya existe.'
             });
         }
 
-        // ...existing code...
-        // (Resto del procesamiento original)
-        // Consulta las imágenes asociadas al concurso
-        const images = await global.knex('contest_result as cr')
-            .join('image as i', 'cr.image_id', 'i.id')
-            .leftJoin('metric as m', 'cr.metric_id', 'm.id')
-            .leftJoin('profile as p', 'i.profile_id', 'p.id')
-            .leftJoin('fotoclub as fc', 'p.fotoclub_id', 'fc.id')
-            .select(
-                'i.id',
-                'i.code',
-                'i.title',
-                'i.profile_id',
-                'i.url',
-                'cr.section_id',
-                'cr.metric_id',
-                'cr.id as contest_result_id',
-                'cr.position',
-                'm.prize',
-                'p.name as profile_name',
-                'p.last_name as profile_last_name',
-                'p.dni as profile_dni',
-                'fc.name as fotoclub_name'
-            )
-            .where('cr.contest_id', contestId);
+        // Los concursos no juzgados se regeneran siempre. Los juzgados solo si falta el ZIP,
+        // en cuyo caso se eliminan variantes legacy (con fecha o sin sufijo _judged).
+        removeContestZipFiles(contestId, judged ? { keep: zipFileName } : undefined);
 
-        // Obtener las secciones asociadas al concurso
-        const contestSections = await global.knex('contest_section as cs')
-            .join('section as s', 'cs.section_id', '=', 's.id')
-            .select('s.id', 's.name')
-            .where('cs.contest_id', contestId);
+        const job = startCompressedPhotosJob(contest, judged);
 
-        // Obtener las categorías asociadas al concurso
-        const contestCategories = await global.knex('contest_category as cc')
-            .join('category as c', 'cc.category_id', '=', 'c.id')
-            .select('c.id', 'c.name', 'c.mostrar_en_ranking')
-            .where('cc.contest_id', contestId);
-
-        // Padrón de habilitados del concurso, para resolver la facultad por DNI (solo si está juzgado)
-        const authorizedRows = isJudged
-            ? await global.knex('contest_authorized_participant')
-                .where('contest_id', contestId)
-                .select('dni_normalized', 'faculty')
-            : [];
-        const facultyByDni = {};
-        authorizedRows.forEach(row => { facultyByDni[row.dni_normalized] = row.faculty; });
-
-        // Crear/vaciar el subdirectorio para el concurso
-        const contestDir = path.join(IMG_REPOSITORY_PATH, `concurso_${contestId}`);
-        if (fs.existsSync(contestDir)) {
-            fs.readdirSync(contestDir).forEach(file => {
-                const curPath = path.join(contestDir, file);
-                if (fs.lstatSync(curPath).isDirectory()) {
-                    fs.rmSync(curPath, { recursive: true, force: true });
-                } else {
-                    fs.unlinkSync(curPath);
-                }
-            });
-        } else {
-            fs.mkdirSync(contestDir, { recursive: true });
-        }
-
-        // Modo de calificación del concurso
-        const isOrdenMerito = String(contest.scoring_mode || 'TRADICIONAL') === 'ORDEN_MERITO';
-
-        // Crear subdirectorios Categoria/Seccion para cada categoría dentro del concurso.
-        // Las subcarpetas vacías de premio/posición solo se crean si el concurso NO está
-        // juzgado (en concursos juzgados el árbol final es únicamente Categoria/Seccion).
-        if (Array.isArray(contestCategories)) {
-            // Obtener los premios (prize) de metric_abm con organization_type = 'INTERNO'
-            // En modo ORDEN DE MERITO no se usan métricas, por lo que no se crean carpetas de premios
-            const premios = (isJudged || isOrdenMerito) ? [] : await global.knex('metric_abm')
-                .select('prize')
-                .where('organization_type', 'INTERNO');
-
-            contestCategories.forEach(cat => {
-                const catDir = path.join(contestDir, cat.name);
-                if (!fs.existsSync(catDir)) {
-                    fs.mkdirSync(catDir, { recursive: true });
-                }
-                if (Array.isArray(contestSections)) {
-                    contestSections.forEach(sec => {
-                        const secDir = path.join(catDir, sec.name);
-                        if (!fs.existsSync(secDir)) {
-                            fs.mkdirSync(secDir, { recursive: true });
-                        }
-                        // Crear subdirectorios de premios vacíos junto a las fotos (solo si no está juzgado)
-                        if (!isJudged && Array.isArray(premios)) {
-                            premios.forEach(premio => {
-                                if (premio.prize) {
-                                    const premioDir = path.join(secDir, premio.prize);
-                                    if (!fs.existsSync(premioDir)) {
-                                        fs.mkdirSync(premioDir, { recursive: true });
-                                    }
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-        }
-
-        // Obtener el listado de inscriptos al concurso
-        const inscritos = await global.knex('profile_contest as pc')
-            .join('profile as p', 'pc.profile_id', '=', 'p.id')
-            .select('p.id as profile_id', 'p.name as profile_name', 'pc.category_id')
-            .where('pc.contest_id', contestId);
-
-        // Crear diccionario agrupado por profile_id con array de imágenes
-        const imagesByProfile = {};
-        images.forEach(img => {
-            if (!imagesByProfile[img.profile_id]) {
-                imagesByProfile[img.profile_id] = [];
-            }
-            imagesByProfile[img.profile_id].push(img);
-        });
-
-        // Crear diccionario donde la clave es profile_id y el valor es category_id
-        const profileCategoryDict = {};
-        inscritos.forEach(item => {
-            profileCategoryDict[item.profile_id] = item.category_id;
-        });
-
-        // Copiar la imagen al directorio correspondiente. En concursos juzgados el nombre
-        // del archivo codifica posicion_facultad_autor_obra; en concursos no juzgados se
-        // mantiene el nombre por código de imagen (comportamiento previo).
-        images.forEach(img => {
-            const categoryId = profileCategoryDict[img.profile_id];
-            const categoryObj = contestCategories.find(cat => cat.id === categoryId);
-            const sectionObj = contestSections.find(sec => sec.id === img.section_id);
-            if (categoryObj && sectionObj && img.url && img.code) {
-                const fileDir = path.join(contestDir, categoryObj.name, sectionObj.name);
-                const srcPath = path.join(IMG_REPOSITORY_PATH, img.url);
-                const ext = path.extname(img.url) || '.jpg';
-
-                let fileName;
-                if (isJudged) {
-                    const positionSegment = sanitizeFilenameSegment(
-                        isOrdenMerito ? (img.position ?? 'SP') : (img.prize || 'SP')
-                    );
-                    const faculty = facultyByDni[normalizeDni(img.profile_dni)] || img.fotoclub_name || '';
-                    const facultySegment = sanitizeFilenameSegment(faculty);
-                    const autorSegment = sanitizeFilenameSegment(`${img.profile_name || ''} ${img.profile_last_name || ''}`);
-                    const obraSegment = sanitizeFilenameSegment(img.title);
-                    fileName = `${positionSegment}_${facultySegment}_${autorSegment}_${obraSegment}${ext}`;
-                    if (fs.existsSync(path.join(fileDir, fileName))) {
-                        fileName = `${positionSegment}_${facultySegment}_${autorSegment}_${obraSegment}_${img.code}${ext}`;
-                    }
-                } else {
-                    fileName = `${img.code}${ext}`;
-                }
-
-                const destPath = path.join(fileDir, fileName);
-                try {
-                    if (fs.existsSync(srcPath)) {
-                        fs.copyFileSync(srcPath, destPath);
-                    }
-                } catch (err) {
-                    console.error(`Error copiando imagen ${srcPath} a ${destPath}:`, err);
-                }
-            }
-        });
-
-        // Modo ORDEN DE MERITO (concurso no juzgado): crear carpetas numeradas (1..N) por
-        // categoría y sección, donde N es la cantidad de imágenes de esa categoría y sección.
-        if (!isJudged && isOrdenMerito && Array.isArray(contestCategories) && Array.isArray(contestSections)) {
-            contestCategories.forEach(cat => {
-                const catDir = path.join(contestDir, cat.name);
-                contestSections.forEach(sec => {
-                    const imagesCount = images.filter(img => {
-                        const categoryId = profileCategoryDict[img.profile_id];
-                        return categoryId === cat.id && img.section_id === sec.id;
-                    }).length;
-                    if (imagesCount <= 0) {
-                        return;
-                    }
-                    const secDir = path.join(catDir, sec.name);
-                    if (!fs.existsSync(secDir)) {
-                        fs.mkdirSync(secDir, { recursive: true });
-                    }
-                    for (let order = 1; order <= imagesCount; order++) {
-                        const orderDir = path.join(secDir, String(order));
-                        if (!fs.existsSync(orderDir)) {
-                            fs.mkdirSync(orderDir, { recursive: true });
-                        }
-                    }
-                });
-            });
-        }
-
-        // Comprimir el directorio del concurso en un archivo .zip
-        const createZip = () => {
-            return new Promise((resolve, reject) => {
-                const output = fs.createWriteStream(zipFilePath);
-                const archive = archiver('zip', { zlib: { level: 9 } });
-                output.on('close', () => resolve());
-                archive.on('error', err => reject(err));
-                archive.pipe(output);
-                archive.directory(contestDir, false);
-                archive.finalize();
-            });
-        };
-        try {
-            await createZip();
-        } catch (err) {
-            console.error('Error al comprimir el directorio:', err);
-        }
-
-        // Construir la URL de descarga
-        const downloadUrl = `${IMG_BASE_PATH}/${zipFileName}`;
-
-        return res.json({
+        return res.status(202).json({
             success: true,
-            contest_sections: contestSections,
-            contest_categories: contestCategories,
-            inscritos: inscritos,
+            status: 'processing',
             contest_id: contestId,
-            contest_dir: contestDir,
-            total_images: images.length,
-            images: images,
-            profile_category_dict: profileCategoryDict,
-            download_url: downloadUrl,
+            is_judged: judged,
+            job_id: job.id,
+            filename: job.file_name,
+            message: 'Generando archivo comprimido'
         });
     } catch (error) {
         console.error('Error al obtener fotos asociadas al concurso:', error);
@@ -1239,6 +983,26 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
             error: error.message
         });
     }
+});
+
+router.get('/compressed-photos/progress', authMiddleware, async (req, res) => {
+    const jobId = (req.query.job_id || '').toString().trim();
+    if (!jobId) {
+        return res.status(400).json({
+            success: false,
+            message: 'Job ID inválido o faltante. Use ?job_id=<job_id>'
+        });
+    }
+
+    const job = getJob(jobId);
+    if (!job) {
+        return res.status(404).json({
+            success: false,
+            message: 'Generación no encontrada o expirada'
+        });
+    }
+
+    return res.json(getJobSnapshot(job));
 });
 
 router.get('/compiled-winners', authMiddleware, async (req, res) => {
