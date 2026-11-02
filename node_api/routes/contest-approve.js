@@ -5,6 +5,9 @@ const writeProtection = require('../middleware/writeProtection');
 const { logAction } = require('../utils/log.js');
 const { canJudge, canViewJudging } = require('../utils/judging-access');
 const { getApprovalStatus, preseleccionCompleta } = require('../utils/preseleccion-status');
+const { createCache } = require('../utils/cache');
+
+const approveCache = createCache();
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -23,17 +26,21 @@ router.get('/', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Acceso denegado: no tienes permiso para ver el juzgamiento de este concurso' });
     }
 
-    const status = await getApprovalStatus(contestId);
+    const { status, items } = await approveCache.get(`status:${contestId}`, async () => {
+      const status = await getApprovalStatus(contestId);
 
-    let items = status.items;
-    if (items.length > 0) {
-      const userIds = items.map(item => item.user_id);
-      const users = await global.knex('user')
-        .whereIn('id', userIds)
-        .select('id', 'username', 'email', 'profile_id');
-      const usersById = new Map(users.map(u => [u.id, u]));
-      items = items.map(item => ({ ...item, user: usersById.get(item.user_id) || null }));
-    }
+      let items = status.items;
+      if (items.length > 0) {
+        const userIds = items.map(item => item.user_id);
+        const users = await global.knex('user')
+          .whereIn('id', userIds)
+          .select('id', 'username', 'email', 'profile_id');
+        const usersById = new Map(users.map(u => [u.id, u]));
+        items = items.map(item => ({ ...item, user: usersById.get(item.user_id) || null }));
+      }
+
+      return { status, items };
+    });
 
     await logAction(req, `Consulta de visto bueno de preselección - ${req.user.username}`, { contest_id: contestId });
 
@@ -98,6 +105,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
 
     await logAction(req, `Visto bueno de preselección - ${req.user.username}`, { contest_id: contestId });
 
+    approveCache.invalidateAll();
+
     const status = await getApprovalStatus(contestId);
 
     require('../utils/judge-socket').emitContestEvent(contestId, 'contest:approve', {
@@ -118,6 +127,7 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     });
   } catch (error) {
     if (error.code === '23505' || error.code === 'ER_DUP_ENTRY') {
+      approveCache.invalidateAll();
       const status = await getApprovalStatus(parseInt(req.body.contest_id, 10));
       require('../utils/judge-socket').emitContestEvent(parseInt(req.body.contest_id, 10), 'contest:approve', {
         user_id: req.user.id,

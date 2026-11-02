@@ -5,6 +5,9 @@ const writeProtection = require('../middleware/writeProtection');
 const { logAction } = require('../utils/log.js');
 const { canJudge, canViewJudging } = require('../utils/judging-access');
 const { getPuntuacionStatus, getContestMetrics } = require('../utils/puntuacion-status');
+const { createCache } = require('../utils/cache');
+
+const puntuacionCache = createCache();
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -23,7 +26,9 @@ router.get('/', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Acceso denegado: no tienes permiso para ver el juzgamiento de este concurso' });
     }
 
-    const status = await getPuntuacionStatus(contestId, req.user.id);
+    const status = await puntuacionCache.get(`status:${contestId}:${req.user.id}`, async () => {
+      return await getPuntuacionStatus(contestId, req.user.id);
+    });
 
     await logAction(req, `Consulta de votos de puntuación - ${req.user.username}`, { contest_id: contestId });
 
@@ -100,6 +105,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     }
 
     await logAction(req, `Voto de métrica en puntuación - ${req.user.username}`, JSON.stringify({ contest_id: contestId, image_id: imageId, metric_abm_id: metricAbmId }));
+
+    puntuacionCache.invalidateAll();
 
     const status = await getPuntuacionStatus(contestId, req.user.id);
     const item = status.items.find(i => i.image_id === imageId) || null;

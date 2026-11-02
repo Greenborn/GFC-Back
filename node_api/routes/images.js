@@ -11,6 +11,9 @@ const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 const { baseUnaccent, sanitizeSearchTerm, sanitizeSearchCode } = require('../utils/strings.js');
 const { buildPaginationResponse } = require('../utils/pagination.js');
+const { createCache } = require('../utils/cache');
+
+const imagesCache = createCache();
 
 function extractFilterArray(query, key) {
   const vals = [];
@@ -324,6 +327,7 @@ router.get('/search', authMiddleware, async (req, res) => {
  */
 router.get('/all', async (req, res) => {
     try {
+        const imagesWithFullUrl = await imagesCache.get('all', async () => {
         const images = await global.knex('image')
             .select(
                 'image.id',
@@ -354,7 +358,7 @@ router.get('/all', async (req, res) => {
             .limit(10);
 
         // Agregar URL base a las imágenes y formatear nombre del autor, sección, concurso y categoría
-        const imagesWithFullUrl = images.map(image => {
+        return images.map(image => {
             const isJudged = image.judged === true || image.judged === 1 || image.judged === 't';
             const result = {
                 ...image,
@@ -378,6 +382,7 @@ router.get('/all', async (req, res) => {
                 delete result.image_metadata;
             }
             return result;
+        });
         });
 
         await logAction({ user: null }, 'Consulta de todas las imágenes');
@@ -507,6 +512,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
 
     await logAction(req, `Creación de imagen - ${req.user.username}`, JSON.stringify({ code, title, profile_id, id }));
 
+    imagesCache.invalidateAll();
+
     res.status(201).json({ success: true, data: created });
   } catch (error) {
     console.error('Error en POST /images:', error);
@@ -573,6 +580,8 @@ router.put('/:id', authMiddleware, writeProtection, async (req, res) => {
 
     await logAction(req, `Actualización de imagen id=${id} - ${req.user.username}`, JSON.stringify(updateData));
 
+    imagesCache.invalidateAll();
+
     res.json({ success: true, data: updated });
   } catch (error) {
     console.error('Error en PUT /images/:id:', error);
@@ -607,6 +616,8 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     await global.knex('image').where({ id }).del();
 
     await logAction(req, `Eliminación de imagen id=${id} - ${req.user.username}`, JSON.stringify({ code: existing.code, title: existing.title, profile_id: existing.profile_id }));
+
+    imagesCache.invalidateAll();
 
     res.json({ success: true, message: 'Imagen eliminada correctamente' });
   } catch (error) {

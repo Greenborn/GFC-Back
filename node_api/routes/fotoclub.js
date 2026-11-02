@@ -8,23 +8,29 @@ const { saveBase64Image } = require('../utils/images.js');
 const writeProtection = require('../middleware/writeProtection.js');
 const authMiddleware = require('../middleware/authMiddleware');
 const { isValidOrganizationType } = require('../utils/organizationType');
+const { createCache } = require('../utils/cache');
+
+const fotoclubCache = createCache();
 
 router.get('/get_all', async (req, res) => {
     try {
       if (req?.user?.role_id == '1') {
-        await logAction(req, 'Consulta de Fotoclubes - ' + req.user.username) 
+        await logAction(req, 'Consulta de Fotoclubes - ' + req.user.username)
       }
 
-      // Por defecto solo retorna fotoclubes habilitados
-      // Si se especifica inc_disabled=true, incluye también los deshabilitados
-      let query = global.knex('fotoclub');
-      if (req.query.inc_disabled !== 'true') {
-        query = query.where('enabled', true);
-      }
+      const incDisabled = req.query.inc_disabled === 'true';
 
-      res.json({ 
-        items: await query,
+      const items = await fotoclubCache.get(`get_all:${incDisabled}`, async () => {
+        // Por defecto solo retorna fotoclubes habilitados
+        // Si se especifica inc_disabled=true, incluye también los deshabilitados
+        let query = global.knex('fotoclub');
+        if (!incDisabled) {
+          query = query.where('enabled', true);
+        }
+        return await query;
       });
+
+      res.json({ items });
     } catch (error) {
       console.error('Error en GET /fotoclub/get_all:', error);
       return res.status(500).json({ message: 'Error al obtener registros' });
@@ -34,9 +40,11 @@ router.get('/get_all', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      
-      const fotoclub = await global.knex('fotoclub').where('id', id).first();
-      
+
+      const fotoclub = await fotoclubCache.get(`id:${id}`, async () => {
+        return await global.knex('fotoclub').where('id', id).first();
+      });
+
       if (!fotoclub) {
         return res.status(404).json({ message: 'Fotoclub no encontrado' });
       }
@@ -95,6 +103,8 @@ router.put('/edit', authMiddleware, writeProtection, async (req, res) => {
 
     await logAction(req, 'Modificación de Fotoclub - ' + req.user.username, { old: oldFotoclub, new: newFotoclub });
 
+    fotoclubCache.invalidateAll();
+
     // Verificar si se actualizó el registro correctamente
     if (result === 1) {
       return res.json({ stat: true, text: 'Registro actualizado correctamente' });
@@ -150,6 +160,8 @@ router.post('/create', authMiddleware, async (req, res) => {
 
     await logAction(req, 'Creación de Fotoclub - ' + req.user.username, { new: REGISTRO });
 
+    fotoclubCache.invalidateAll();
+
     res.status(201).json({
       stat: true,
       text: 'Fotoclub creado exitosamente',
@@ -201,6 +213,8 @@ router.delete('/:id', authMiddleware, writeProtection, async (req, res) => {
     const result = await global.knex('fotoclub').where('id', id).del();
 
     await logAction(req, 'Eliminación de Fotoclub - ' + req.user.username, { deleted: fotoclub });
+
+    fotoclubCache.invalidateAll();
 
     if (result === 1) {
       return res.json({ stat: true, text: 'Fotoclub eliminado correctamente' });

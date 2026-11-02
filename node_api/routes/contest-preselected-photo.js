@@ -4,6 +4,9 @@ const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection');
 const { logAction } = require('../utils/log.js');
 const { canJudge, canViewJudging } = require('../utils/judging-access');
+const { createCache } = require('../utils/cache');
+
+const preselectedCache = createCache();
 
 // votes se guarda como mapa JSON: { [user_id]: 'aceptar' | 'rechazar' }.
 // Este es el source of truth de cada voto por juez.
@@ -119,22 +122,24 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const includeImage = expand.includes('image');
 
-    let query = global.knex('contest_preselected_photo as cpp')
-      .select('cpp.id', 'cpp.contest_id', 'cpp.image_id', 'cpp.preselected', 'cpp.votes')
-      .where('cpp.contest_id', contestId)
-      .orderBy('cpp.id', 'asc');
+    const resultItems = await preselectedCache.get(`list:${contestId}:${includeImage}:${isJudge}:${req.user.id}`, async () => {
+      let query = global.knex('contest_preselected_photo as cpp')
+        .select('cpp.id', 'cpp.contest_id', 'cpp.image_id', 'cpp.preselected', 'cpp.votes')
+        .where('cpp.contest_id', contestId)
+        .orderBy('cpp.id', 'asc');
 
-    if (includeImage) {
-      query = query
-        .leftJoin('image as i', 'cpp.image_id', 'i.id')
-        .select('i.id as image_id', 'i.code as image_code', 'i.title as image_title', 'i.url as image_url');
-    }
+      if (includeImage) {
+        query = query
+          .leftJoin('image as i', 'cpp.image_id', 'i.id')
+          .select('i.id as image_id', 'i.code as image_code', 'i.title as image_title', 'i.url as image_url');
+      }
 
-    const items = await query;
+      const items = await query;
 
-    const judgeUsers = await loadJudgeUsers(contestId);
+      const judgeUsers = await loadJudgeUsers(contestId);
 
-    const resultItems = items.map(item => buildItem({ ...item, __userId: req.user.id }, includeImage, isJudge, judgeUsers));
+      return items.map(item => buildItem({ ...item, __userId: req.user.id }, includeImage, isJudge, judgeUsers));
+    });
 
     await logAction(req, `Consulta de fotos preseleccionadas - ${req.user.username}`, { contest_id: contestId });
 
@@ -172,50 +177,56 @@ router.get('/current', authMiddleware, async (req, res) => {
 
     const isJudge = await canJudge(req, contestId);
 
-    const images = await global.knex('contest_result as cr')
-      .join('image as i', 'cr.image_id', 'i.id')
-      .select('i.id as image_id', 'i.code', 'i.title', 'i.url', 'cr.section_id')
-      .where('cr.contest_id', contestId)
-      .orderBy('i.code', 'asc');
+    const data = await preselectedCache.get(`current:${contestId}:${isJudge}:${req.user.id}`, async () => {
+      const images = await global.knex('contest_result as cr')
+        .join('image as i', 'cr.image_id', 'i.id')
+        .select('i.id as image_id', 'i.code', 'i.title', 'i.url', 'cr.section_id')
+        .where('cr.contest_id', contestId)
+        .orderBy('i.code', 'asc');
 
-    const totalCount = images.length;
+      const totalCount = images.length;
 
-    const preselected = await global.knex('contest_preselected_photo')
-      .select('image_id', 'votes')
-      .where('contest_id', contestId);
+      const preselected = await global.knex('contest_preselected_photo')
+        .select('image_id', 'votes')
+        .where('contest_id', contestId);
 
-    const judgedImageIds = new Set();
-    for (const row of preselected) {
-      const votesMap = parseVotes(row.votes);
-      if (isJudge) {
-        if (Object.prototype.hasOwnProperty.call(votesMap, String(req.user.id))) {
+      const judgedImageIds = new Set();
+      for (const row of preselected) {
+        const votesMap = parseVotes(row.votes);
+        if (isJudge) {
+          if (Object.prototype.hasOwnProperty.call(votesMap, String(req.user.id))) {
+            judgedImageIds.add(Number(row.image_id));
+          }
+        } else if (Object.keys(votesMap).length > 0) {
           judgedImageIds.add(Number(row.image_id));
         }
-      } else if (Object.keys(votesMap).length > 0) {
-        judgedImageIds.add(Number(row.image_id));
       }
-    }
 
-    const current = images.find(img => !judgedImageIds.has(Number(img.image_id)));
+      const current = images.find(img => !judgedImageIds.has(Number(img.image_id)));
 
-    const judgedCount = judgedImageIds.size;
+      const judgedCount = judgedImageIds.size;
+
+      return {
+        current_photo: current ? {
+          image_id: current.image_id,
+          code: current.code,
+          title: current.title,
+          url: `${process.env.IMG_BASE_PATH || ''}${current.url}`,
+          section_id: current.section_id
+        } : null,
+        judged_count: judgedCount,
+        total_count: totalCount,
+        remaining_count: totalCount - judgedCount,
+        all_judged: totalCount > 0 && judgedCount >= totalCount
+      };
+    });
 
     await logAction(req, `Consulta de foto actual de juzgamiento - ${req.user.username}`, { contest_id: contestId });
 
     return res.json({
       success: true,
       contest_id: Number(contestId),
-      current_photo: current ? {
-        image_id: current.image_id,
-        code: current.code,
-        title: current.title,
-        url: `${process.env.IMG_BASE_PATH || ''}${current.url}`,
-        section_id: current.section_id
-      } : null,
-      judged_count: judgedCount,
-      total_count: totalCount,
-      remaining_count: totalCount - judgedCount,
-      all_judged: totalCount > 0 && judgedCount >= totalCount
+      ...data
     });
   } catch (error) {
     console.error('Error en GET /contest-preselected-photo/current:', error);
@@ -274,6 +285,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
         votes: votesMap
       }));
 
+      preselectedCache.invalidateAll();
+
       require('../utils/judge-socket').emitContestEvent(contestId, 'contest:preselect', {
         image_id: imageId,
         vote: voteValue,
@@ -299,6 +312,8 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
         vote: voteValue,
         votes: votesMap
       }));
+
+      preselectedCache.invalidateAll();
 
       require('../utils/judge-socket').emitContestEvent(contestId, 'contest:preselect', {
         image_id: imageId,

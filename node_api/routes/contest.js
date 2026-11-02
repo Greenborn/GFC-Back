@@ -28,6 +28,9 @@ const {
     getJob,
     getJobSnapshot
 } = require('../utils/compressed-photos');
+const { createCache } = require('../utils/cache');
+
+const contestCache = createCache();
 
 const ALLOWED_CONTEST_ORG_TYPES = ['INTERNO', 'EXTERNO_0', 'EXTERNO_UNICEN'];
 const ALLOWED_SCORING_MODES = ['TRADICIONAL', 'ORDEN_MERITO'];
@@ -112,6 +115,8 @@ router.post('/', authMiddleware, upload.fields([
 
         await logAction(req, `Creación de Concurso - ${req.user.username}`, { new: contestData });
 
+        contestCache.invalidateAll();
+
         return res.status(201).json({
             success: true,
             id: contestId,
@@ -134,6 +139,9 @@ router.get('/', authMiddlewareOptional, async (req, res) => {
         const offset = (currentPage - 1) * itemsPerPage;
 
         const canSeeTest = req.user && (req.user.is_test_enabled === 1 || req.user.is_test_enabled === true || String(req.user.is_test_enabled) === '1');
+
+        const cacheKey = `list:${JSON.stringify({ expand, sort, currentPage, itemsPerPage, search, canSeeTest })}`;
+        const { contests, totalCount } = await contestCache.get(cacheKey, async () => {
 
         // Construir query base para contests (excluir borrados lógicos y ocultar pruebas si corresponde)
         let contestQuery = global.knex('contest').select('*').whereNull('deleted_at');
@@ -217,6 +225,9 @@ router.get('/', authMiddlewareOptional, async (req, res) => {
             }
         }
 
+        return { contests, totalCount };
+        });
+
         const pagination = buildPaginationResponse(req, totalCount, currentPage, itemsPerPage);
         res.json({ items: contests, ...pagination });
 
@@ -233,20 +244,24 @@ router.get('/get_all', authMiddlewareOptional, async (req, res) => {
     try {
         const isTestUser = req.user && (req.user.is_test_enabled === 1 || req.user.is_test_enabled === true || String(req.user.is_test_enabled) === '1');
 
-        let contestQuery = global.knex('contest').whereNull('deleted_at');
-        if (!isTestUser) {
-            contestQuery = contestQuery.where(function () {
-                this.where('is_test', false).orWhereNull('is_test');
-            });
-        }
-        res.json({
-            items: await contestQuery,
-            contest_category: await global.knex('contest_category'),
-            category: await global.knex('category'),
-            //section: await global.knex('section'),
-            contests_records: await global.knex('contests_records'),
-            contest_result: await global.knex('contest_result')
+        const data = await contestCache.get(`get_all:${isTestUser}`, async () => {
+            let contestQuery = global.knex('contest').whereNull('deleted_at');
+            if (!isTestUser) {
+                contestQuery = contestQuery.where(function () {
+                    this.where('is_test', false).orWhereNull('is_test');
+                });
+            }
+            return {
+                items: await contestQuery,
+                contest_category: await global.knex('contest_category'),
+                category: await global.knex('category'),
+                //section: await global.knex('section'),
+                contests_records: await global.knex('contests_records'),
+                contest_result: await global.knex('contest_result')
+            };
         });
+
+        res.json(data);
     } catch (error) {
         console.error('Error en GET /contest/get_all:', error);
         return res.status(500).json({ message: 'Error al obtener registros' });
@@ -595,6 +610,8 @@ router.put('/:id', adminMiddleware, upload.fields([
 
         await logAction(req, `Actualización de Concurso - ${req.user.username}`, { before: existingContest, after: updateData });
 
+        contestCache.invalidateAll();
+
         return res.json({ success: true, id: contestId, ...updateData, judging_stage: existingContest.judging_stage || null });
     } catch (error) {
         console.error('Error al actualizar concurso:', error);
@@ -632,6 +649,7 @@ router.put('/:id/set-judging', adminMiddleware, async (req, res) => {
             .update({ is_judging: true, judged: false, judging_stage: 'preseleccion' });
 
         invalidateContestResultCache();
+        contestCache.invalidateAll();
 
         await logAction(req, `Concurso puesto en juzgamiento - ${req.user.username}`, {
             contest_id: contestId,
@@ -675,6 +693,7 @@ router.put('/:id/disable-judging', adminMiddleware, async (req, res) => {
             .update({ is_judging: false });
 
         invalidateContestResultCache();
+        contestCache.invalidateAll();
 
         await logAction(req, `Concurso sacado de juzgamiento - ${req.user.username}`, {
             contest_id: contestId,
@@ -880,6 +899,7 @@ router.put('/:id/finalizar-judging', authMiddleware, async (req, res) => {
 
         invalidateContestResultCache();
         invalidateJudgedZip(contestId);
+        contestCache.invalidateAll();
 
         require('../utils/judge-socket').emitContestEvent(contestId, 'contest:stage', { judged: true, is_judging: false, judging_stage: null });
 
@@ -1218,6 +1238,8 @@ router.delete('/:id', adminMiddleware, async (req, res) => {
             contest_name: contest.name,
             deleted_at: new Date()
         }));
+
+        contestCache.invalidateAll();
 
         res.status(200).json({
             success: true,

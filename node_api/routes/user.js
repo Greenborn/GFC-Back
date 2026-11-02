@@ -8,6 +8,9 @@ const { buildPaginationResponse } = require('../utils/pagination.js')
 const authMiddleware = require('../middleware/authMiddleware');
 const writeProtection = require('../middleware/writeProtection.js');
 const { insertAndGet } = require('../utils/db.js');
+const { createCache } = require('../utils/cache');
+
+const userCache = createCache();
 
 router.get('/get_all', authMiddleware, async (req, res) => {
     try {
@@ -86,29 +89,40 @@ router.get('/get_all', authMiddleware, async (req, res) => {
         fotoclubId = currentProfile ? currentProfile.fotoclub_id : null;
       }
 
-      // ── Total (solo con filtros) ──
-      const countQuery = global.knex('user').count({ total: 'id' });
-      applyUserFilters(countQuery);
-      const countRow = await countQuery.first();
-      const totalCount = Number(countRow?.total) || 0;
+      const cacheKey = `get_all:${JSON.stringify({ query: req.query, isDelegate, fotoclubId })}`;
+      const { items, totalCount, profile, role, fotoclub } = await userCache.get(cacheKey, async () => {
+        // ── Total (solo con filtros) ──
+        const countQuery = global.knex('user').count({ total: 'id' });
+        applyUserFilters(countQuery);
+        const countRow = await countQuery.first();
+        const totalCount = Number(countRow?.total) || 0;
 
-      // ── Data con orden y paginación ──
-      const itemsQuery = global.knex('user')
-        .select('id', 'username', 'email', 'dni', 'status', 'role_id', 'profile_id', 'created_at', 'updated_at');
-      applyUserFilters(itemsQuery);
-      const items = await itemsQuery
-        .orderBy(orderBy.column, orderBy.dir)
-        .offset((page - 1) * perPage)
-        .limit(perPage);
+        // ── Data con orden y paginación ──
+        const itemsQuery = global.knex('user')
+          .select('id', 'username', 'email', 'dni', 'status', 'role_id', 'profile_id', 'created_at', 'updated_at');
+        applyUserFilters(itemsQuery);
+        const items = await itemsQuery
+          .orderBy(orderBy.column, orderBy.dir)
+          .offset((page - 1) * perPage)
+          .limit(perPage);
+
+        return {
+          items,
+          totalCount,
+          profile: await global.knex('profile'),
+          role: await global.knex('role'),
+          fotoclub: await global.knex('fotoclub')
+        };
+      });
 
       const pagination = buildPaginationResponse(req, totalCount, page, perPage);
 
       res.json({
         items,
         ...pagination,
-        profile: await global.knex('profile'),
-        role: await global.knex('role'),
-        fotoclub: await global.knex('fotoclub')
+        profile,
+        role,
+        fotoclub
       });
     } catch (error) {
       console.error('Error en GET /user/get_all:', error);
@@ -216,6 +230,9 @@ router.post('/', authMiddleware, writeProtection, async (req, res) => {
     const { password_hash, password_reset_token, access_token, sign_up_verif_code, sign_up_verif_token, updated_at, ...safeUser } = createdUser;
 
     await logAction(req, `Creación de usuario ${createdUser.id} - ${currentUser.username}`, JSON.stringify({ targetUserId: createdUser.id, profileId: Number(profileId), roleId: Number(roleId) }));
+
+    userCache.invalidateAll();
+
     return res.status(201).json({ success: true, id: createdUser.id, user: safeUser });
   } catch (error) {
     console.error(error);
@@ -374,6 +391,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const { password_hash, password_reset_token, access_token, updated_at, sign_up_verif_code, sign_up_verif_token, ...safeUser } = updatedUser;
 
     await logAction(req, `Actualización de usuario ${userId}`, JSON.stringify({ targetUserId: userId, updateData }));
+
+    userCache.invalidateAll();
+
     return res.json({ success: true, user: safeUser });
   } catch (error) {
     console.error(error);
@@ -393,32 +413,37 @@ router.get('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado. Solo puede consultar su propio usuario.' });
     }
 
-    // Obtener usuario
-    const user = await global.knex('user').where('id', userId).first();
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    const response = await userCache.get(`id:${userId}`, async () => {
+      // Obtener usuario
+      const user = await global.knex('user').where('id', userId).first();
+      if (!user) return null;
 
-    // Obtener profile
-    const profile = await global.knex('profile').where('id', user.profile_id).first();
-    // Obtener fotoclub si existe
-    let fotoclub = null;
-    if (profile && profile.fotoclub_id) {
-      fotoclub = await global.knex('fotoclub').where('id', profile.fotoclub_id).first();
-    }
-    // Obtener role
-    const role = await global.knex('role').where('id', user.role_id).first();
+      // Obtener profile
+      const profile = await global.knex('profile').where('id', user.profile_id).first();
+      // Obtener fotoclub si existe
+      let fotoclub = null;
+      if (profile && profile.fotoclub_id) {
+        fotoclub = await global.knex('fotoclub').where('id', profile.fotoclub_id).first();
+      }
+      // Obtener role
+      const role = await global.knex('role').where('id', user.role_id).first();
 
-    // Filtrar campos sensibles
-    const { password_hash, password_reset_token, access_token, updated_at, sign_up_verif_code, sign_up_verif_token, ...safeUser } = user;
+      // Filtrar campos sensibles
+      const { password_hash, password_reset_token, access_token, updated_at, sign_up_verif_code, sign_up_verif_token, ...safeUser } = user;
 
-    // Armar respuesta
-    const response = {
-      ...safeUser,
-      profile: profile ? {
-        ...profile,
-        fotoclub: fotoclub || null
-      } : null,
-      role: role || null
-    };
+      // Armar respuesta
+      return {
+        ...safeUser,
+        profile: profile ? {
+          ...profile,
+          fotoclub: fotoclub || null
+        } : null,
+        role: role || null
+      };
+    });
+
+    if (!response) return res.status(404).json({ message: 'Usuario no encontrado' });
+
     res.json(response);
   } catch (error) {
     console.error('Error en GET /user/:id:', error);
