@@ -967,23 +967,27 @@ router.get('/compressed-photos', authMiddleware, async (req, res) => {
         const judged = isContestJudged(contest);
         const zipFileName = getContestZipFileName(contest);
         const zipFilePath = path.join(getAssetsPath(), zipFileName);
+        const contestClosed = !judged && contest.end_date && new Date(contest.end_date) < new Date();
 
-        // Un concurso juzgado reutiliza siempre el ZIP ya generado.
-        if (judged && fs.existsSync(zipFilePath)) {
+        // Un concurso juzgado, o uno ya cerrado (sin juzgar) con ZIP vigente, reutiliza el archivo existente.
+        // Mientras el concurso está abierto, el nombre incluye la fecha y se regenera siempre.
+        if ((judged || contestClosed) && fs.existsSync(zipFilePath)) {
             return res.json({
                 success: true,
                 status: 'done',
                 contest_id: contestId,
-                is_judged: true,
+                is_judged: judged,
                 cached: true,
                 download_url: joinUrl(getAssetsBaseUrl(), zipFileName),
-                message: 'El archivo comprimido del concurso juzgado ya existe.'
+                message: judged
+                    ? 'El archivo comprimido del concurso juzgado ya existe.'
+                    : 'El archivo comprimido del concurso ya existe.'
             });
         }
 
-        // Los concursos no juzgados se regeneran siempre. Los juzgados solo si falta el ZIP,
+        // Los concursos abiertos se regeneran siempre. Los cerrados o juzgados solo si falta el ZIP,
         // en cuyo caso se eliminan variantes legacy (con fecha o sin sufijo _judged).
-        removeContestZipFiles(contestId, judged ? { keep: zipFileName } : undefined);
+        removeContestZipFiles(contestId, (judged || contestClosed) ? { keep: zipFileName } : undefined);
 
         const job = startCompressedPhotosJob(contest, judged);
 

@@ -5,7 +5,12 @@
   "main": "server.js",
   "scripts": {
     "start": "nodemon --ignore ./sessions server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "bash scripts/test-db-setup.sh && node tests/runner.js unit integration",
+    "test:unit": "node tests/runner.js unit",
+    "test:integration": "bash scripts/test-db-setup.sh && node tests/runner.js integration",
+    "test:e2e": "node tests/runner.js e2e",
+    "test:all": "bash scripts/test-db-setup.sh && node tests/runner.js",
+    "test:db:teardown": "bash scripts/test-db-teardown.sh",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "migrate:status": "knex migrate:status",
