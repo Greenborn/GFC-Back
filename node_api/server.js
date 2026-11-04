@@ -107,6 +107,7 @@ app_admin.use('/api/contest-approve', require('./routes/contest-approve.js')); /
 app_admin.use('/api/contest-puntuacion', require('./routes/contest-puntuacion.js')); // Votos de métricas tentativas en puntuación
 app_admin.use('/api/images', require('./routes/images.js'));
 app_admin.use('/api/log', require('./routes/log.js'));
+app_admin.use('/api/operation-log', require('./routes/operation-log.js'));
 app_admin.use('/api/results', require('./routes/results.js'));
 app_admin.use('/api/ranking', require('./routes/ranking.js'));
 app_admin.use('/api/foto-del-anio', require('./routes/foto_del_anio.js'));
